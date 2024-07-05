@@ -1,0 +1,27 @@
+body {
+    margin-top: 10px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #000;
+}
+canvas {
+    margin-top: 10px;
+    border: 1px solid white;
+    padding: 5px;
+}
+#message {
+    margin-top: 10px;
+    color: white;
+    font-family: Arial, sans-serif;
+    white-space: pre-wrap; /* Enable word wrapping and preserve whitespace */
+    width: 800px; /* Match the canvas width */
+    max-width: 800px;
+    max-height: 150px; /* Set the max height */
+    overflow-y: auto; /* Enable vertical scrolling */
+    border: 1px solid white; /* Optional: Add a border for clarity */
+    padding: 5px; /* Optional: Add some padding for better appearance */
+    box-sizing: border-box; /* Ensure padding and border are included in the width and height */
+}

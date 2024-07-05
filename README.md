@@ -1,9 +1,19 @@
+[![deploy](https://github.com/sarumaj/edu-space-invaders/actions/workflows/deploy.yml/badge.svg)](https://github.com/sarumaj/edu-space-invaders/actions/workflows/deploy.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/sarumaj/edu-space-invaders)](https://goreportcard.com/report/github.com/sarumaj/edu-space-invaders)
+[![Maintainability](https://img.shields.io/codeclimate/maintainability-percentage/sarumaj/edu-space-invaders.svg)](https://codeclimate.com/github/sarumaj/edu-space-invaders/maintainability)
+[![Go Reference](https://pkg.go.dev/badge/github.com/sarumaj/edu-space-invaders.svg)](https://pkg.go.dev/github.com/sarumaj/edu-space-invaders)
+[![Go version](https://img.shields.io/github/go-mod/go-version/sarumaj/edu-space-invaders?logo=go&label=&labelColor=gray)](https://go.dev)
+
+---
+
 # space-invaders
 
 this is an example project to showcase the game development using the Web Assembly Framework in Go.
 Web Assembly allows us to develop web-frontend applications in a runtime like Go.
 
 [![Gameover](assets/gameover.png)](assets/gameplay.mp4)
+
+The app is available under [https://edu-space-invaders.herokuapp.com](https://edu-space-invaders-bd0bf5ebb055.herokuapp.com/).
 
 ## Setup
 
@@ -49,20 +59,23 @@ To setup similar project follow following steps:
       - [code file os.go](src/pkg/config/os.go)
     - [package handler](src/pkg/handler)
       - [code file handler.go](src/pkg/handler/handler.go)
-      - [code file handler_js.go](src/pkg/handler/handler_js.go)
-      - [code file handler_os.go](src/pkg/handler/handler_os.go)
+      - [code file handlerjs.go](src/pkg/handler/handlerjs.go)
+      - [code file handleros.go](src/pkg/handler/handleros.go)
     - [package objects](src/pkg/objects)
-      - [code file bullet.go](src/pkg/objects/bullet.go)
-      - [code file bullets.go](src/pkg/objects/bullets.go)
-      - [code file enemies.go](src/pkg/objects/enemies.go)
-      - [code file enemy.go](src/pkg/objects/enemy.go)
-      - [code file enemylevel.go](src/pkg/objects/enemylevel.go)
-      - [code file enemytype.go](src/pkg/objects/enemytype.go)
+      - [package bullet](src/pkg/objects/bullet)
+        - [code file bullet.go](src/pkg/objects/bullet.go)
+        - [code file bullets.go](src/pkg/objects/bullets.go)
+      - [package enemy](src/pkg/objects/enemy)
+        - [code file enemies.go](src/pkg/objects/enemies.go)
+        - [code file enemy.go](src/pkg/objects/enemy.go)
+        - [code file level.go](src/pkg/objects/level.go)
+        - [code file type.go](src/pkg/objects/type.go)
       - [code file position.go](src/pkg/objects/position.go)
       - [code file size.go](src/pkg/objects/size.go)
-      - [code file spaceship.go](src/pkg/objects/spaceship.go)
-      - [code file spaceshiplevel.go](src/pkg/objects/spaceshiplevel.go)
-      - [code file spaceshipstate.go](src/pkg/objects/spaceshipstate.go)
+      - [package enemy](src/pkg/objects/spaceship)
+        - [code file spaceship.go](src/pkg/objects/spaceship.go)
+        - [code file level.go](src/pkg/objects/level.go)
+        - [code file state.go](src/pkg/objects/state.go)
     - [directory static](src/static)
       - [static file favicon.ico](src/static/favicon.ico)
       - [static file index.html](src/static/index.html)
@@ -73,8 +86,8 @@ To setup similar project follow following steps:
 
 The script [build.sh](src/build.sh) is meant to compile the web assembly package (main.wasm) and create a distribution package [dist](dist).
 The [game server](cmd/space-invaders/main.go) serves the files from the distribution package using the web assembly. The files can be served in any other runtime than Go.
-Some code components are meant to be compiled only for the JS WASM architecture (e.g. [js.go](src/pkg/config/js.go) and [handler_js.go](src/pkg/handler/handler_js.go)).
-To be able to compile the code for other targets and to run tests against it, some mock-ups haven been defined (e.g. [os.go](src/pkg/config/os.go) and [handler_os.go](src/pkg/handler/handler_os.go)). The heart of the web application is the JavaScript script building the bridge between the WASM package: [wasm.js](src/static/wasm.js) and our static web page: [index.html](src/static/index.html).
+Some code components are meant to be compiled only for the JS WASM architecture (e.g. [js.go](src/pkg/config/js.go) and [handlerjs.go](src/pkg/handler/handlerjs.go)).
+To be able to compile the code for other targets and to run tests against it, some mock-ups haven been defined (e.g. [os.go](src/pkg/config/os.go) and [handleros.go](src/pkg/handler/handleros.go)). The heart of the web application is the JavaScript script building the bridge between the WASM package: [wasm.js](src/static/wasm.js) and our static web page: [index.html](src/static/index.html).
 
 ## Furter reading
 

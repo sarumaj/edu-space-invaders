@@ -1,4 +1,4 @@
-package objects
+package spaceship
 
 import "github.com/sarumaj/edu-space-invaders/src/pkg/config"
 

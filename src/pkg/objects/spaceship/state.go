@@ -1,4 +1,4 @@
-package objects
+package spaceship
 
 const (
 	Neutral SpaceshipState = iota // Neutral is the default state

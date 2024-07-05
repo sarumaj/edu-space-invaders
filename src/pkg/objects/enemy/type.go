@@ -1,4 +1,4 @@
-package objects
+package enemy
 
 const (
 	Normal      EnemyType = iota // Normal is the default enemy type

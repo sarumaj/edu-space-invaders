@@ -1,6 +1,9 @@
-package objects
+package bullet
 
-import "github.com/sarumaj/edu-space-invaders/src/pkg/config"
+import (
+	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
+)
 
 // Bullets represents a collection of bullets.
 type Bullets []Bullet
@@ -9,11 +12,11 @@ type Bullets []Bullet
 // The bullet has the specified damage and skew ratio.
 func (bullets *Bullets) Reload(x, y, damage int, ratio float64) {
 	*bullets = append(*bullets, Bullet{
-		Position: Position{
+		Position: objects.Position{
 			X: x,
 			Y: y,
 		},
-		Size: Size{
+		Size: objects.Size{
 			Width:  config.BulletWidth,
 			Height: config.BulletHeight,
 		},

@@ -1,6 +1,9 @@
-package objects
+package enemy
 
-import "github.com/sarumaj/edu-space-invaders/src/pkg/config"
+import (
+	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
+)
 
 // Enemies represents a collection of enemies.
 type Enemies []Enemy
@@ -58,7 +61,7 @@ func (enemies *Enemies) AppendNew(name string, randomY bool) {
 // The enemies are regenerated when the spaceship reaches the bottom of the screen.
 // The new enemies are placed at the highest level of the existing enemies.
 // The new enemies are turned into a goodie and berserk based on the probabilities.
-func (enemies *Enemies) Update(spaceshipPosition Position, regenerate func(*Enemies)) {
+func (enemies *Enemies) Update(spaceshipPosition objects.Position, regenerate func(*Enemies)) {
 	var visibleEnemies Enemies
 	for i := range *enemies {
 		enemy := &(*enemies)[i]

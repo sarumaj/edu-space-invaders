@@ -7,17 +7,18 @@ import (
 	"time"
 
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/spaceship"
 )
 
 // handler is the game handler.
 type handler struct {
-	ctx          context.Context    // ctx is an abortable context of the handler
-	cancel       context.CancelFunc // cancel is the cancel function of the handler
-	once         sync.Once          // once is meant to register the keydown event only once
-	spaceship    *objects.Spaceship // spaceship is the player's spaceship
-	enemies      objects.Enemies    // enemies is the list of enemies
-	keydownEvent chan string        // keydownEvent is the channel for keydown events
+	ctx          context.Context      // ctx is an abortable context of the handler
+	cancel       context.CancelFunc   // cancel is the cancel function of the handler
+	once         sync.Once            // once is meant to register the keydown event only once
+	spaceship    *spaceship.Spaceship // spaceship is the player's spaceship
+	enemies      enemy.Enemies        // enemies is the list of enemies
+	keydownEvent chan string          // keydownEvent is the channel for keydown events
 }
 
 // checkCollisions checks if the spaceship has collided with an enemy.
@@ -36,42 +37,42 @@ func (h *handler) checkCollisions() {
 		if e.Level.HitPoints > 0 && h.spaceship.DetectCollision(e) {
 			penalty := config.SpaceshipDefaultPenalty
 			switch e.Type {
-			case objects.Goodie:
+			case enemy.Goodie:
 				h.enemies[j].Level.HitPoints = 0
 				h.spaceship.Level.Up()
-				h.spaceship.ChangeState(objects.Boosted)
+				h.spaceship.ChangeState(spaceship.Boosted)
 				h.SendMessage(fmt.Sprintf("You got a goodie, your spaceship has been upgraded to level %d", h.spaceship.Level.ID))
 				return
 
-			case objects.Berserker:
+			case enemy.Berserker:
 				penalty = config.SpaceshipBerserkPenalty
 
-			case objects.Annihilator:
+			case enemy.Annihilator:
 				penalty = config.SpaceshipAnnihilatorPenalty
 
 			}
 
 			h.enemies[j].Level.HitPoints = 0
-			if h.spaceship.State == objects.Boosted {
+			if h.spaceship.State == spaceship.Boosted {
 				h.SendMessage(fmt.Sprintf("You destroyed %s", e.Name))
 				return
 			}
 
 			if h.spaceship.Level.ID > 1 {
 				h.spaceship.Penalize(penalty)
-				h.spaceship.ChangeState(objects.Damaged)
+				h.spaceship.ChangeState(spaceship.Damaged)
 				h.SendMessage(fmt.Sprintf("You were hit, your spaceship has been downgraded to level %d", h.spaceship.Level.ID))
 				return
 			}
 
-			h.spaceship.ChangeState(objects.Damaged)
+			h.spaceship.ChangeState(spaceship.Damaged)
 			h.SendMessage("You were killed, R.I.P.")
 			h.cancel()
 			return
 		}
 
 		for i, b := range h.spaceship.Bullets {
-			if e.Level.HitPoints > 0 && e.Type != objects.Goodie && b.HasHit(e) {
+			if e.Level.HitPoints > 0 && e.Type != enemy.Goodie && b.HasHit(e) {
 				h.SendMessage(fmt.Sprintf("You dealt %d of damage to %q", h.enemies[j].Hit(b.Damage), e.Name))
 				h.spaceship.Bullets[i].Exhaust()
 				if h.enemies[j].Level.HitPoints <= 0 {
@@ -105,7 +106,7 @@ func (h *handler) handleKeydown(key string) {
 // It updates the enemies.
 // It updates the state of the spaceship.
 // It checks the collisions.
-func (h *handler) refresh(watch func(e *objects.Enemies)) {
+func (h *handler) refresh(watch func(e *enemy.Enemies)) {
 	h.spaceship.Bullets.Update()
 	h.enemies.Update(h.spaceship.Position, watch)
 	h.spaceship.UpdateState()
@@ -125,7 +126,7 @@ func (h *handler) GenerateEnemies(num int, randomY bool) {
 // Loop starts the game loop.
 // It refreshes the game state, renders the game, and handles the keydown events.
 // It should be called in a separate goroutine.
-func (h *handler) Loop(watch func(e *objects.Enemies)) {
+func (h *handler) Loop(watch func(e *enemy.Enemies)) {
 	ticker := time.NewTicker(16 * time.Millisecond) // ~60 FPS
 	for {
 		select {
@@ -151,7 +152,7 @@ func (h *handler) Wait() { <-h.ctx.Done() }
 func New() *handler {
 	h := &handler{
 		keydownEvent: make(chan string),
-		spaceship:    objects.Embark(),
+		spaceship:    spaceship.Embark(),
 	}
 
 	h.ctx, h.cancel = context.WithCancel(context.Background())

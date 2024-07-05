@@ -1,4 +1,4 @@
-package objects
+package spaceship
 
 import (
 	"fmt"
@@ -6,18 +6,21 @@ import (
 	"time"
 
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/bullet"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
 )
 
 // Spaceship represents the player's spaceship.
 type Spaceship struct {
-	Position            Position        //Position of the spaceship
-	Size                Size            // Size of the spaceship
-	Bullets             Bullets         // Bullets fired by the spaceship
-	Cooldown            time.Duration   // Time between shots
-	Level               *SpaceshipLevel // Spaceship level
-	State               SpaceshipState  // Spaceship state
-	lastFired           time.Time       // Last time the spaceship fired
-	lastStateTransition time.Time       // Last time the spaceship changed state
+	Position            objects.Position //Position of the spaceship
+	Size                objects.Size     // Size of the spaceship
+	Bullets             bullet.Bullets   // Bullets fired by the spaceship
+	Cooldown            time.Duration    // Time between shots
+	Level               *SpaceshipLevel  // Spaceship level
+	State               SpaceshipState   // Spaceship state
+	lastFired           time.Time        // Last time the spaceship fired
+	lastStateTransition time.Time        // Last time the spaceship changed state
 }
 
 // ChangeState changes the state of the spaceship.
@@ -39,7 +42,7 @@ func (spaceship *Spaceship) ChangeState(state SpaceshipState) {
 }
 
 // DetectCollision checks if the spaceship has collided with an enemy.
-func (spaceship Spaceship) DetectCollision(e Enemy) bool {
+func (spaceship Spaceship) DetectCollision(e enemy.Enemy) bool {
 	return spaceship.Position.X < e.Position.X+e.Size.Width &&
 		spaceship.Position.X+spaceship.Size.Width > e.Position.X &&
 		spaceship.Position.Y < e.Position.Y+e.Size.Height &&
@@ -135,11 +138,11 @@ func (spaceship *Spaceship) UpdateState() {
 // The spaceship's position, size, cooldown, level, and state are set.
 func Embark() *Spaceship {
 	return &Spaceship{
-		Position: Position{
+		Position: objects.Position{
 			X: config.CanvasWidth / 2,
 			Y: config.CanvasHeight - config.SpaceshipHeight,
 		},
-		Size: Size{
+		Size: objects.Size{
 			Width:  config.SpaceshipWidth,
 			Height: config.SpaceshipHeight,
 		},

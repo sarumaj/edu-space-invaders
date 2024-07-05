@@ -1,16 +1,19 @@
-package objects
+package bullet
 
 import (
 	"fmt"
+
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
 )
 
 // Bullet represents a bullet shot by the spaceship.
 type Bullet struct {
-	Position      Position // Position of the bullet
-	Size          Size     // Size of the bullet
-	Speed, Damage int      // Speed and damage of the bullet, Damage is the amount of health points the bullet takes from the enemy
-	skew          float64  // Skew of the bullet
-	Exhausted     bool     // Exhausted is true if the bullet is out of the screen or has hit an enemy
+	Position      objects.Position // Position of the bullet
+	Size          objects.Size     // Size of the bullet
+	Speed, Damage int              // Speed and damage of the bullet, Damage is the amount of health points the bullet takes from the enemy
+	skew          float64          // Skew of the bullet
+	Exhausted     bool             // Exhausted is true if the bullet is out of the screen or has hit an enemy
 }
 
 // Exhaust sets the bullet as exhausted.
@@ -19,7 +22,7 @@ func (b *Bullet) Exhaust() {
 }
 
 // HasHit returns true if the bullet has hit the enemy.
-func (b Bullet) HasHit(e Enemy) bool {
+func (b Bullet) HasHit(e enemy.Enemy) bool {
 	return b.Position.X < e.Position.X+e.Size.Width &&
 		b.Position.X+b.Size.Width > e.Position.X &&
 		b.Position.Y < e.Position.Y+e.Size.Height &&

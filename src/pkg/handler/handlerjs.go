@@ -6,7 +6,8 @@ import (
 	"syscall/js"
 
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/spaceship"
 )
 
 // render is a method that renders the game.
@@ -26,10 +27,10 @@ func (h *handler) render() {
 
 	// Draw spaceship
 	switch h.spaceship.State {
-	case objects.Damaged:
+	case spaceship.Damaged:
 		config.Ctx.Set("fillStyle", "darkred")
 
-	case objects.Boosted:
+	case spaceship.Boosted:
 		config.Ctx.Set("fillStyle", "yellow")
 
 	default:
@@ -47,15 +48,16 @@ func (h *handler) render() {
 	config.Ctx.Set("fillStyle", "red")
 	for _, e := range h.enemies {
 		switch e.Type {
-		case objects.Goodie:
+		case enemy.Goodie:
 			config.Ctx.Set("fillStyle", "green")
-		case objects.Normal:
+
+		case enemy.Normal:
 			config.Ctx.Set("fillStyle", "gray")
 
-		case objects.Berserker:
+		case enemy.Berserker:
 			config.Ctx.Set("fillStyle", "red")
 
-		case objects.Annihilator:
+		case enemy.Annihilator:
 			config.Ctx.Set("fillStyle", "darkred")
 
 		default:

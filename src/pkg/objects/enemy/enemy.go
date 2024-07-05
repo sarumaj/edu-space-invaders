@@ -1,4 +1,4 @@
-package objects
+package enemy
 
 import (
 	"fmt"
@@ -6,17 +6,18 @@ import (
 
 	"github.com/Pallinder/go-randomdata"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
 )
 
 // Enemy represents the enemy.
 type Enemy struct {
-	Name             string      // Name is the name of the enemy.
-	Position         Position    // Position is the position of the enemy.
-	direction        int         // direction is the horizontal direction the enemy is moving.
-	Size             Size        // Size is the size of the enemy.
-	GoodieLikeliness float64     // GoodieLikeliness is the likelihood of the enemy being a goodie (expected to be lower than 1).
-	Level            *EnemyLevel // Level is the level of the enemy.
-	Type             EnemyType   // Type is the type of the enemy.
+	Name             string           // Name is the name of the enemy.
+	Position         objects.Position // Position is the position of the enemy.
+	direction        int              // direction is the horizontal direction the enemy is moving.
+	Size             objects.Size     // Size is the size of the enemy.
+	GoodieLikeliness float64          // GoodieLikeliness is the likelihood of the enemy being a goodie (expected to be lower than 1).
+	Level            *EnemyLevel      // Level is the level of the enemy.
+	Type             EnemyType        // Type is the type of the enemy.
 }
 
 // AsGoodie turns the enemy into a goodie.
@@ -88,7 +89,7 @@ func (enemy *Enemy) Hit(damage int) int {
 // The direction of the enemy is based on the position of the spaceship.
 // If the spaceship is below the enemy, the enemy moves towards the spaceship.
 // Otherwise, the enemy moves randomly.
-func (enemy *Enemy) Move(spaceshipPosition Position) {
+func (enemy *Enemy) Move(spaceshipPosition objects.Position) {
 	enemy.Position.Y += enemy.Level.Speed
 	if enemy.Type == Goodie {
 		return
@@ -153,11 +154,11 @@ func Challenge(name string, randomY bool) *Enemy {
 	}
 
 	return &Enemy{
-		Position: Position{
+		Position: objects.Position{
 			X: rand.Intn(config.CanvasWidth - config.EnemyWidth),
 			Y: y,
 		},
-		Size: Size{
+		Size: objects.Size{
 			Width:  config.EnemyWidth,
 			Height: config.EnemyHeight,
 		},

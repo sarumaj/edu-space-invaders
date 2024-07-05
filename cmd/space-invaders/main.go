@@ -1,5 +1,4 @@
 //go:generate bash -c "../../src/build.sh -d \"../../dist\""
-//make:deploy deployment-with-ingress, port:8080, subdomain:space-invaders
 package main
 
 import (

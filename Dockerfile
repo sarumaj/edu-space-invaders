@@ -10,8 +10,8 @@ RUN go mod download && go mod verify && \
 
 COPY . .
 
-RUN gofmt -s -d ./ && golangci-lint run -v && go test -v ./... && \
-    go generate ./... && \    
+RUN go generate ./... && \
+    gofmt -s -d ./ && golangci-lint run -v && go test -v ./... && \
     go build \
     -trimpath \
     -ldflags="-s -w -extldflags=-static" \

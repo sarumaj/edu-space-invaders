@@ -7,11 +7,28 @@ import (
 	"time"
 
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/spaceship"
 )
 
 type ctxKey string
+
+type touchEvent struct {
+	Position objects.Position
+	Delta    objects.Position
+}
+
+func (t *touchEvent) CalculateDelta(x, y float64) {
+	t.Delta = objects.Position{
+		X: x - t.Position.X,
+		Y: y - t.Position.Y,
+	}
+}
+
+func (t touchEvent) String() string {
+	return fmt.Sprintf("Touch (Pos: %s, Delta: %s)", t.Position, t.Delta)
+}
 
 // handler is the game handler.
 type handler struct {
@@ -21,12 +38,16 @@ type handler struct {
 	spaceship    *spaceship.Spaceship // spaceship is the player's spaceship
 	enemies      enemy.Enemies        // enemies is the list of enemies
 	keydownEvent chan string          // keydownEvent is the channel for keydown events
+	keyupEvent   chan string          // keyupEvent is the channel for keyup events
+	keysHeld     map[string]bool      // keysHeld is the map of keys held
+	touchEvent   chan touchEvent      // touchEvent is the channel for touch events
 }
 
 // checkCollisions checks if the spaceship has collided with an enemy.
 // If the spaceship has collided with an enemy, it applies the necessary
 // penalties and upgrades.
 // If the spaceship has collided with a goodie, it upgrades the spaceship.
+// If the spaceship has collided with a freezer, it freezes the spaceship.
 // If the spaceship has collided with a normal enemy, it applies default penalty.
 // If the spaceship has collided with a berserker, it applies the berserker penalty.
 // If the spaceship has collided with an annihilator, it applies the annihilator penalty.
@@ -44,6 +65,12 @@ func (h *handler) checkCollisions() {
 				h.spaceship.Level.Up()
 				h.spaceship.ChangeState(spaceship.Boosted)
 				h.SendMessage(fmt.Sprintf("You got a goodie, your spaceship has been upgraded to level %d", h.spaceship.Level.ID))
+				return
+
+			case enemy.Freezer:
+				h.enemies[j].Level.HitPoints = 0
+				h.spaceship.ChangeState(spaceship.Frozen)
+				h.SendMessage("You were frozen, you can't move or shoot for a while")
 				return
 
 			case enemy.Berserker:
@@ -87,9 +114,11 @@ func (h *handler) checkCollisions() {
 }
 
 // handlerKeydown handles the keydown event.
+// It sets the running state to true when any key is pressed.
+// It handles the keydown event based on the key.
 // It moves the spaceship to the left when the left arrow key is pressed.
 // It moves the spaceship to the right when the right arrow key is pressed.
-// It fires bullets when the space key is pressed.
+// If space key is pressed, it is observed in the keysHeld map.
 func (h *handler) handleKeydown(key string) {
 	if !h.IsRunning() {
 		h.ctx = context.WithValue(h.ctx, ctxKey("running"), true)
@@ -104,8 +133,53 @@ func (h *handler) handleKeydown(key string) {
 		h.spaceship.MoveRight()
 
 	case "Space":
-		h.spaceship.Fire()
+		h.keysHeld[key] = true
+
 	}
+}
+
+// handleKeyHold handles the key hold event.
+// It fires bullets when the space key is held.
+func (h *handler) handleKeyhold() {
+	for key := range h.keysHeld {
+		if !h.keysHeld[key] {
+			continue
+		}
+
+		switch key {
+		case "Space":
+			h.spaceship.Fire()
+
+		}
+	}
+}
+
+// handleKeyup handles the keyup event.
+// It removes the key from the keysHeld map.
+func (h *handler) handleKeyup(key string) {
+	delete(h.keysHeld, key)
+}
+
+// handleTouch handles the touch event.
+// It sets the running state to true when the touch event is triggered.
+// It moves the spaceship to the left when the delta X is negative.
+// It moves the spaceship to the right when the delta X is positive.
+// It fires bullets when the touch event is triggered.
+func (h *handler) handleTouch(event touchEvent) {
+	if !h.IsRunning() {
+		h.ctx = context.WithValue(h.ctx, ctxKey("running"), true)
+		return
+	}
+
+	switch {
+	case event.Delta.X < 0:
+		h.spaceship.MoveLeft()
+
+	case event.Delta.X > 0:
+		h.spaceship.MoveRight()
+	}
+
+	h.spaceship.Fire()
 }
 
 // refresh refreshes the game state.
@@ -139,7 +213,20 @@ func (h *handler) IsRunning() bool { v, ok := h.ctx.Value(ctxKey("running")).(bo
 func (h *handler) Loop(watch func(e *enemy.Enemies)) {
 	for !h.IsRunning() {
 		h.render()
-		h.handleKeydown(<-h.keydownEvent)
+		select {
+		case <-h.ctx.Done():
+			return
+
+		case key := <-h.keydownEvent:
+			h.handleKeydown(key)
+
+		case key := <-h.keyupEvent:
+			h.handleKeyup(key)
+
+		case event := <-h.touchEvent:
+			h.handleTouch(event)
+
+		}
 	}
 
 	ticker := time.NewTicker(16 * time.Millisecond) // ~60 FPS
@@ -151,9 +238,16 @@ func (h *handler) Loop(watch func(e *enemy.Enemies)) {
 		case <-ticker.C:
 			h.refresh(watch)
 			h.render()
+			h.handleKeyhold()
 
 		case key := <-h.keydownEvent:
 			h.handleKeydown(key)
+
+		case key := <-h.keyupEvent:
+			h.handleKeyup(key)
+
+		case event := <-h.touchEvent:
+			h.handleTouch(event)
 
 		}
 	}
@@ -167,12 +261,15 @@ func (h *handler) Wait() { <-h.ctx.Done() }
 func New() *handler {
 	h := &handler{
 		keydownEvent: make(chan string),
+		keyupEvent:   make(chan string),
+		keysHeld:     make(map[string]bool),
+		touchEvent:   make(chan touchEvent),
 		spaceship:    spaceship.Embark(),
 	}
 
 	h.ctx, h.cancel = context.WithCancel(context.Background())
 	h.ctx = context.WithValue(h.ctx, ctxKey("running"), false)
-	h.registerKeydownEvent()
+	h.registerEventHandlers()
 
 	return h
 }

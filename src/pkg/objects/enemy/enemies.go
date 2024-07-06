@@ -44,7 +44,7 @@ func (enemies *Enemies) AppendNew(name string, randomY bool) {
 		newEnemy := Challenge(name, randomY)
 		if !enemies.isOverlapping(*newEnemy) {
 			newEnemy.ToLevel(enemies.getHighestLevel())
-			newEnemy.AsGoodie()
+			newEnemy.Surprise()
 			newEnemy.Berserk()
 
 			*enemies = append(*enemies, *newEnemy)
@@ -70,11 +70,24 @@ func (enemies *Enemies) Update(spaceshipPosition objects.Position, regenerate fu
 		}
 
 		enemy.Move(spaceshipPosition)
-		if enemy.Position.Y+enemy.Size.Height >= config.CanvasHeight {
+		if enemy.Position.Y+enemy.Size.Height >= config.CanvasHeight() {
 			newEnemy := Challenge(enemy.Name, false)
 			newEnemy.ToLevel(enemy.Level.ID + 1)
-			newEnemy.AsGoodie()
-			newEnemy.Berserk()
+			newEnemy.Surprise()
+
+			switch enemy.Type {
+			case Annihilator:
+				newEnemy.Berserk()
+				fallthrough
+
+			case Berserker:
+				newEnemy.Berserk()
+				fallthrough
+
+			case Goodie, Freezer, Normal:
+				newEnemy.Berserk()
+
+			}
 
 			*enemy = *newEnemy
 		}

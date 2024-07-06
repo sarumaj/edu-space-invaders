@@ -49,6 +49,21 @@ func (spaceship Spaceship) DetectCollision(e enemy.Enemy) bool {
 		spaceship.Position.Y+spaceship.Size.Height > e.Position.Y
 }
 
+// Draw draws the spaceship on the canvas.
+// The spaceship is drawn in white color if it is in the Neutral state.
+// The spaceship is drawn in dark red color if it is in the Damaged state.
+// The spaceship is drawn in yellow color if it is in the Boosted state.
+// The spaceship is drawn in blue color if it is in the Frozen state.
+func (spaceship Spaceship) Draw() {
+	color := map[SpaceshipState]string{
+		Neutral: "white",
+		Damaged: "darkred",
+		Boosted: "yellow",
+		Frozen:  "blue",
+	}[spaceship.State]
+	config.DrawSpaceship(spaceship.Position.X, spaceship.Position.Y, spaceship.Size.Width, spaceship.Size.Height, true, color)
+}
+
 // Fire fires bullets from the spaceship.
 // The number of bullets fired is equal to the number of cannons
 // the spaceship has. The damage of the bullets is calculated
@@ -56,13 +71,17 @@ func (spaceship Spaceship) DetectCollision(e enemy.Enemy) bool {
 // The trajectory of the bullets is skewed based on the position
 // of the cannon.
 func (spaceship *Spaceship) Fire() {
+	if spaceship.State == Frozen {
+		return
+	}
+
 	if time.Since(spaceship.lastFired) < spaceship.Cooldown {
 		return
 	}
 
 	for i := 1; i < spaceship.Level.Cannons+1; i++ {
 		spaceship.Bullets.Reload(
-			spaceship.Position.X+spaceship.Size.Width*i/(spaceship.Level.Cannons+1)-config.BulletWidth/2,
+			spaceship.Position.X+spaceship.Size.Width*float64(i)/float64(spaceship.Level.Cannons+1)-config.BulletWidth/2,
 			spaceship.Position.Y,
 			spaceship.GetBulletDamage(),
 			float64(i)/float64(spaceship.Level.Cannons+1),
@@ -74,13 +93,19 @@ func (spaceship *Spaceship) Fire() {
 
 // GetBulletDamage returns the damage of the bullets fired by the spaceship.
 func (spaceship Spaceship) GetBulletDamage() int {
-	return 30 + spaceship.Level.ID + rand.Intn(30+spaceship.Level.ID)
+	base := 30 + spaceship.Level.ID
+	modifier := (spaceship.Level.ID/100 + 1) * spaceship.Level.Cannons
+	return base*modifier + rand.Intn(base*modifier)
 }
 
 // MoveLeft moves the spaceship to the left.
 // The spaceship's position is updated based on the spaceship's speed.
 // If the spaceship's position is less than 0, it is set to 0.
 func (spaceship *Spaceship) MoveLeft() {
+	if spaceship.State == Frozen {
+		return
+	}
+
 	if spaceship.Position.X-spaceship.Level.Speed > 0 {
 		spaceship.Position.X -= spaceship.Level.Speed
 	} else {
@@ -93,10 +118,14 @@ func (spaceship *Spaceship) MoveLeft() {
 // If the spaceship's position is greater than the canvas width,
 // it is set to the canvas width.
 func (spaceship *Spaceship) MoveRight() {
-	if spaceship.Position.X+spaceship.Size.Width+spaceship.Level.Speed < config.CanvasWidth {
+	if spaceship.State == Frozen {
+		return
+	}
+
+	if spaceship.Position.X+spaceship.Size.Width+spaceship.Level.Speed < config.CanvasWidth() {
 		spaceship.Position.X += spaceship.Level.Speed
 	} else {
-		spaceship.Position.X = config.CanvasWidth - spaceship.Size.Width
+		spaceship.Position.X = config.CanvasWidth() - spaceship.Size.Width
 	}
 }
 
@@ -139,8 +168,8 @@ func (spaceship *Spaceship) UpdateState() {
 func Embark() *Spaceship {
 	return &Spaceship{
 		Position: objects.Position{
-			X: config.CanvasWidth / 2,
-			Y: config.CanvasHeight - config.SpaceshipHeight,
+			X: config.CanvasWidth() / 2,
+			Y: config.CanvasHeight() - config.SpaceshipHeight,
 		},
 		Size: objects.Size{
 			Width:  config.SpaceshipWidth,

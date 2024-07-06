@@ -4,8 +4,9 @@ import "github.com/sarumaj/edu-space-invaders/src/pkg/config"
 
 // SpaceshipLevel represents the spaceship level.
 type SpaceshipLevel struct {
-	ID             int // ID is the level of the spaceship.
-	Speed, Cannons int // Speed is the speed of the spaceship, Cannons is the number of cannons the spaceship has.
+	ID      int     // ID is the level of the spaceship.
+	Speed   float64 // Speed is the speed of the spaceship
+	Cannons int     // Cannons is the number of cannons the spaceship has.
 }
 
 // Down decreases the spaceship level.
@@ -21,7 +22,7 @@ func (lvl *SpaceshipLevel) Down() {
 		lvl.Speed -= 1
 	}
 
-	if lvl.Cannons > 1 {
+	if lvl.Cannons > 1 && (lvl.ID-1)%config.SpaceshipCannonProgress == 0 {
 		lvl.Cannons -= 1
 	}
 
@@ -36,7 +37,7 @@ func (lvl *SpaceshipLevel) Up() {
 		lvl.Speed += 1
 	}
 
-	if lvl.Cannons < config.SpaceshipMaximumCannons {
+	if lvl.Cannons < config.SpaceshipMaximumCannons && (lvl.ID+1)%config.SpaceshipCannonProgress == 0 {
 		lvl.Cannons += 1
 	}
 

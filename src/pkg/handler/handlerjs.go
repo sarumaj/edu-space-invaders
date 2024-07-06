@@ -6,8 +6,7 @@ import (
 	"syscall/js"
 
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/spaceship"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
 )
 
 // render is a method that renders the game.
@@ -23,63 +22,56 @@ import (
 // The spaceship is drawn in white color if it is normal.
 // If draws objects as rectangles.
 func (h *handler) render() {
-	config.Ctx.Call("clearRect", 0, 0, config.CanvasWidth, config.CanvasHeight)
+	config.ClearCanvas()
 
 	// Draw spaceship
-	switch h.spaceship.State {
-	case spaceship.Damaged:
-		config.Ctx.Set("fillStyle", "darkred")
-
-	case spaceship.Boosted:
-		config.Ctx.Set("fillStyle", "yellow")
-
-	default:
-		config.Ctx.Set("fillStyle", "white")
-	}
-	config.Ctx.Call("fillRect", h.spaceship.Position.X, h.spaceship.Position.Y, h.spaceship.Size.Width, h.spaceship.Size.Height)
+	h.spaceship.Draw()
 
 	// Draw bullets
-	config.Ctx.Set("fillStyle", "yellow")
 	for _, b := range h.spaceship.Bullets {
-		config.Ctx.Call("fillRect", b.Position.X, b.Position.Y, b.Size.Width, b.Size.Height)
+		b.Draw()
 	}
 
 	// Draw enemies
-	config.Ctx.Set("fillStyle", "red")
 	for _, e := range h.enemies {
-		switch e.Type {
-		case enemy.Goodie:
-			config.Ctx.Set("fillStyle", "green")
-
-		case enemy.Normal:
-			config.Ctx.Set("fillStyle", "gray")
-
-		case enemy.Berserker:
-			config.Ctx.Set("fillStyle", "red")
-
-		case enemy.Annihilator:
-			config.Ctx.Set("fillStyle", "darkred")
-
-		default:
-			config.Ctx.Set("fillStyle", "darkgray")
-
-		}
-		config.Ctx.Call("fillRect", e.Position.X, e.Position.Y, e.Size.Width, e.Size.Height)
+		e.Draw()
 	}
 }
 
-// registerKeydownEvent is a method that registers the keydown event.
-func (h *handler) registerKeydownEvent() {
+// registerEventHandlers is a method that registers the event listeners.
+func (h *handler) registerEventHandlers() {
 	h.once.Do(func() {
-		config.Doc.Call("addEventListener", "keydown", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		config.AddEventListener("keydown", js.FuncOf(func(_ js.Value, p []js.Value) any {
 			key := p[0].Get("code").String()
 			h.keydownEvent <- key
 			return nil
 		}))
+
+		config.AddEventListener("keyup", js.FuncOf(func(_ js.Value, p []js.Value) any {
+			key := p[0].Get("code").String()
+			h.keyupEvent <- key
+			return nil
+		}))
+
+		var globalEvent touchEvent
+		config.AddEventListener("touchstart", js.FuncOf(func(_ js.Value, p []js.Value) any {
+			globalEvent.Position.X = p[0].Get("changedTouches").Index(0).Get("clientX").Float()
+			globalEvent.Position.Y = p[0].Get("changedTouches").Index(0).Get("clientY").Float()
+			globalEvent.Delta = objects.Position{}
+			return nil
+		}))
+
+		for _, event := range []string{"touchmove", "touchend"} {
+			config.AddEventListener(event, js.FuncOf(func(_ js.Value, p []js.Value) any {
+				x := p[0].Get("changedTouches").Index(0).Get("clientX").Float()
+				y := p[0].Get("changedTouches").Index(0).Get("clientY").Float()
+				globalEvent.CalculateDelta(x, y)
+				h.touchEvent <- globalEvent
+				return nil
+			}))
+		}
 	})
 }
 
 // SendMessage sends a message to the message box.
-func (*handler) SendMessage(msg string) {
-	config.MessageBox.Set("innerText", msg)
-}
+func (*handler) SendMessage(msg string) { config.SendMessage(msg) }

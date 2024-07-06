@@ -10,7 +10,7 @@ type Bullets []Bullet
 
 // Reload creates a new bullet at the specified position.
 // The bullet has the specified damage and skew ratio.
-func (bullets *Bullets) Reload(x, y, damage int, ratio float64) {
+func (bullets *Bullets) Reload(x, y float64, damage int, ratio float64) {
 	*bullets = append(*bullets, Bullet{
 		Position: objects.Position{
 			X: x,

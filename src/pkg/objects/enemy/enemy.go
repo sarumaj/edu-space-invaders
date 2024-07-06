@@ -11,26 +11,17 @@ import (
 
 // Enemy represents the enemy.
 type Enemy struct {
-	Name             string           // Name is the name of the enemy.
-	Position         objects.Position // Position is the position of the enemy.
-	direction        int              // direction is the horizontal direction the enemy is moving.
-	Size             objects.Size     // Size is the size of the enemy.
-	GoodieLikeliness float64          // GoodieLikeliness is the likelihood of the enemy being a goodie (expected to be lower than 1).
-	Level            *EnemyLevel      // Level is the level of the enemy.
-	Type             EnemyType        // Type is the type of the enemy.
-}
-
-// AsGoodie turns the enemy into a goodie.
-// If the enemy is a normal enemy, it has a chance to become a goodie.
-// The likelihood of the enemy becoming a goodie is based on the GoodieLikeliness.
-func (enemy *Enemy) AsGoodie() {
-	if enemy.Type == Normal && rand.Intn(int(1.0/enemy.GoodieLikeliness)) == 0 {
-		enemy.Type = Goodie
-	}
+	Name                string           // Name is the name of the enemy.
+	Position            objects.Position // Position is the position of the enemy.
+	direction           int              // direction is the horizontal direction the enemy is moving.
+	Size                objects.Size     // Size is the size of the enemy.
+	SpecialtyLikeliness float64          // SpecialtyLikeliness is the likelihood of the enemy being a goodie or a freezer (expected to be lower than 1).
+	Level               *EnemyLevel      // Level is the level of the enemy.
+	Type                EnemyType        // Type is the type of the enemy.
 }
 
 // Berserk turns the enemy into a berserker or an annihilator.
-// If the enemy is a goodie, it does nothing.
+// If the enemy is a goodie or a freezer, it does nothing.
 // If the enemy is a normal enemy, it has a chance to become a berserker.
 // If the enemy is a berserker, it has a chance to become an annihilator.
 // If the enemy is an annihilator, it increases its size, health points and defense.
@@ -39,20 +30,21 @@ func (enemy *Enemy) Berserk() {
 		return
 	}
 
-	var sizeFactor, healthPoints, defense int
+	var sizeFactor, speedFactor float64
+	var healthPoints, defense int
 	nextType := enemy.Type
 	switch enemy.Type {
-	case Goodie:
+	case Goodie, Freezer:
 		return
 
 	case Normal:
-		sizeFactor, healthPoints, defense, nextType = 2, 1000, 100, Berserker
+		sizeFactor, healthPoints, defense, speedFactor, nextType = 2, 2000, 500, 1.2, Berserker
 
 	case Berserker:
-		sizeFactor, healthPoints, defense, nextType = 3, 5000, 500, Annihilator
+		sizeFactor, healthPoints, defense, speedFactor, nextType = 3, 10000, 2500, 0.6, Annihilator
 
 	case Annihilator:
-		sizeFactor, healthPoints, defense = 4, 10000, 1000
+		sizeFactor, healthPoints, defense, speedFactor = 4, 50000, 12500, 0.2
 
 	}
 
@@ -68,6 +60,21 @@ func (enemy *Enemy) Berserk() {
 	enemy.Size.Height = config.EnemyHeight * sizeFactor
 	enemy.Position.X -= config.EnemyWidth / sizeFactor
 	enemy.Position.Y -= config.EnemyHeight / sizeFactor
+	enemy.Level.Speed *= speedFactor
+}
+
+// Draw draws the enemy.
+// The enemy is drawn as a rectangle with the specified color.
+// The color is based on the type of the enemy.
+func (enemy Enemy) Draw() {
+	color := map[EnemyType]string{
+		Goodie:      "green",
+		Freezer:     "lightblue",
+		Normal:      "gray",
+		Berserker:   "red",
+		Annihilator: "darkred",
+	}[enemy.Type]
+	config.DrawSpaceship(enemy.Position.X, enemy.Position.Y, enemy.Size.Width, enemy.Size.Height, false, color)
 }
 
 // Hit reduces the health points of the enemy.
@@ -95,27 +102,47 @@ func (enemy *Enemy) Move(spaceshipPosition objects.Position) {
 		return
 	}
 
-	if spaceshipPosition.Y-enemy.Position.Y > config.CanvasHeight/2 {
-		if enemy.Position.X < spaceshipPosition.X {
+	// If the spaceship is below the enemy, the enemy moves towards the spaceship.
+	// The detection range is half of the canvas height.
+	if spaceshipPosition.Y-enemy.Position.Y < config.CanvasHeight()/2 {
+		// Check if the spaceship is on the left or right side of the enemy.
+		switch {
+		case enemy.Position.X < spaceshipPosition.X:
 			enemy.direction = 1
-		} else if enemy.Position.X > spaceshipPosition.X {
+
+		case enemy.Position.X > spaceshipPosition.X:
 			enemy.direction = -1
+
 		}
 	} else {
+		// Otherwise, the enemy moves randomly.
 		enemy.direction += (rand.Intn(3) - 1)
-		if enemy.Position.X <= 0 {
+		// Check if the enemy is at the edge of the canvas.
+		switch {
+		case enemy.Position.X <= 0:
 			enemy.direction = 1
-		} else if enemy.Position.X+enemy.Size.Width >= config.CanvasWidth {
+
+		case enemy.Position.X+enemy.Size.Width >= config.CanvasWidth():
 			enemy.direction = -1
+
 		}
 	}
 
-	enemy.Position.X += enemy.direction
+	enemy.Position.X += float64(enemy.direction)
 }
 
 // String returns the string representation of the enemy.
 func (enemy Enemy) String() string {
 	return fmt.Sprintf("%s (Lvl: %d, Pos: %s, HP: %d, Type: %s)", enemy.Name, enemy.Level.ID, enemy.Position, enemy.Level.HitPoints, enemy.Type)
+}
+
+// Surprise turns the enemy into a freezer or a goodie.
+// If the enemy is a normal enemy, it has a chance to become a freezer or a goodie.
+// The likelihood of the enemy becoming a freezer or a goodie is based on the SpecialtyLikeliness.
+func (enemy *Enemy) Surprise() {
+	if enemy.Type == Normal && rand.Intn(int(1.0/enemy.SpecialtyLikeliness)) == 0 {
+		enemy.Type = [...]EnemyType{Freezer, Goodie}[rand.Intn(2)]
+	}
 }
 
 // ToLevel sets the level of the enemy (up or down).
@@ -148,21 +175,21 @@ func Challenge(name string, randomY bool) *Enemy {
 		name = randomdata.SillyName()
 	}
 
-	y := 0
+	y := 0.0
 	if randomY {
-		y = rand.Intn(config.CanvasHeight/2 - config.EnemyHeight)
+		y = rand.Float64() * (config.CanvasHeight()/2 - config.EnemyHeight)
 	}
 
 	return &Enemy{
 		Position: objects.Position{
-			X: rand.Intn(config.CanvasWidth - config.EnemyWidth),
+			X: rand.Float64() * (config.CanvasWidth() - config.EnemyWidth),
 			Y: y,
 		},
 		Size: objects.Size{
 			Width:  config.EnemyWidth,
 			Height: config.EnemyHeight,
 		},
-		GoodieLikeliness: config.GoodieLikeliness,
+		SpecialtyLikeliness: config.EnemySpecialtyLikeliness,
 		Level: &EnemyLevel{
 			ID:                1,
 			Speed:             config.EnemyInitialSpeed,

@@ -4,10 +4,10 @@ import "fmt"
 
 // Size represents the size of an object (Width, Height)
 type Size struct {
-	Width, Height int
+	Width, Height float64
 }
 
 // String returns the string representation of the size.
 func (size Size) String() string {
-	return fmt.Sprintf("(%d, %d)", size.Width, size.Height)
+	return fmt.Sprintf("(%g, %g)", size.Width, size.Height)
 }

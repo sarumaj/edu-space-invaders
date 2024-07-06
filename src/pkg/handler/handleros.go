@@ -5,8 +5,8 @@ package handler
 // render is a method that renders the game.
 func (*handler) render() {}
 
-// registerKeydownEvent is a method that registers the keydown event.
-func (h *handler) registerKeydownEvent() {
+// registerEventHandlers is a method that registers the event listeners.
+func (h *handler) registerEventHandlers() {
 	h.once.Do(func() {})
 }
 

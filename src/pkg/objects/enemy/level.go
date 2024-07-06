@@ -4,9 +4,10 @@ import "github.com/sarumaj/edu-space-invaders/src/pkg/config"
 
 // EnemyLevel represents the enemy level.
 type EnemyLevel struct {
-	ID                        int     // ID is the level of the enemy.
-	Speed, HitPoints, Defense int     // Speed is the speed of the enemy, HitPoints is the health points of the enemy, Defense is the defense of the enemy.
-	BerserkLikeliness         float64 // BerserkLikeliness is the likeliness of the enemy to become berserk or to become an annihilator.
+	ID                 int     // ID is the level of the enemy.
+	Speed              float64 // Speed is the speed of the enemy
+	HitPoints, Defense int     // HitPoints is the health points of the enemy, Defense is the defense of the enemy.
+	BerserkLikeliness  float64 // BerserkLikeliness is the likeliness of the enemy to become berserk or to become an annihilator.
 }
 
 // Down decreases the enemy level.

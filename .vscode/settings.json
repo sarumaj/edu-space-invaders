@@ -17,6 +17,11 @@
     "handleros",
     "keydown",
     "Keydown",
+    "Keyhold",
+    "Keyup",
+    "kubeconfig",
+    "Kubeconfig",
+    "ontouchstart",
     "Pallinder",
     "randomdata",
     "rkboot",
@@ -24,6 +29,9 @@
     "sarumaj",
     "spaceshiplevel",
     "spaceshipstate",
+    "touchend",
+    "touchmove",
+    "touchstart",
     "usedocker"
   ]
 }

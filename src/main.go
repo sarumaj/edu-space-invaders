@@ -29,10 +29,22 @@ func main() {
 		}
 	})
 
-	if game.IsRunning() {
-		game.SendMessage("Game started! Use ARROW KEYS (<, >) to move and SPACE to shoot.")
-	} else {
-		game.SendMessage("Let's begin! Press any key to start.")
+	switch {
+
+	case game.IsRunning():
+		if config.IsTouchDevice() {
+			game.SendMessage(config.MessageGameStartedTouchDevice)
+		} else {
+			game.SendMessage(config.MessageGameStartedNoTouchDevice)
+		}
+
+	default:
+		if config.IsTouchDevice() {
+			game.SendMessage(config.MessageHowToStartTouchDevice)
+		} else {
+			game.SendMessage(config.MessageHowToStartNoTouchDevice)
+		}
+
 	}
 
 	game.Wait()

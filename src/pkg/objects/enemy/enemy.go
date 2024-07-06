@@ -81,9 +81,9 @@ func (enemy Enemy) Draw() {
 // The damage is reduced by the defense of the enemy.
 // If the damage is less than 0, it is set to 0.
 func (enemy *Enemy) Hit(damage int) int {
-	damage = damage - enemy.Level.Defense
+	damage = damage - rand.Intn(enemy.Level.Defense)
 	if damage < 0 {
-		return 0
+		damage = rand.Intn(config.BulletInitialDamage)
 	}
 
 	enemy.Level.HitPoints -= damage
@@ -133,7 +133,7 @@ func (enemy *Enemy) Move(spaceshipPosition objects.Position) {
 
 // String returns the string representation of the enemy.
 func (enemy Enemy) String() string {
-	return fmt.Sprintf("%s (Lvl: %d, Pos: %s, HP: %d, Type: %s)", enemy.Name, enemy.Level.ID, enemy.Position, enemy.Level.HitPoints, enemy.Type)
+	return fmt.Sprintf("%s (Lvl: %d, Pos: %s, HP: %d, Type: %s)", enemy.Name, enemy.Level.Progress, enemy.Position, enemy.Level.HitPoints, enemy.Type)
 }
 
 // Surprise turns the enemy into a freezer or a goodie.
@@ -145,17 +145,17 @@ func (enemy *Enemy) Surprise() {
 	}
 }
 
-// ToLevel sets the level of the enemy (up or down).
-func (enemy *Enemy) ToLevel(levels int) {
-	if levels < 1 {
-		levels = 1
+// ToProgressLevel sets the progress level of the enemy (up or down).
+func (enemy *Enemy) ToProgressLevel(progress int) {
+	if progress < 1 {
+		progress = 1
 	}
 
-	for enemy.Level.ID < levels {
+	for enemy.Level.Progress < progress {
 		enemy.Level.Up()
 	}
 
-	for enemy.Level.ID > levels {
+	for enemy.Level.Progress > progress {
 		enemy.Level.Down()
 	}
 }
@@ -191,10 +191,10 @@ func Challenge(name string, randomY bool) *Enemy {
 		},
 		SpecialtyLikeliness: config.EnemySpecialtyLikeliness,
 		Level: &EnemyLevel{
-			ID:                1,
+			Progress:          1,
 			Speed:             config.EnemyInitialSpeed,
-			HitPoints:         100,
-			Defense:           0,
+			HitPoints:         config.EnemyInitialHitpoints,
+			Defense:           config.EnemyInitialDefense,
 			BerserkLikeliness: config.EnemyBerserkLikeliness,
 		},
 		Type: Normal,

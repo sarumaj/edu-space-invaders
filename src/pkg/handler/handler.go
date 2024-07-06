@@ -58,13 +58,19 @@ type handler struct {
 func (h *handler) checkCollisions() {
 	for j, e := range h.enemies {
 		if e.Level.HitPoints > 0 && h.spaceship.DetectCollision(e) {
+			if h.spaceship.State == spaceship.Boosted {
+				h.enemies[j].Level.HitPoints = 0
+				h.SendMessage(fmt.Sprintf("You destroyed %s", e.Name))
+				return
+			}
+
 			penalty := config.SpaceshipDefaultPenalty
 			switch e.Type {
 			case enemy.Goodie:
 				h.enemies[j].Level.HitPoints = 0
 				h.spaceship.Level.Up()
 				h.spaceship.ChangeState(spaceship.Boosted)
-				h.SendMessage(fmt.Sprintf("You got a goodie, your spaceship has been upgraded to level %d", h.spaceship.Level.ID))
+				h.SendMessage(fmt.Sprintf("You got a goodie, your spaceship has been upgraded to level %d", h.spaceship.Level.Progress))
 				return
 
 			case enemy.Freezer:
@@ -82,15 +88,10 @@ func (h *handler) checkCollisions() {
 			}
 
 			h.enemies[j].Level.HitPoints = 0
-			if h.spaceship.State == spaceship.Boosted {
-				h.SendMessage(fmt.Sprintf("You destroyed %s", e.Name))
-				return
-			}
-
-			if h.spaceship.Level.ID > 1 {
+			if h.spaceship.Level.Progress > 1 {
 				h.spaceship.Penalize(penalty)
 				h.spaceship.ChangeState(spaceship.Damaged)
-				h.SendMessage(fmt.Sprintf("You were hit, your spaceship has been downgraded to level %d", h.spaceship.Level.ID))
+				h.SendMessage(fmt.Sprintf("You were hit, your spaceship has been downgraded to level %d", h.spaceship.Level.Progress))
 				return
 			}
 
@@ -101,14 +102,23 @@ func (h *handler) checkCollisions() {
 		}
 
 		for i, b := range h.spaceship.Bullets {
-			if e.Level.HitPoints > 0 && e.Type != enemy.Goodie && b.HasHit(e) {
+			switch {
+			case
+				e.Level.HitPoints <= 0,
+				e.Type == enemy.Goodie,
+				e.Type == enemy.Freezer,
+				!b.HasHit(e):
+
+			default:
 				h.SendMessage(fmt.Sprintf("You dealt %d of damage to %q", h.enemies[j].Hit(b.Damage), e.Name))
 				h.spaceship.Bullets[i].Exhaust()
 				if h.enemies[j].Level.HitPoints <= 0 {
-					h.SendMessage(fmt.Sprintf("You killed %q, your spaceship has been upgraded to level %d", e.Name, h.spaceship.Level.ID))
+					h.SendMessage(fmt.Sprintf("You killed %q, your spaceship has been upgraded to level %d", e.Name, h.spaceship.Level.Progress))
 					h.spaceship.Level.Up()
 				}
+
 			}
+
 		}
 	}
 }

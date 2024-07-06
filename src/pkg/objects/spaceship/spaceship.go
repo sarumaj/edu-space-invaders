@@ -93,8 +93,8 @@ func (spaceship *Spaceship) Fire() {
 
 // GetBulletDamage returns the damage of the bullets fired by the spaceship.
 func (spaceship Spaceship) GetBulletDamage() int {
-	base := 30 + spaceship.Level.ID
-	modifier := (spaceship.Level.ID/100 + 1) * spaceship.Level.Cannons
+	base := config.BulletInitialDamage + spaceship.Level.Progress
+	modifier := (spaceship.Level.Progress/config.BulletModifierProgressStep + 1) * spaceship.Level.Cannons
 	return base*modifier + rand.Intn(base*modifier)
 }
 
@@ -133,14 +133,14 @@ func (spaceship *Spaceship) MoveRight() {
 // The spaceship is downgraded by the specified number of levels.
 // If the spaceship's level is less than 1, it is set to 1.
 func (spaceship *Spaceship) Penalize(levels int) {
-	for i := 0; i < levels && spaceship.Level.ID > 1; i++ {
+	for i := 0; i < levels && spaceship.Level.Progress > 1; i++ {
 		spaceship.Level.Down()
 	}
 }
 
 // String returns a string representation of the spaceship.
 func (spaceship Spaceship) String() string {
-	return fmt.Sprintf("Spaceship (Lvl: %d, Pos: %s, State: %s)", spaceship.Level.ID, spaceship.Position, spaceship.State)
+	return fmt.Sprintf("Spaceship (Lvl: %d, Pos: %s, State: %s)", spaceship.Level.Progress, spaceship.Position, spaceship.State)
 }
 
 // UpdateState updates the state of the spaceship.
@@ -177,9 +177,9 @@ func Embark() *Spaceship {
 		},
 		Cooldown: config.SpaceshipCooldown,
 		Level: &SpaceshipLevel{
-			ID:      1,
-			Cannons: 1,
-			Speed:   config.SpaceshipInitialSpeed,
+			Progress: 1,
+			Cannons:  1,
+			Speed:    config.SpaceshipInitialSpeed,
 		},
 	}
 }

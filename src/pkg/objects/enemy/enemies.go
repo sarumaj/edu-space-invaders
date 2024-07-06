@@ -8,12 +8,12 @@ import (
 // Enemies represents a collection of enemies.
 type Enemies []Enemy
 
-// getHighestLevel returns the highest level of the enemies.
-func (enemies Enemies) getHighestLevel() int {
+// getHighestProgress returns the highest progress of the enemies.
+func (enemies Enemies) getHighestProgress() int {
 	highestLevel := 1
 	for _, e := range enemies {
-		if e.Level.ID > highestLevel {
-			highestLevel = e.Level.ID
+		if e.Level.Progress > highestLevel {
+			highestLevel = e.Level.Progress
 		}
 	}
 
@@ -43,7 +43,7 @@ func (enemies *Enemies) AppendNew(name string, randomY bool) {
 	for {
 		newEnemy := Challenge(name, randomY)
 		if !enemies.isOverlapping(*newEnemy) {
-			newEnemy.ToLevel(enemies.getHighestLevel())
+			newEnemy.ToProgressLevel(enemies.getHighestProgress())
 			newEnemy.Surprise()
 			newEnemy.Berserk()
 
@@ -72,7 +72,7 @@ func (enemies *Enemies) Update(spaceshipPosition objects.Position, regenerate fu
 		enemy.Move(spaceshipPosition)
 		if enemy.Position.Y+enemy.Size.Height >= config.CanvasHeight() {
 			newEnemy := Challenge(enemy.Name, false)
-			newEnemy.ToLevel(enemy.Level.ID + 1)
+			newEnemy.ToProgressLevel(enemy.Level.Progress + 1)
 			newEnemy.Surprise()
 
 			switch enemy.Type {

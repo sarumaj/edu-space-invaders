@@ -4,7 +4,7 @@ import "github.com/sarumaj/edu-space-invaders/src/pkg/config"
 
 // EnemyLevel represents the enemy level.
 type EnemyLevel struct {
-	ID                 int     // ID is the level of the enemy.
+	Progress           int     // Progress is the level of the enemy.
 	Speed              float64 // Speed is the speed of the enemy
 	HitPoints, Defense int     // HitPoints is the health points of the enemy, Defense is the defense of the enemy.
 	BerserkLikeliness  float64 // BerserkLikeliness is the likeliness of the enemy to become berserk or to become an annihilator.
@@ -17,7 +17,7 @@ type EnemyLevel struct {
 // If the enemy hit points are greater than 100, it decreases the hit points by 10.
 // If the enemy defense is greater than 0, it decreases the defense by 10.
 func (lvl *EnemyLevel) Down() {
-	if lvl.ID == 1 {
+	if lvl.Progress == 1 {
 		return
 	}
 
@@ -26,18 +26,18 @@ func (lvl *EnemyLevel) Down() {
 	}
 
 	if lvl.BerserkLikeliness > config.EnemyBerserkLikeliness {
-		lvl.BerserkLikeliness -= 0.01
+		lvl.BerserkLikeliness -= config.EnemyBerserkLikelinessProgress
 	}
 
-	if lvl.HitPoints > 100 {
-		lvl.HitPoints -= 10
+	if lvl.HitPoints > config.EnemyInitialHitpoints {
+		lvl.HitPoints -= config.EnemyHitpointProgress
 	}
 
 	if lvl.Defense > 0 {
-		lvl.Defense -= 10
+		lvl.Defense -= config.EnemyDefenseProgress
 	}
 
-	lvl.ID--
+	lvl.Progress--
 }
 
 // Up increases the enemy level.
@@ -48,8 +48,8 @@ func (lvl *EnemyLevel) Up() {
 		lvl.Speed += 1
 	}
 
-	lvl.BerserkLikeliness += 0.01
-	lvl.HitPoints += 10
-	lvl.Defense += 10
-	lvl.ID++
+	lvl.BerserkLikeliness += config.EnemyBerserkLikelinessProgress
+	lvl.HitPoints += config.EnemyHitpointProgress
+	lvl.Defense += config.EnemyDefenseProgress
+	lvl.Progress++
 }

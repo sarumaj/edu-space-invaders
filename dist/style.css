@@ -17,6 +17,18 @@ body {
   max-width: 800px;
 }
 
+#title {
+  color: white;
+  font-family: "Arial", sans-serif;
+  font-size: 24px;
+  margin-bottom: 20px;
+  text-align: center;
+  width: 100%;
+  max-width: 800px;
+  border-bottom: 5px solid white;
+  padding-bottom: 10px;
+}
+
 canvas {
   width: 100%;
   height: auto;

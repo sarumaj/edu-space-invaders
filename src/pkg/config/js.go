@@ -4,6 +4,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"syscall/js"
 )
 
@@ -136,7 +137,10 @@ func LogError(err error) {
 
 // SendMessage sends a message to the message box.
 func SendMessage(msg string) {
-	messageBox.Set("innerText", msg)
+	content := messageBox.Get("innerText").String()
+	lines := append(strings.Split(content, "\n"), msg)
+	messageBox.Set("innerText", strings.Join(lines, "\n"))
+	messageBox.Set("scrollTop", messageBox.Get("scrollHeight"))
 }
 
 // ThrowError is a function that throws an error.

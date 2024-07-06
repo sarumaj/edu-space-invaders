@@ -18,18 +18,22 @@ func main() {
 	mode := config.Getenv("SPACE_INVADERS_MODE")
 	config.Log(fmt.Sprintf("SPACE_INVADERS_MODE: %s", mode))
 
-	config.Log("Game mode")
-
 	config.Log("Generating enemies")
 	game.GenerateEnemies(config.EnemiesCount, true)
 
 	config.Log("Starting game loop")
+
 	go game.Loop(func(e *enemy.Enemies) {
 		for len(*e) < config.EnemiesCount {
 			e.AppendNew("", false)
 		}
 	})
 
-	game.SendMessage("Game started! Use ARROW KEYS (<, >) to move and SPACE to shoot.")
+	if game.IsRunning() {
+		game.SendMessage("Game started! Use ARROW KEYS (<, >) to move and SPACE to shoot.")
+	} else {
+		game.SendMessage("Let's begin! Press any key to start.")
+	}
+
 	game.Wait()
 }

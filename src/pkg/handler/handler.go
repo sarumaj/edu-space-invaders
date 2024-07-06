@@ -11,6 +11,8 @@ import (
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/spaceship"
 )
 
+type ctxKey string
+
 // handler is the game handler.
 type handler struct {
 	ctx          context.Context      // ctx is an abortable context of the handler
@@ -89,6 +91,11 @@ func (h *handler) checkCollisions() {
 // It moves the spaceship to the right when the right arrow key is pressed.
 // It fires bullets when the space key is pressed.
 func (h *handler) handleKeydown(key string) {
+	if !h.IsRunning() {
+		h.ctx = context.WithValue(h.ctx, ctxKey("running"), true)
+		return
+	}
+
 	switch key {
 	case "ArrowLeft":
 		h.spaceship.MoveLeft()
@@ -123,10 +130,18 @@ func (h *handler) GenerateEnemies(num int, randomY bool) {
 	}
 }
 
+// IsRunning returns true if the handler is running.
+func (h *handler) IsRunning() bool { v, ok := h.ctx.Value(ctxKey("running")).(bool); return ok && v }
+
 // Loop starts the game loop.
 // It refreshes the game state, renders the game, and handles the keydown events.
 // It should be called in a separate goroutine.
 func (h *handler) Loop(watch func(e *enemy.Enemies)) {
+	for !h.IsRunning() {
+		h.render()
+		h.handleKeydown(<-h.keydownEvent)
+	}
+
 	ticker := time.NewTicker(16 * time.Millisecond) // ~60 FPS
 	for {
 		select {
@@ -156,6 +171,7 @@ func New() *handler {
 	}
 
 	h.ctx, h.cancel = context.WithCancel(context.Background())
+	h.ctx = context.WithValue(h.ctx, ctxKey("running"), false)
 	h.registerKeydownEvent()
 
 	return h

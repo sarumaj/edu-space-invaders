@@ -3,16 +3,16 @@
 set -e
 
 print_usage() {
-    echo "Usage: $0 [-d target_directory]"
-    echo "  -d target_directory   Directory where the project will be created (default: current directory)"
+	echo "Usage: $0 [-d target_directory]"
+	echo "  -d target_directory   Directory where the project will be created (default: current directory)"
 }
 
 log_message() {
-    local message
-    local timestamp
-    message="$1"
-    timestamp="$(date +"%Y-%m-%d %H:%M:%S.%3N")"
-    echo "[$timestamp] $message"
+	local message
+	local timestamp
+	message="$1"
+	timestamp="$(date +"%Y-%m-%d %H:%M:%S.%3N")"
+	echo "[$timestamp] $message"
 }
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
@@ -22,11 +22,13 @@ TARGET_DIR="."
 
 # Parse command line options
 while getopts 'n:d:' flag; do
-    case "${flag}" in
-        d) TARGET_DIR="${OPTARG}" ;;
-        *) print_usage
-           exit 1 ;;
-    esac
+	case "${flag}" in
+	d) TARGET_DIR="${OPTARG}" ;;
+	*)
+		print_usage
+		exit 1
+		;;
+	esac
 done
 
 # Create target directory if it doesn't exist
@@ -35,7 +37,7 @@ mkdir -p "$TARGET_DIR"
 
 # Build the Go program
 log_message "Building the Go program"
-GOOS=js GOARCH=wasm go build -o "$TARGET_DIR/main.wasm" "$SCRIPT_DIR/main.go"
+GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o "$TARGET_DIR/main.wasm" "$SCRIPT_DIR/main.go"
 if [ -f "$TARGET_DIR/main.wasm" ]; then
 	log_message "Go program built successfully"
 else
@@ -55,7 +57,7 @@ log_message "Static files copied successfully"
 
 # Create the fs.go file
 log_message "Creating fs.go file"
-cat <<EOL > "$TARGET_DIR/fs.go"
+cat <<EOL >"$TARGET_DIR/fs.go"
 // Code generated on $(date +"%Y-%m-%d %H:%M:%S.%3N")
 package dist
 

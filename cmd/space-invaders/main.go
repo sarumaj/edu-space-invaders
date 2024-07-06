@@ -2,41 +2,55 @@
 package main
 
 import (
+	"context"
+	_ "embed"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 
-	gzip "github.com/gin-contrib/gzip"
 	gin "github.com/gin-gonic/gin"
+	rkboot "github.com/rookie-ninja/rk-boot/v2"
+	rkgin "github.com/rookie-ninja/rk-gin/v2/boot"
 	dist "github.com/sarumaj/edu-space-invaders/dist"
 )
 
-var port = flag.Int("port", 8080, "port to listen on")
+//go:embed boot.yaml
+var bootRaw []byte
+
 var debug = flag.Bool("debug", false, "enable debug mode")
+var port = flag.Int("port", func() int {
+	parsed, err := strconv.Atoi(os.Getenv("PORT"))
+	if err == nil {
+		return parsed
+	}
+	return 8080
+}(), "port to listen on")
 
 // cacheControl is a middleware that sets the Cache-Control header.
 // It uses the ETag from the dist package to determine if the file has changed.
-func cacheControl(ctx *gin.Context) {
-	path := filepath.Base(ctx.Request.URL.Path)
-	if path == "/" {
-		path = "index.html"
-	}
-
-	eTag := dist.Hashes[path]
-	if eTag != "" {
-		if eTag == ctx.GetHeader("If-None-Match") {
-			ctx.Status(http.StatusNotModified)
-			return
+func cacheControlMiddleware() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		path := filepath.Base(ctx.Request.URL.Path)
+		if path == "/" {
+			path = "index.html"
 		}
 
-		ctx.Header("Cache-Control", "public, must-revalidate")
-		ctx.Header("ETag", eTag)
-	}
+		eTag := dist.Hashes[path]
+		if eTag != "" {
+			if eTag == ctx.GetHeader("If-None-Match") {
+				ctx.Status(http.StatusNotModified)
+				return
+			}
 
-	ctx.Next()
+			ctx.Header("Cache-Control", "public, must-revalidate")
+			ctx.Header("ETag", eTag)
+		}
+
+		ctx.Next()
+	}
 }
 
 // handleEnvVars is a handler that sets the environment variables.
@@ -57,24 +71,24 @@ func handleEnvVars(ctx *gin.Context) {
 // main is the entry point of the game server.
 func main() {
 	flag.Parse()
-	gin.SetMode(gin.ReleaseMode)
 
 	// Set the mode based on the environment variable.
 	// Can be used in the future to set the mode based on the command line argument
 	// and alternate the game environment.
-	_ = os.Setenv("SPACE_INVADERS_MODE", "PRODUCTION")
-	if *debug {
-		_ = os.Setenv("SPACE_INVADERS_MODE", "DEVELOPMENT")
-		gin.SetMode(gin.DebugMode)
-	}
+	_ = os.Setenv("SPACE_INVADERS_MODE", map[bool]string{true: "DEVELOPMENT", false: "PRODUCTION"}[*debug])
 
-	server := &http.Server{Addr: fmt.Sprintf(":%d", *port)}
+	// Set the port based on the environment variable (necessary for Heroku).
+	_ = os.Setenv("RK_GIN_0_PORT", fmt.Sprint(*port))
 
-	router := gin.New()
-	router.Use(gin.Logger(), gzip.Gzip(gzip.BestCompression), cacheControl)
-	router.StaticFS("/", dist.HttpFS)
-	router.POST("/.env", handleEnvVars)
+	boot := rkboot.NewBoot(rkboot.WithBootConfigRaw(bootRaw))
 
-	server.Handler = router
-	log.Fatal(server.ListenAndServe())
+	entry := rkgin.GetGinEntry("space-invaders")
+	entry.Router.Use(cacheControlMiddleware())
+
+	entry.Router.StaticFS("/", dist.HttpFS)
+	entry.Router.POST("/.env", handleEnvVars)
+
+	boot.Bootstrap(context.Background())
+
+	boot.WaitForShutdownSig(context.Background())
 }

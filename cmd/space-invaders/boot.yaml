@@ -1,0 +1,12 @@
+gin:
+  - name: space-invaders
+    port: 8080
+    enabled: true
+    middleware:
+      logging:
+        enabled: true
+        loggerEncoding: "json"
+        eventEncoding: "json"
+      gzip:
+        enabled: true
+        level: bestCompression

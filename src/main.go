@@ -29,23 +29,5 @@ func main() {
 		}
 	})
 
-	switch {
-
-	case game.IsRunning():
-		if config.IsTouchDevice() {
-			game.SendMessage(config.Config.Messages.GameStartedTouchDevice)
-		} else {
-			game.SendMessage(config.Config.Messages.GameStartedNoTouchDevice)
-		}
-
-	default:
-		if config.IsTouchDevice() {
-			game.SendMessage(config.Config.Messages.HowToStartTouchDevice)
-		} else {
-			game.SendMessage(config.Config.Messages.HowToStartNoTouchDevice)
-		}
-
-	}
-
 	game.Wait()
 }

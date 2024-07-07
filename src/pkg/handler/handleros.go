@@ -10,5 +10,5 @@ func (h *handler) registerEventHandlers() {
 	h.once.Do(func() {})
 }
 
-// SendMessage is a method that sends a message.
-func (*handler) SendMessage(string) {}
+// sendMessage is a method that sends a message.
+func (*handler) sendMessage(string) {}

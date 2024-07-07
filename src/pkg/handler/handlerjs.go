@@ -42,20 +42,34 @@ func (h *handler) render() {
 // registerEventHandlers is a method that registers the event listeners.
 func (h *handler) registerEventHandlers() {
 	h.once.Do(func() {
+		registeredKeys := map[keyBinding]bool{
+			ArrowLeft:  true,
+			ArrowRight: true,
+			Space:      true,
+		}
 		config.AddEventListener("keydown", js.FuncOf(func(_ js.Value, p []js.Value) any {
-			key := p[0].Get("code").String()
+			key := keyBinding(p[0].Get("code").String())
+			if !registeredKeys[key] {
+				return nil
+			}
+			p[0].Call("preventDefault")
 			h.keydownEvent <- key
 			return nil
 		}))
 
 		config.AddEventListener("keyup", js.FuncOf(func(_ js.Value, p []js.Value) any {
-			key := p[0].Get("code").String()
+			key := keyBinding(p[0].Get("code").String())
+			if !registeredKeys[key] {
+				return nil
+			}
+			p[0].Call("preventDefault")
 			h.keyupEvent <- key
 			return nil
 		}))
 
 		var globalEvent touchEvent
 		config.AddEventListener("touchstart", js.FuncOf(func(_ js.Value, p []js.Value) any {
+			p[0].Call("preventDefault")
 			globalEvent.Position.X = objects.Number(p[0].Get("changedTouches").Index(0).Get("clientX").Float())
 			globalEvent.Position.Y = objects.Number(p[0].Get("changedTouches").Index(0).Get("clientY").Float())
 			globalEvent.Delta = objects.Position{} // Reset the delta to prevent accidental movement of the spaceship
@@ -64,6 +78,8 @@ func (h *handler) registerEventHandlers() {
 
 		var lastFired time.Time
 		config.AddEventListener("touchmove", js.FuncOf(func(_ js.Value, p []js.Value) any {
+			p[0].Call("preventDefault")
+
 			// Prevent rapid movement of the spaceship
 			if time.Since(lastFired) <= config.Config.Control.SwipeCooldown {
 				return nil
@@ -78,6 +94,7 @@ func (h *handler) registerEventHandlers() {
 		}))
 
 		config.AddEventListener("touchend", js.FuncOf(func(_ js.Value, p []js.Value) any {
+			p[0].Call("preventDefault")
 			x := p[0].Get("changedTouches").Index(0).Get("clientX").Float()
 			y := p[0].Get("changedTouches").Index(0).Get("clientY").Float()
 			globalEvent.CalculateDelta(x, y)
@@ -87,5 +104,5 @@ func (h *handler) registerEventHandlers() {
 	})
 }
 
-// SendMessage sends a message to the message box.
-func (*handler) SendMessage(msg string) { config.SendMessage(msg) }
+// sendMessage sends a message to the message box.
+func (*handler) sendMessage(msg string) { config.SendMessage(msg) }

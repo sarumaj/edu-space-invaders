@@ -78,6 +78,7 @@ To setup similar project follow following steps:
       - [code file handler.go](src/pkg/handler/handler.go)
       - [code file handlerjs.go](src/pkg/handler/handlerjs.go)
       - [code file handleros.go](src/pkg/handler/handleros.go)
+      - [code file keybinding.go](src/pkg/handler/keybinding.go)
       - [code file touchevent.go](src/pkg/handler/touchevent.go)
     - [package objects](src/pkg/objects)
       - [package bullet](src/pkg/objects/bullet)

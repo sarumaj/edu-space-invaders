@@ -19,12 +19,12 @@ func main() {
 	config.Log(fmt.Sprintf("SPACE_INVADERS_MODE: %s", mode))
 
 	config.Log("Generating enemies")
-	game.GenerateEnemies(config.EnemiesCount, true)
+	game.GenerateEnemies(config.Config.Enemy.Count, true)
 
 	config.Log("Starting game loop")
 
 	go game.Loop(func(e *enemy.Enemies) {
-		for len(*e) < config.EnemiesCount {
+		for len(*e) < config.Config.Enemy.Count {
 			e.AppendNew("", false)
 		}
 	})
@@ -33,16 +33,16 @@ func main() {
 
 	case game.IsRunning():
 		if config.IsTouchDevice() {
-			game.SendMessage(config.MessageGameStartedTouchDevice)
+			game.SendMessage(config.Config.Messages.GameStartedTouchDevice)
 		} else {
-			game.SendMessage(config.MessageGameStartedNoTouchDevice)
+			game.SendMessage(config.Config.Messages.GameStartedNoTouchDevice)
 		}
 
 	default:
 		if config.IsTouchDevice() {
-			game.SendMessage(config.MessageHowToStartTouchDevice)
+			game.SendMessage(config.Config.Messages.HowToStartTouchDevice)
 		} else {
-			game.SendMessage(config.MessageHowToStartNoTouchDevice)
+			game.SendMessage(config.Config.Messages.HowToStartNoTouchDevice)
 		}
 
 	}

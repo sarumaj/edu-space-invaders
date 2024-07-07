@@ -20,12 +20,12 @@ func CanvasHeight() float64 { return 600 }
 func ClearCanvas() {}
 
 // DrawRect is a function that draws a rectangle on the canvas.
-func DrawRect(x, y, width, height float64, color string) {}
+func DrawRect(coors [2]float64, size [2]float64, color string) {}
 
 // DrawSpaceship is a function that draws a spaceship on the canvas.
 // The spaceship is drawn at the specified position (x, y) with the specified width and height.
 // The spaceship is drawn facing the specified direction.
-func DrawSpaceship(x, y, width, height float64, faceUp bool, color string) {}
+func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color string) {}
 
 // Getenv is a function that returns the value of the environment variable key.
 func Getenv(key string) string {

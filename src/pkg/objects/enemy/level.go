@@ -21,20 +21,20 @@ func (lvl *EnemyLevel) Down() {
 		return
 	}
 
-	if lvl.Speed > config.EnemyInitialSpeed {
+	if lvl.Speed > config.Config.Enemy.InitialSpeed {
 		lvl.Speed -= 1
 	}
 
-	if lvl.BerserkLikeliness > config.EnemyBerserkLikeliness {
-		lvl.BerserkLikeliness -= config.EnemyBerserkLikelinessProgress
+	if lvl.BerserkLikeliness > config.Config.Enemy.BerserkLikeliness {
+		lvl.BerserkLikeliness -= config.Config.Enemy.BerserkLikelinessProgress
 	}
 
-	if lvl.HitPoints > config.EnemyInitialHitpoints {
-		lvl.HitPoints -= config.EnemyHitpointProgress
+	if lvl.HitPoints > config.Config.Enemy.InitialHitpoints {
+		lvl.HitPoints -= config.Config.Enemy.HitpointProgress
 	}
 
 	if lvl.Defense > 0 {
-		lvl.Defense -= config.EnemyDefenseProgress
+		lvl.Defense -= config.Config.Enemy.DefenseProgress
 	}
 
 	lvl.Progress--
@@ -44,12 +44,12 @@ func (lvl *EnemyLevel) Down() {
 // If the enemy speed is less than the maximum speed, it increases the speed by 1.
 // It increases the berserk likeliness by 0.01, the hit points by 10 and the defense by 10.
 func (lvl *EnemyLevel) Up() {
-	if lvl.Speed < config.EnemyMaximumSpeed {
+	if lvl.Speed < config.Config.Enemy.MaximumSpeed {
 		lvl.Speed += 1
 	}
 
-	lvl.BerserkLikeliness += config.EnemyBerserkLikelinessProgress
-	lvl.HitPoints += config.EnemyHitpointProgress
-	lvl.Defense += config.EnemyDefenseProgress
+	lvl.BerserkLikeliness += config.Config.Enemy.BerserkLikelinessProgress
+	lvl.HitPoints += config.Config.Enemy.HitpointProgress
+	lvl.Defense += config.Config.Enemy.DefenseProgress
 	lvl.Progress++
 }

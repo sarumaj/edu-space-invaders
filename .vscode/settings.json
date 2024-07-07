@@ -2,9 +2,11 @@
   "cSpell.words": [
     "abortable",
     "akhileshns",
+    "Ciepiela",
     "Cooldown",
     "darkgray",
     "darkred",
+    "Dawid",
     "enemylevel",
     "enemytype",
     "Furter",
@@ -21,8 +23,6 @@
     "Keydown",
     "Keyhold",
     "Keyup",
-    "kubeconfig",
-    "Kubeconfig",
     "ontouchstart",
     "Pallinder",
     "randomdata",
@@ -32,6 +32,7 @@
     "spaceshiplevel",
     "spaceshipstate",
     "touchend",
+    "touchevent",
     "touchmove",
     "touchstart",
     "usedocker"

@@ -8,7 +8,7 @@ import (
 // Enemies represents a collection of enemies.
 type Enemies []Enemy
 
-// getHighestProgress returns the highest progress of the enemies.
+// getHighestProgress returns the highest progress of the current enemies generation.
 func (enemies Enemies) getHighestProgress() int {
 	highestLevel := 1
 	for _, e := range enemies {
@@ -20,13 +20,32 @@ func (enemies Enemies) getHighestProgress() int {
 	return highestLevel
 }
 
+// getMostFrequentType returns the most frequent enemy type given the enemies generation.
+func (enemies Enemies) getMostFrequentType() EnemyType {
+	types := make(map[EnemyType]int)
+	for _, e := range enemies {
+		types[e.Type]++
+	}
+
+	var max int
+	var mostFrequentType EnemyType
+	for t, c := range types {
+		if c > max {
+			max = c
+			mostFrequentType = t
+		}
+	}
+
+	return mostFrequentType
+}
+
 // isOverlapping checks if the new enemy is overlapping with any of the existing enemies.
 func (enemies Enemies) isOverlapping(newEnemy Enemy) bool {
 	for _, e := range enemies {
-		if newEnemy.Position.X < e.Position.X+e.Size.Width+config.EnemyMargin &&
-			newEnemy.Position.X+newEnemy.Size.Width+config.EnemyMargin > e.Position.X &&
-			newEnemy.Position.Y < e.Position.Y+e.Size.Height+config.EnemyMargin &&
-			newEnemy.Position.Y+newEnemy.Size.Height+config.EnemyMargin > e.Position.Y {
+		if newEnemy.Position.X.Float() < e.Position.X.Float()+e.Size.Width.Float()+config.Config.Enemy.Margin &&
+			newEnemy.Position.X.Float()+newEnemy.Size.Width.Float()+config.Config.Enemy.Margin > e.Position.X.Float() &&
+			newEnemy.Position.Y.Float() < e.Position.Y.Float()+e.Size.Height.Float()+config.Config.Enemy.Margin &&
+			newEnemy.Position.Y.Float()+newEnemy.Size.Height.Float()+config.Config.Enemy.Margin > e.Position.Y.Float() {
 
 			return true
 		}
@@ -45,7 +64,7 @@ func (enemies *Enemies) AppendNew(name string, randomY bool) {
 		if !enemies.isOverlapping(*newEnemy) {
 			newEnemy.ToProgressLevel(enemies.getHighestProgress())
 			newEnemy.Surprise()
-			newEnemy.Berserk()
+			newEnemy.BerserkGivenAncestor(enemies.getMostFrequentType())
 
 			*enemies = append(*enemies, *newEnemy)
 
@@ -70,25 +89,11 @@ func (enemies *Enemies) Update(spaceshipPosition objects.Position, regenerate fu
 		}
 
 		enemy.Move(spaceshipPosition)
-		if enemy.Position.Y+enemy.Size.Height >= config.CanvasHeight() {
+		if enemy.Position.Y.Float()+enemy.Size.Height.Float() >= config.CanvasHeight() {
 			newEnemy := Challenge(enemy.Name, false)
 			newEnemy.ToProgressLevel(enemy.Level.Progress + 1)
 			newEnemy.Surprise()
-
-			switch enemy.Type {
-			case Annihilator:
-				newEnemy.Berserk()
-				fallthrough
-
-			case Berserker:
-				newEnemy.Berserk()
-				fallthrough
-
-			case Goodie, Freezer, Normal:
-				newEnemy.Berserk()
-
-			}
-
+			newEnemy.BerserkGivenAncestor(enemy.Type)
 			*enemy = *newEnemy
 		}
 

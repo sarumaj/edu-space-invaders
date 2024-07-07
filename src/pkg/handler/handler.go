@@ -2,33 +2,15 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/spaceship"
 )
 
 type ctxKey string
-
-type touchEvent struct {
-	Position objects.Position
-	Delta    objects.Position
-}
-
-func (t *touchEvent) CalculateDelta(x, y float64) {
-	t.Delta = objects.Position{
-		X: x - t.Position.X,
-		Y: y - t.Position.Y,
-	}
-}
-
-func (t touchEvent) String() string {
-	return fmt.Sprintf("Touch (Pos: %s, Delta: %s)", t.Position, t.Delta)
-}
 
 // handler is the game handler.
 type handler struct {
@@ -60,30 +42,34 @@ func (h *handler) checkCollisions() {
 		if e.Level.HitPoints > 0 && h.spaceship.DetectCollision(e) {
 			if h.spaceship.State == spaceship.Boosted {
 				h.enemies[j].Level.HitPoints = 0
-				h.SendMessage(fmt.Sprintf("You destroyed %s", e.Name))
+				h.SendMessage(config.Template{
+					Name: e.Name,
+				}.Execute(config.Config.Messages.Templates.EnemyDestroyed))
 				return
 			}
 
-			penalty := config.SpaceshipDefaultPenalty
+			penalty := config.Config.Spaceship.DefaultPenalty
 			switch e.Type {
 			case enemy.Goodie:
 				h.enemies[j].Level.HitPoints = 0
 				h.spaceship.Level.Up()
 				h.spaceship.ChangeState(spaceship.Boosted)
-				h.SendMessage(fmt.Sprintf("You got a goodie, your spaceship has been upgraded to level %d", h.spaceship.Level.Progress))
+				h.SendMessage(config.Template{
+					Level: h.spaceship.Level.Progress,
+				}.Execute(config.Config.Messages.Templates.SpaceshipUpgradedByGoodie))
 				return
 
 			case enemy.Freezer:
 				h.enemies[j].Level.HitPoints = 0
 				h.spaceship.ChangeState(spaceship.Frozen)
-				h.SendMessage("You were frozen, you can't move or shoot for a while")
+				h.SendMessage(config.Config.Messages.SpaceshipFrozen)
 				return
 
 			case enemy.Berserker:
-				penalty = config.SpaceshipBerserkPenalty
+				penalty = config.Config.Spaceship.BerserkPenalty
 
 			case enemy.Annihilator:
-				penalty = config.SpaceshipAnnihilatorPenalty
+				penalty = config.Config.Spaceship.AnnihilatorPenalty
 
 			}
 
@@ -91,12 +77,14 @@ func (h *handler) checkCollisions() {
 			if h.spaceship.Level.Progress > 1 {
 				h.spaceship.Penalize(penalty)
 				h.spaceship.ChangeState(spaceship.Damaged)
-				h.SendMessage(fmt.Sprintf("You were hit, your spaceship has been downgraded to level %d", h.spaceship.Level.Progress))
+				h.SendMessage(config.Template{
+					Level: h.spaceship.Level.Progress,
+				}.Execute(config.Config.Messages.Templates.SpaceshipDowngradedByEnemy))
 				return
 			}
 
 			h.spaceship.ChangeState(spaceship.Damaged)
-			h.SendMessage("You were killed, R.I.P.")
+			h.SendMessage(config.Config.Messages.GameOver)
 			h.cancel()
 			return
 		}
@@ -110,10 +98,17 @@ func (h *handler) checkCollisions() {
 				!b.HasHit(e):
 
 			default:
-				h.SendMessage(fmt.Sprintf("You dealt %d of damage to %q", h.enemies[j].Hit(b.Damage), e.Name))
+				h.SendMessage(config.Template{
+					Name:   e.Name,
+					Damage: h.enemies[j].Hit(b.Damage),
+				}.Execute(config.Config.Messages.Templates.EnemyHit))
 				h.spaceship.Bullets[i].Exhaust()
+
 				if h.enemies[j].Level.HitPoints <= 0 {
-					h.SendMessage(fmt.Sprintf("You killed %q, your spaceship has been upgraded to level %d", e.Name, h.spaceship.Level.Progress))
+					h.SendMessage(config.Template{
+						Name:  e.Name,
+						Level: h.spaceship.Level.Progress,
+					}.Execute(config.Config.Messages.Templates.SpaceshipUpgradedByEnemyKill))
 					h.spaceship.Level.Up()
 				}
 

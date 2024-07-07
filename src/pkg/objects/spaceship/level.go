@@ -18,11 +18,11 @@ func (lvl *SpaceshipLevel) Down() {
 		return
 	}
 
-	if lvl.Speed > config.SpaceshipInitialSpeed {
+	if lvl.Speed > config.Config.Spaceship.InitialSpeed {
 		lvl.Speed -= 1
 	}
 
-	if lvl.Cannons > 1 && (lvl.Progress-1)%config.SpaceshipCannonProgress == 0 {
+	if lvl.Cannons > 1 && (lvl.Progress-1)%config.Config.Spaceship.CannonProgress == 0 {
 		lvl.Cannons -= 1
 	}
 
@@ -33,11 +33,11 @@ func (lvl *SpaceshipLevel) Down() {
 // If the spaceship speed is less than the maximum speed, it increases the speed by 1.
 // If the number of cannons is less than the maximum number of cannons, it increases the number of cannons by 1.
 func (lvl *SpaceshipLevel) Up() {
-	if lvl.Speed < config.SpaceshipMaximumSpeed {
+	if lvl.Speed < config.Config.Spaceship.MaximumSpeed {
 		lvl.Speed += 1
 	}
 
-	if lvl.Cannons < config.SpaceshipMaximumCannons && (lvl.Progress+1)%config.SpaceshipCannonProgress == 0 {
+	if lvl.Cannons < config.Config.Spaceship.MaximumCannons && (lvl.Progress+1)%config.Config.Spaceship.CannonProgress == 0 {
 		lvl.Cannons += 1
 	}
 

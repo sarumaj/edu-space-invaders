@@ -55,8 +55,8 @@ func (h *handler) registerEventHandlers() {
 
 		var globalEvent touchEvent
 		config.AddEventListener("touchstart", js.FuncOf(func(_ js.Value, p []js.Value) any {
-			globalEvent.Position.X = p[0].Get("changedTouches").Index(0).Get("clientX").Float()
-			globalEvent.Position.Y = p[0].Get("changedTouches").Index(0).Get("clientY").Float()
+			globalEvent.Position.X = objects.Number(p[0].Get("changedTouches").Index(0).Get("clientX").Float())
+			globalEvent.Position.Y = objects.Number(p[0].Get("changedTouches").Index(0).Get("clientY").Float())
 			globalEvent.Delta = objects.Position{}
 			return nil
 		}))
@@ -66,6 +66,9 @@ func (h *handler) registerEventHandlers() {
 				x := p[0].Get("changedTouches").Index(0).Get("clientX").Float()
 				y := p[0].Get("changedTouches").Index(0).Get("clientY").Float()
 				globalEvent.CalculateDelta(x, y)
+				if globalEvent.Delta.X.Abs().Float() >= config.Config.Control.SwipeThreshold*config.CanvasWidth() {
+					globalEvent.Position.X = objects.Number(x)
+				}
 				h.touchEvent <- globalEvent
 				return nil
 			}))

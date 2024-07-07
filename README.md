@@ -11,9 +11,19 @@
 this is an example project to showcase the game development using the Web Assembly Framework in Go.
 Web Assembly allows us to develop web-frontend applications in a runtime like Go.
 
-[![Gameover](assets/gameover.png)](assets/gameplay.mp4)
+<a href="https://youtu.be/DZPWNLPQlLE">
+  <p align="center">
+    <img src="assets/screenshot.png" alt="Gameover">
+  </p>
+</a>
 
-The app is available under [https://edu-space-invaders.herokuapp.com](https://edu-space-invaders-bd0bf5ebb055.herokuapp.com/).
+Click here to play the game:
+
+<a href="https://edu-space-invaders-bd0bf5ebb055.herokuapp.com/">
+  <p align="center">
+    <img src="assets/play.png" alt="https://edu-space-invaders.herokuapp.com" width="200" height="auto">
+  </p>
+</a>
 
 ## Setup
 
@@ -50,20 +60,25 @@ To setup similar project follow following steps:
 ## Application structure
 
 - [directory cmd](cmd)
-  - [directory](cmd/space-invaders)
+  - [directory space-invaders](cmd/space-invaders)
     - [game server main.go](cmd/space-invaders/main.go)
     - [service config file boot.yaml](cmd/space-invaders/boot.yaml)
 - [module file go.mod](go.mod)
 - [source directory](src)
   - [package pkg](src/pkg)
     - [package config](src/pkg/config)
-      - [code file const.go](src/pkg/config/const.go)
+      - [unit tests for config.go](src/pkg/config/config_test.go)
+      - [code file config.go](src/pkg/config/config.go)
+      - [game config file config.ini](src/pkg/config/config.ini)
       - [code file js.go](src/pkg/config/js.go)
       - [code file os.go](src/pkg/config/os.go)
+      - [unit tests for template.go](src/pkg/config/template_test.go)
+      - [code file template.go](src/pkg/config/template.go)
     - [package handler](src/pkg/handler)
       - [code file handler.go](src/pkg/handler/handler.go)
       - [code file handlerjs.go](src/pkg/handler/handlerjs.go)
       - [code file handleros.go](src/pkg/handler/handleros.go)
+      - [code file touchevent.go](src/pkg/handler/touchevent.go)
     - [package objects](src/pkg/objects)
       - [package bullet](src/pkg/objects/bullet)
         - [code file bullet.go](src/pkg/objects/bullet.go)
@@ -73,12 +88,13 @@ To setup similar project follow following steps:
         - [code file enemy.go](src/pkg/objects/enemy.go)
         - [code file level.go](src/pkg/objects/level.go)
         - [code file type.go](src/pkg/objects/type.go)
-      - [code file position.go](src/pkg/objects/position.go)
-      - [code file size.go](src/pkg/objects/size.go)
-      - [package enemy](src/pkg/objects/spaceship)
+      - [package spaceship](src/pkg/objects/spaceship)
         - [code file spaceship.go](src/pkg/objects/spaceship.go)
         - [code file level.go](src/pkg/objects/level.go)
         - [code file state.go](src/pkg/objects/state.go)
+      - [code file number.go](src/pkg/objects/number.go)
+      - [code file position.go](src/pkg/objects/position.go)
+      - [code file size.go](src/pkg/objects/size.go)
     - [directory static](src/static)
       - [static file favicon.ico](src/static/favicon.ico)
       - [static file index.html](src/static/index.html)

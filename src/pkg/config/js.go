@@ -36,7 +36,10 @@ func ClearCanvas() {
 }
 
 // DrawRect is a function that draws a rectangle on the canvas.
-func DrawRect(x, y, width, height float64, color string) {
+func DrawRect(coors [2]float64, size [2]float64, color string) {
+	x, y := coors[0], coors[1]
+	width, height := size[0], size[1]
+
 	ctx.Set("fillStyle", color)
 	ctx.Call("fillRect", x, y, width, height)
 }
@@ -44,7 +47,10 @@ func DrawRect(x, y, width, height float64, color string) {
 // DrawSpaceship is a function that draws a spaceship on the canvas.
 // The spaceship is drawn at the specified position (x, y) with the specified width and height.
 // The spaceship is drawn facing the specified direction.
-func DrawSpaceship(x, y, width, height float64, faceUp bool, color string) {
+func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color string) {
+	x, y := coors[0], coors[1]
+	width, height := size[0], size[1]
+
 	ctx.Set("fillStyle", color)
 	ctx.Set("strokeStyle", "black")
 
@@ -139,6 +145,10 @@ func LogError(err error) {
 func SendMessage(msg string) {
 	content := messageBox.Get("innerText").String()
 	lines := append(strings.Split(content, "\n"), msg)
+	if len(lines) > Config.MessageBox.BufferSize {
+		lines = lines[len(lines)-Config.MessageBox.BufferSize:]
+	}
+
 	messageBox.Set("innerText", strings.Join(lines, "\n"))
 	messageBox.Set("scrollTop", messageBox.Get("scrollHeight"))
 }

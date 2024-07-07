@@ -21,7 +21,7 @@ type Bullet struct {
 // Draw draws the bullet.
 // The bullet is drawn as a yellow rectangle.
 func (bullet Bullet) Draw() {
-	config.DrawRect(bullet.Position.X, bullet.Position.Y, bullet.Size.Width, bullet.Size.Height, "yellow")
+	config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "yellow")
 }
 
 // Exhaust sets the bullet as exhausted.
@@ -41,8 +41,8 @@ func (b Bullet) HasHit(e enemy.Enemy) bool {
 // The bullet moves upwards and slightly to the left or right.
 // The skew of the bullet is based on the position of the cannon.
 func (b *Bullet) Move() {
-	b.Position.Y -= b.Speed
-	b.Position.X += b.skew * b.Speed
+	b.Position.Y -= objects.Number(b.Speed)
+	b.Position.X += objects.Number(b.skew * b.Speed)
 }
 
 // String returns the string representation of the bullet.

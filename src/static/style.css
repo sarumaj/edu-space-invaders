@@ -44,9 +44,11 @@ canvas {
   white-space: pre-wrap; /* Enable word wrapping and preserve whitespace */
   width: 100%;
   max-width: 800px;
-  max-height: 150px; /* Set the max height */
+  height: 150px;
+  flex-shrink: 1; /* Allow the element to shrink if needed */
+  max-height: 150px;
   overflow-y: auto; /* Enable vertical scrolling */
-  border: 5px solid white; /* Optional: Add a border for clarity */
-  padding: 5px; /* Optional: Add some padding for better appearance */
+  border: 5px solid white;
+  padding: 5px;
   box-sizing: border-box; /* Ensure padding and border are included in the width and height */
 }

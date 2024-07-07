@@ -20,31 +20,64 @@ type Enemy struct {
 	Type                EnemyType        // Type is the type of the enemy.
 }
 
+// BerserkGivenAncestor increases the chance of the enemy to become a berserker or an annihilator
+// by repeating the berserk for the new enemy given the enemy type of the ancestor.
+func (enemy *Enemy) BerserkGivenAncestor(oldType EnemyType) {
+	enemy.Berserk()
+
+	// repeat the berserk for the new enemy
+	switch oldType {
+	case Annihilator:
+		enemy.Berserk()
+		fallthrough
+
+	case Berserker:
+		enemy.Berserk()
+		fallthrough
+
+	default:
+		enemy.Berserk()
+
+	}
+}
+
 // Berserk turns the enemy into a berserker or an annihilator.
 // If the enemy is a goodie or a freezer, it does nothing.
 // If the enemy is a normal enemy, it has a chance to become a berserker.
 // If the enemy is a berserker, it has a chance to become an annihilator.
 // If the enemy is an annihilator, it increases its size, health points and defense.
 func (enemy *Enemy) Berserk() {
-	if enemy.Type == Goodie {
-		return
+	boost := struct {
+		sizeFactor, speedFactor float64
+		healthPoints, defense   int
+		nextType                EnemyType
+	}{
+		sizeFactor: 1,
+		nextType:   enemy.Type,
 	}
-
-	var sizeFactor, speedFactor float64
-	var healthPoints, defense int
-	nextType := enemy.Type
 	switch enemy.Type {
 	case Goodie, Freezer:
 		return
 
 	case Normal:
-		sizeFactor, healthPoints, defense, speedFactor, nextType = 2, 2000, 500, 1.2, Berserker
+		boost.defense = config.Config.Enemy.Berserker.DefenseBoost
+		boost.healthPoints = config.Config.Enemy.Berserker.HitpointsBoost
+		boost.speedFactor = config.Config.Enemy.Berserker.SpeedFactorBoost
+		boost.sizeFactor = config.Config.Enemy.Berserker.SizeFactorBoost
+		boost.nextType = Berserker
 
 	case Berserker:
-		sizeFactor, healthPoints, defense, speedFactor, nextType = 3, 10000, 2500, 0.6, Annihilator
+		boost.defense = config.Config.Enemy.Annihilator.DefenseBoost
+		boost.healthPoints = config.Config.Enemy.Annihilator.HitpointsBoost
+		boost.speedFactor = config.Config.Enemy.Annihilator.SpeedFactorBoost
+		boost.sizeFactor = config.Config.Enemy.Annihilator.SizeFactorBoost
+		boost.nextType = Annihilator
 
 	case Annihilator:
-		sizeFactor, healthPoints, defense, speedFactor = 4, 50000, 12500, 0.2
+		boost.defense = config.Config.Enemy.Annihilator.AgainFactor * config.Config.Enemy.Annihilator.DefenseBoost
+		boost.healthPoints = config.Config.Enemy.Annihilator.AgainFactor * config.Config.Enemy.Annihilator.HitpointsBoost
+		boost.speedFactor = config.Config.Enemy.Annihilator.SpeedFactorBoost
+		boost.sizeFactor = config.Config.Enemy.Annihilator.SizeFactorBoost
 
 	}
 
@@ -52,29 +85,35 @@ func (enemy *Enemy) Berserk() {
 		return
 	}
 
-	enemy.Type = nextType
-	enemy.Level.Speed = config.EnemyMaximumSpeed
-	enemy.Level.HitPoints += healthPoints
-	enemy.Level.Defense += defense
-	enemy.Size.Width = config.EnemyWidth * sizeFactor
-	enemy.Size.Height = config.EnemyHeight * sizeFactor
-	enemy.Position.X -= config.EnemyWidth / sizeFactor
-	enemy.Position.Y -= config.EnemyHeight / sizeFactor
-	enemy.Level.Speed *= speedFactor
+	enemy.Type = boost.nextType
+	enemy.Level.HitPoints += boost.healthPoints
+	enemy.Level.Defense += boost.healthPoints
+	enemy.Level.Speed *= boost.speedFactor
+
+	if config.Config.Enemy.Width*boost.sizeFactor < config.CanvasWidth() && config.Config.Enemy.Height*boost.sizeFactor < config.CanvasHeight() {
+		enemy.Size.Width = objects.Number(config.Config.Enemy.Width * boost.sizeFactor)
+		enemy.Size.Height = objects.Number(config.Config.Enemy.Height * boost.sizeFactor)
+		enemy.Position.X -= objects.Number(config.Config.Enemy.Width / boost.sizeFactor)
+		enemy.Position.Y -= objects.Number(config.Config.Enemy.Height / boost.sizeFactor)
+	}
 }
 
 // Draw draws the enemy.
 // The enemy is drawn as a rectangle with the specified color.
 // The color is based on the type of the enemy.
 func (enemy Enemy) Draw() {
-	color := map[EnemyType]string{
-		Goodie:      "green",
-		Freezer:     "lightblue",
-		Normal:      "gray",
-		Berserker:   "red",
-		Annihilator: "darkred",
-	}[enemy.Type]
-	config.DrawSpaceship(enemy.Position.X, enemy.Position.Y, enemy.Size.Width, enemy.Size.Height, false, color)
+	config.DrawSpaceship(
+		enemy.Position.Pack(),
+		enemy.Size.Pack(),
+		false,
+		map[EnemyType]string{
+			Goodie:      "green",
+			Freezer:     "lightblue",
+			Normal:      "gray",
+			Berserker:   "red",
+			Annihilator: "darkred",
+		}[enemy.Type],
+	)
 }
 
 // Hit reduces the health points of the enemy.
@@ -83,7 +122,7 @@ func (enemy Enemy) Draw() {
 func (enemy *Enemy) Hit(damage int) int {
 	damage = damage - rand.Intn(enemy.Level.Defense)
 	if damage < 0 {
-		damage = rand.Intn(config.BulletInitialDamage)
+		damage = rand.Intn(config.Config.Bullet.InitialDamage)
 	}
 
 	enemy.Level.HitPoints -= damage
@@ -97,14 +136,14 @@ func (enemy *Enemy) Hit(damage int) int {
 // If the spaceship is below the enemy, the enemy moves towards the spaceship.
 // Otherwise, the enemy moves randomly.
 func (enemy *Enemy) Move(spaceshipPosition objects.Position) {
-	enemy.Position.Y += enemy.Level.Speed
+	enemy.Position.Y += objects.Number(enemy.Level.Speed)
 	if enemy.Type == Goodie {
 		return
 	}
 
 	// If the spaceship is below the enemy, the enemy moves towards the spaceship.
 	// The detection range is half of the canvas height.
-	if spaceshipPosition.Y-enemy.Position.Y < config.CanvasHeight()/2 {
+	if spaceshipPosition.Y.Float()-enemy.Position.Y.Float() < config.CanvasHeight()/2 {
 		// Check if the spaceship is on the left or right side of the enemy.
 		switch {
 		case enemy.Position.X < spaceshipPosition.X:
@@ -122,13 +161,13 @@ func (enemy *Enemy) Move(spaceshipPosition objects.Position) {
 		case enemy.Position.X <= 0:
 			enemy.direction = 1
 
-		case enemy.Position.X+enemy.Size.Width >= config.CanvasWidth():
+		case enemy.Position.X.Float()+enemy.Size.Width.Float() >= config.CanvasWidth():
 			enemy.direction = -1
 
 		}
 	}
 
-	enemy.Position.X += float64(enemy.direction)
+	enemy.Position.X += objects.Number(enemy.direction)
 }
 
 // String returns the string representation of the enemy.
@@ -177,25 +216,25 @@ func Challenge(name string, randomY bool) *Enemy {
 
 	y := 0.0
 	if randomY {
-		y = rand.Float64() * (config.CanvasHeight()/2 - config.EnemyHeight)
+		y = rand.Float64() * (config.CanvasHeight()/2 - config.Config.Enemy.Height)
 	}
 
 	return &Enemy{
 		Position: objects.Position{
-			X: rand.Float64() * (config.CanvasWidth() - config.EnemyWidth),
-			Y: y,
+			X: objects.Number(rand.Float64() * (config.CanvasWidth() - config.Config.Enemy.Width)),
+			Y: objects.Number(y),
 		},
 		Size: objects.Size{
-			Width:  config.EnemyWidth,
-			Height: config.EnemyHeight,
+			Width:  objects.Number(config.Config.Enemy.Width),
+			Height: objects.Number(config.Config.Enemy.Height),
 		},
-		SpecialtyLikeliness: config.EnemySpecialtyLikeliness,
+		SpecialtyLikeliness: config.Config.Enemy.SpecialtyLikeliness,
 		Level: &EnemyLevel{
 			Progress:          1,
-			Speed:             config.EnemyInitialSpeed,
-			HitPoints:         config.EnemyInitialHitpoints,
-			Defense:           config.EnemyInitialDefense,
-			BerserkLikeliness: config.EnemyBerserkLikeliness,
+			Speed:             config.Config.Enemy.InitialSpeed,
+			HitPoints:         config.Config.Enemy.InitialHitpoints,
+			Defense:           config.Config.Enemy.InitialDefense,
+			BerserkLikeliness: config.Config.Enemy.BerserkLikeliness,
 		},
 		Type: Normal,
 		Name: name,

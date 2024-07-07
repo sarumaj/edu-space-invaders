@@ -13,14 +13,14 @@ type Bullets []Bullet
 func (bullets *Bullets) Reload(x, y float64, damage int, ratio float64) {
 	*bullets = append(*bullets, Bullet{
 		Position: objects.Position{
-			X: x,
-			Y: y,
+			X: objects.Number(x),
+			Y: objects.Number(y),
 		},
 		Size: objects.Size{
-			Width:  config.BulletWidth,
-			Height: config.BulletHeight,
+			Width:  objects.Number(config.Config.Bullet.Width),
+			Height: objects.Number(config.Config.Bullet.Height),
 		},
-		Speed:  config.BulletSpeed,
+		Speed:  config.Config.Bullet.Speed,
 		Damage: damage,
 		skew:   ratio - 0.5,
 	})

@@ -86,8 +86,7 @@ type config struct {
 	}
 
 	Control struct {
-		SwipeCooldown  time.Duration
-		SwipeThreshold float64
+		SwipeCooldown time.Duration
 	}
 
 	Messages struct {

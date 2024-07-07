@@ -174,11 +174,6 @@ func (h *handler) handleTouch(event touchEvent) {
 		return
 	}
 
-	h.spaceship.Fire()
-	if event.Delta.X.Abs().Float() < config.Config.Control.SwipeThreshold*config.CanvasWidth() {
-		return
-	}
-
 	switch {
 	case event.Delta.X < 0:
 		h.spaceship.MoveLeft()
@@ -187,6 +182,8 @@ func (h *handler) handleTouch(event touchEvent) {
 		h.spaceship.MoveRight()
 
 	}
+
+	h.spaceship.Fire()
 }
 
 // refresh refreshes the game state.

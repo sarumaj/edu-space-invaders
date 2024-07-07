@@ -7,7 +7,6 @@ import (
 
 	config "github.com/sarumaj/edu-space-invaders/src/pkg/config"
 	handler "github.com/sarumaj/edu-space-invaders/src/pkg/handler"
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
 )
 
 // main is the entry point of the game.
@@ -23,11 +22,7 @@ func main() {
 
 	config.Log("Starting game loop")
 
-	go game.Loop(func(e *enemy.Enemies) {
-		for len(*e) < config.Config.Enemy.Count {
-			e.AppendNew("", false)
-		}
-	})
+	go game.Loop(true)
 
 	game.Wait()
 }

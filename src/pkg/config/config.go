@@ -38,6 +38,7 @@ type config struct {
 
 	Enemy struct {
 		Count                     int
+		CountProgressStep         int
 		BerserkLikeliness         float64
 		BerserkLikelinessProgress float64
 		DefenseProgress           int
@@ -52,11 +53,11 @@ type config struct {
 		Width                     float64
 
 		Annihilator struct {
-			AgainFactor      int
 			DefenseBoost     int
 			HitpointsBoost   int
 			SizeFactorBoost  float64
 			SpeedFactorBoost float64
+			YetAgainFactor   int
 		} `ini:"Enemy.Annihilator"`
 
 		Berserker struct {
@@ -92,7 +93,6 @@ type config struct {
 	Messages struct {
 		GameStartedNoTouchDevice string
 		GameStartedTouchDevice   string
-		GameOver                 string
 		HowToStartNoTouchDevice  string
 		HowToStartTouchDevice    string
 		SpaceshipFrozen          string
@@ -100,6 +100,7 @@ type config struct {
 		Templates struct {
 			EnemyDestroyed               templateString
 			EnemyHit                     templateString
+			GameOver                     templateString
 			SpaceshipDowngradedByEnemy   templateString
 			SpaceshipUpgradedByEnemyKill templateString
 			SpaceshipUpgradedByGoodie    templateString

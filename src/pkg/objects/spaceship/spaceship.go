@@ -19,6 +19,7 @@ type Spaceship struct {
 	Cooldown            time.Duration    // Time between shots
 	Level               *SpaceshipLevel  // Spaceship level
 	State               SpaceshipState   // Spaceship state
+	HighScore           int              // HighScore is the high score of the spaceship.
 	lastFired           time.Time        // Last time the spaceship fired
 	lastStateTransition time.Time        // Last time the spaceship changed state
 }
@@ -145,6 +146,13 @@ func (spaceship *Spaceship) Penalize(levels int) {
 // String returns a string representation of the spaceship.
 func (spaceship Spaceship) String() string {
 	return fmt.Sprintf("Spaceship (Lvl: %d, Pos: %s, State: %s)", spaceship.Level.Progress, spaceship.Position, spaceship.State)
+}
+
+// UpdateHighScore updates the high score of the spaceship.
+func (spaceship *Spaceship) UpdateHighScore() {
+	if spaceship.Level.Progress > spaceship.HighScore {
+		spaceship.HighScore = spaceship.Level.Progress
+	}
 }
 
 // UpdateState updates the state of the spaceship.

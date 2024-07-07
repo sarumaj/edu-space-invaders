@@ -8,6 +8,16 @@ import (
 // Enemies represents a collection of enemies.
 type Enemies []Enemy
 
+// countByType counts the number of enemies of the specified type.
+func (enemies Enemies) countByTypes() map[EnemyType]int {
+	types := make(map[EnemyType]int)
+	for _, e := range enemies {
+		types[e.Type]++
+	}
+
+	return types
+}
+
 // getHighestProgress returns the highest progress of the current enemies generation.
 func (enemies Enemies) getHighestProgress() int {
 	highestLevel := 1
@@ -22,10 +32,7 @@ func (enemies Enemies) getHighestProgress() int {
 
 // getMostFrequentType returns the most frequent enemy type given the enemies generation.
 func (enemies Enemies) getMostFrequentType() EnemyType {
-	types := make(map[EnemyType]int)
-	for _, e := range enemies {
-		types[e.Type]++
-	}
+	types := enemies.countByTypes()
 
 	var max int
 	var mostFrequentType EnemyType
@@ -63,11 +70,10 @@ func (enemies *Enemies) AppendNew(name string, randomY bool) {
 		newEnemy := Challenge(name, randomY)
 		if !enemies.isOverlapping(*newEnemy) {
 			newEnemy.ToProgressLevel(enemies.getHighestProgress())
-			newEnemy.Surprise()
+			newEnemy.Surprise(enemies.countByTypes())
 			newEnemy.BerserkGivenAncestor(enemies.getMostFrequentType())
 
 			*enemies = append(*enemies, *newEnemy)
-
 			break
 		}
 	}
@@ -80,11 +86,15 @@ func (enemies *Enemies) AppendNew(name string, randomY bool) {
 // The enemies are regenerated when the spaceship reaches the bottom of the screen.
 // The new enemies are placed at the highest level of the existing enemies.
 // The new enemies are turned into a goodie and berserk based on the probabilities.
-func (enemies *Enemies) Update(spaceshipPosition objects.Position, regenerate func(*Enemies)) {
+func (enemies *Enemies) Update(spaceshipPosition objects.Position, regenerate bool) {
 	var visibleEnemies Enemies
 	for i := range *enemies {
 		enemy := &(*enemies)[i]
 		if enemy.Level.HitPoints <= 0 {
+			if regenerate {
+				visibleEnemies.AppendNew("", false)
+			}
+
 			continue
 		}
 
@@ -92,7 +102,7 @@ func (enemies *Enemies) Update(spaceshipPosition objects.Position, regenerate fu
 		if enemy.Position.Y.Float()+enemy.Size.Height.Float() >= config.CanvasHeight() {
 			newEnemy := Challenge(enemy.Name, false)
 			newEnemy.ToProgressLevel(enemy.Level.Progress + 1)
-			newEnemy.Surprise()
+			newEnemy.Surprise(enemies.countByTypes())
 			newEnemy.BerserkGivenAncestor(enemy.Type)
 			*enemy = *newEnemy
 		}
@@ -101,7 +111,4 @@ func (enemies *Enemies) Update(spaceshipPosition objects.Position, regenerate fu
 	}
 
 	*enemies = visibleEnemies
-	if regenerate != nil {
-		regenerate(enemies)
-	}
 }

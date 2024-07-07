@@ -53,8 +53,8 @@ func (enemy *Enemy) Berserk() {
 		boost.nextType = Annihilator
 
 	case Annihilator:
-		boost.defense = config.Config.Enemy.Annihilator.AgainFactor * config.Config.Enemy.Annihilator.DefenseBoost
-		boost.healthPoints = config.Config.Enemy.Annihilator.AgainFactor * config.Config.Enemy.Annihilator.HitpointsBoost
+		boost.defense = config.Config.Enemy.Annihilator.YetAgainFactor * config.Config.Enemy.Annihilator.DefenseBoost
+		boost.healthPoints = config.Config.Enemy.Annihilator.YetAgainFactor * config.Config.Enemy.Annihilator.HitpointsBoost
 		boost.speedFactor = config.Config.Enemy.Annihilator.SpeedFactorBoost
 		boost.sizeFactor = config.Config.Enemy.Annihilator.SizeFactorBoost
 
@@ -153,6 +153,10 @@ func (enemy *Enemy) Move(spaceshipPosition objects.Position) {
 			enemy.direction = -1
 
 		}
+
+		// Surprise dash of the enemy towards spaceship
+		enemy.Position.Y += objects.Number(rand.Float64() * enemy.Level.Speed)
+		enemy.direction *= (rand.Intn(3) + 1)
 	} else {
 		// Otherwise, the enemy moves randomly.
 		enemy.direction += (rand.Intn(3) - 1)
@@ -178,9 +182,28 @@ func (enemy Enemy) String() string {
 // Surprise turns the enemy into a freezer or a goodie.
 // If the enemy is a normal enemy, it has a chance to become a freezer or a goodie.
 // The likelihood of the enemy becoming a freezer or a goodie is based on the SpecialtyLikeliness.
-func (enemy *Enemy) Surprise() {
+// The stats are the number of enemies by type.
+// They are used to lower the likelihood of the enemy becoming a goodie.
+func (enemy *Enemy) Surprise(stats map[EnemyType]int) {
+	goodies, total := 0.0, 0.0
+	for k, v := range stats {
+		if k == Goodie {
+			goodies = float64(v)
+		}
+		total += float64(v)
+	}
+
+	if total == 0.0 {
+		total = 1.0
+	}
+
 	if enemy.Type == Normal && rand.Intn(int(1.0/enemy.SpecialtyLikeliness)) == 0 {
-		enemy.Type = [...]EnemyType{Freezer, Goodie}[rand.Intn(2)]
+		index := 0
+		if rand.Float64()*(total-goodies)/total >= 0.5 {
+			index = 1
+		}
+		enemy.Type = [...]EnemyType{Freezer, Goodie}[index]
+
 	}
 }
 

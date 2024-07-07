@@ -64,16 +64,16 @@ func (h *handler) registerEventHandlers() {
 
 		var lastFired time.Time
 		config.AddEventListener("touchmove", js.FuncOf(func(_ js.Value, p []js.Value) any {
-
 			// Prevent rapid movement of the spaceship
-			if time.Since(lastFired) > config.Config.Control.SwipeCooldown {
-				x := p[0].Get("changedTouches").Index(0).Get("clientX").Float()
-				y := p[0].Get("changedTouches").Index(0).Get("clientY").Float()
-				globalEvent.CalculateDelta(x, y)
-				lastFired = time.Now()
-				h.touchEvent <- globalEvent
+			if time.Since(lastFired) <= config.Config.Control.SwipeCooldown {
+				return nil
 			}
 
+			x := p[0].Get("changedTouches").Index(0).Get("clientX").Float()
+			y := p[0].Get("changedTouches").Index(0).Get("clientY").Float()
+			globalEvent.CalculateDelta(x, y)
+			lastFired = time.Now()
+			h.touchEvent <- globalEvent
 			return nil
 		}))
 

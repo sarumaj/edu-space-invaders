@@ -8,6 +8,7 @@ import (
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/spaceship"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/star"
 )
 
 type ctxKey string
@@ -22,6 +23,7 @@ type handler struct {
 	keysHeld     map[keyBinding]bool  // keysHeld is the map of keys held
 	once         sync.Once            // once is meant to register the keydown event only once
 	spaceship    *spaceship.Spaceship // spaceship is the player's spaceship
+	stars        star.Stars           // stars is the list of stars
 	touchEvent   chan touchEvent      // touchEvent is the channel for touch events
 }
 
@@ -198,17 +200,55 @@ func (h *handler) handleTouch(event touchEvent) {
 	h.spaceship.Fire()
 }
 
+// render is a method that renders the game.
+// It draws the spaceship, bullets and enemies on the canvas.
+// The spaceship is drawn in white color.
+// The bullets are drawn in yellow color.
+// The enemies are drawn in gray color.
+// The goodie enemies are drawn in green color.
+// The berserker enemies are drawn in red color.
+// The annihilator enemies are drawn in dark red color.
+// The spaceship is drawn in dark red color if it is damaged.
+// The spaceship is drawn in yellow color if it is boosted.
+// The spaceship is drawn in white color if it is normal.
+// If draws objects as rectangles.
+func (h *handler) render() {
+	config.ClearCanvas()
+
+	// Draw spaceship
+	h.spaceship.Draw()
+
+	// Draw bullets
+	for _, b := range h.spaceship.Bullets {
+		b.Draw()
+	}
+
+	// Draw enemies
+	for _, e := range h.enemies {
+		e.Draw()
+	}
+
+	// Draw stars
+	for _, s := range h.stars {
+		s.Draw()
+	}
+}
+
 // refresh refreshes the game state.
 // It updates the bullets of the spaceship.
 // It updates the enemies.
 // It updates the state of the spaceship.
 // It checks the collisions.
 func (h *handler) refresh(regenerate bool) {
-	h.spaceship.Bullets.Update()
+	h.stars.Update(h.spaceship.Level.Speed)
 	h.enemies.Update(h.spaceship.Position, regenerate)
 	h.spaceship.UpdateState()
+	h.spaceship.Bullets.Update()
 	h.checkCollisions()
 }
+
+// sendMessage sends a message to the message box.
+func (*handler) sendMessage(msg string) { config.SendMessage(msg) }
 
 // start starts the game if not already started.
 func (h *handler) start() bool {
@@ -305,6 +345,7 @@ func New() *handler {
 		keysHeld:     make(map[keyBinding]bool),
 		touchEvent:   make(chan touchEvent),
 		spaceship:    spaceship.Embark(),
+		stars:        star.Explode(config.Config.Star.Count),
 	}
 
 	h.ctx, h.cancel = context.WithCancel(context.Background())

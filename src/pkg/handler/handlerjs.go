@@ -10,35 +10,6 @@ import (
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
 )
 
-// render is a method that renders the game.
-// It draws the spaceship, bullets and enemies on the canvas.
-// The spaceship is drawn in white color.
-// The bullets are drawn in yellow color.
-// The enemies are drawn in gray color.
-// The goodie enemies are drawn in green color.
-// The berserker enemies are drawn in red color.
-// The annihilator enemies are drawn in dark red color.
-// The spaceship is drawn in dark red color if it is damaged.
-// The spaceship is drawn in yellow color if it is boosted.
-// The spaceship is drawn in white color if it is normal.
-// If draws objects as rectangles.
-func (h *handler) render() {
-	config.ClearCanvas()
-
-	// Draw spaceship
-	h.spaceship.Draw()
-
-	// Draw bullets
-	for _, b := range h.spaceship.Bullets {
-		b.Draw()
-	}
-
-	// Draw enemies
-	for _, e := range h.enemies {
-		e.Draw()
-	}
-}
-
 // registerEventHandlers is a method that registers the event listeners.
 func (h *handler) registerEventHandlers() {
 	h.once.Do(func() {
@@ -103,6 +74,3 @@ func (h *handler) registerEventHandlers() {
 		}))
 	})
 }
-
-// sendMessage sends a message to the message box.
-func (*handler) sendMessage(msg string) { config.SendMessage(msg) }

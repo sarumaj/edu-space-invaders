@@ -4,6 +4,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"syscall/js"
 )
@@ -97,6 +98,49 @@ func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color string)
 	ctx.Call("closePath")
 	ctx.Call("fill")
 	ctx.Call("stroke")
+}
+
+// DrawStar draws a star on the canvas.
+// The star is drawn at the specified position (cx, cy) with the specified number of spikes.
+// The outer radius and inner radius of the star are specified.
+// The star is filled with the specified color.
+func DrawStar(coords [2]float64, spikes, outerRadius, innerRadius float64, color string, brightness float64) {
+	rot := math.Pi / 2 * 3         // Starting rotation angle (90 degrees)
+	cx, cy := coords[0], coords[1] // Center position
+	x, y := cx, cy                 // Starting position
+	step := math.Pi / spikes       // Angle between each spike
+
+	// Calculate the positions of the star
+	var positions [][2]float64
+	positions = append(positions, [2]float64{cx, cy - outerRadius})
+	for i := 0; i < int(spikes); i++ {
+		x = cx + math.Cos(rot)*outerRadius
+		y = cy + math.Sin(rot)*outerRadius
+		positions = append(positions, [2]float64{x, y})
+		rot += step
+
+		x = cx + math.Cos(rot)*innerRadius
+		y = cy + math.Sin(rot)*innerRadius
+		positions = append(positions, [2]float64{x, y})
+		rot += step
+	}
+	positions = append(positions, [2]float64{cx, cy - outerRadius})
+
+	// Draw the star
+	// Darken the color based on the brightness
+	first := positions[0]
+	last := positions[len(positions)-1]
+	for _, c := range []string{color, fmt.Sprintf("rgba(0, 0, 0, %.2f)", 1-brightness)} {
+		ctx.Call("beginPath")
+		ctx.Set("fillStyle", c)
+		ctx.Call("moveTo", first[0], first[1])
+		for i := 1; i < len(positions)-1; i++ {
+			ctx.Call("lineTo", positions[i][0], positions[i][1])
+		}
+		ctx.Call("lineTo", last[0], last[1])
+		ctx.Call("closePath")
+		ctx.Call("fill")
+	}
 }
 
 // Getenv is a function that returns the value of the environment variable key.

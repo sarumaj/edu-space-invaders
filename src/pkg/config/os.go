@@ -27,6 +27,13 @@ func DrawRect(coors [2]float64, size [2]float64, color string) {}
 // The spaceship is drawn facing the specified direction.
 func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color string) {}
 
+// DrawStar draws a star on the canvas.
+// The star is drawn at the specified position (cx, cy) with the specified number of spikes.
+// The outer radius and inner radius of the star are specified.
+// The star is filled with the specified color.
+func DrawStar(coords [2]float64, spikes, outerRadius, innerRadius float64, color string, brightness float64) {
+}
+
 // Getenv is a function that returns the value of the environment variable key.
 func Getenv(key string) string {
 	return os.Getenv(key)

@@ -86,6 +86,16 @@ type config struct {
 		Width              float64
 	}
 
+	Star struct {
+		Brightness    float64
+		Count         int
+		MinimumRadius float64
+		MinimumSpikes float64
+		MaximumRadius float64
+		MaximumSpikes float64
+		SpeedRatio    float64
+	}
+
 	Control struct {
 		SwipeCooldown time.Duration
 	}

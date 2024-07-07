@@ -215,22 +215,22 @@ func (h *handler) handleTouch(event touchEvent) {
 func (h *handler) render() {
 	config.ClearCanvas()
 
+	// Draw stars
+	for _, s := range h.stars {
+		s.Draw()
+	}
+
 	// Draw spaceship
 	h.spaceship.Draw()
-
-	// Draw bullets
-	for _, b := range h.spaceship.Bullets {
-		b.Draw()
-	}
 
 	// Draw enemies
 	for _, e := range h.enemies {
 		e.Draw()
 	}
 
-	// Draw stars
-	for _, s := range h.stars {
-		s.Draw()
+	// Draw bullets
+	for _, b := range h.spaceship.Bullets {
+		b.Draw()
 	}
 }
 

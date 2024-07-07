@@ -104,7 +104,7 @@ func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color string)
 // The star is drawn at the specified position (cx, cy) with the specified number of spikes.
 // The outer radius and inner radius of the star are specified.
 // The star is filled with the specified color.
-func DrawStar(coords [2]float64, spikes, outerRadius, innerRadius float64, color string, brightness float64) {
+func DrawStar(coords [2]float64, spikes, radius float64, color string, brightness float64) {
 	rot := math.Pi / 2 * 3         // Starting rotation angle (90 degrees)
 	cx, cy := coords[0], coords[1] // Center position
 	x, y := cx, cy                 // Starting position
@@ -112,19 +112,20 @@ func DrawStar(coords [2]float64, spikes, outerRadius, innerRadius float64, color
 
 	// Calculate the positions of the star
 	var positions [][2]float64
-	positions = append(positions, [2]float64{cx, cy - outerRadius})
+	positions = append(positions, [2]float64{cx, cy - radius})
 	for i := 0; i < int(spikes); i++ {
-		x = cx + math.Cos(rot)*outerRadius
-		y = cy + math.Sin(rot)*outerRadius
+		x = cx + math.Cos(rot)*radius
+		y = cy + math.Sin(rot)*radius
 		positions = append(positions, [2]float64{x, y})
 		rot += step
 
-		x = cx + math.Cos(rot)*innerRadius
-		y = cy + math.Sin(rot)*innerRadius
+		// inner radius
+		x = cx + math.Cos(rot)*radius/2
+		y = cy + math.Sin(rot)*radius/2
 		positions = append(positions, [2]float64{x, y})
 		rot += step
 	}
-	positions = append(positions, [2]float64{cx, cy - outerRadius})
+	positions = append(positions, [2]float64{cx, cy - radius})
 
 	// Draw the star
 	// Darken the color based on the brightness

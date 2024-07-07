@@ -24,7 +24,7 @@ func (s *Star) Accelerate(spaceshipSpeed float64) {
 
 // Draw is a method that draws the star.
 func (s *Star) Draw() {
-	config.DrawStar(s.Position.Pack(), s.Spikes, s.Radius, s.Radius/2, s.color, config.Config.Star.Brightness)
+	config.DrawStar(s.Position.Pack(), s.Spikes, s.Radius, s.color, config.Config.Star.Brightness)
 }
 
 // Move is a method that moves the star.

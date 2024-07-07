@@ -11,7 +11,7 @@
 this is an example project to showcase the game development using the Web Assembly Framework in Go.
 Web Assembly allows us to develop web-frontend applications in a runtime like Go.
 
-<a href="https://youtu.be/DZPWNLPQlLE">
+<a href="https://youtu.be/t-5W3WgnDkI">
   <p align="center">
     <img src="assets/screenshot.png" alt="Gameover">
   </p>

@@ -86,6 +86,7 @@ type config struct {
 	}
 
 	Control struct {
+		SwipeCooldown  time.Duration
 		SwipeThreshold float64
 	}
 

@@ -4,6 +4,7 @@ package handler
 
 import (
 	"syscall/js"
+	"time"
 
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
@@ -57,22 +58,32 @@ func (h *handler) registerEventHandlers() {
 		config.AddEventListener("touchstart", js.FuncOf(func(_ js.Value, p []js.Value) any {
 			globalEvent.Position.X = objects.Number(p[0].Get("changedTouches").Index(0).Get("clientX").Float())
 			globalEvent.Position.Y = objects.Number(p[0].Get("changedTouches").Index(0).Get("clientY").Float())
-			globalEvent.Delta = objects.Position{}
+			globalEvent.Delta = objects.Position{} // Reset the delta to prevent accidental movement of the spaceship
 			return nil
 		}))
 
-		for _, event := range []string{"touchmove", "touchend"} {
-			config.AddEventListener(event, js.FuncOf(func(_ js.Value, p []js.Value) any {
+		var lastFired time.Time
+		config.AddEventListener("touchmove", js.FuncOf(func(_ js.Value, p []js.Value) any {
+
+			// Prevent rapid movement of the spaceship
+			if time.Since(lastFired) > config.Config.Control.SwipeCooldown {
 				x := p[0].Get("changedTouches").Index(0).Get("clientX").Float()
 				y := p[0].Get("changedTouches").Index(0).Get("clientY").Float()
 				globalEvent.CalculateDelta(x, y)
-				if globalEvent.Delta.X.Abs().Float() >= config.Config.Control.SwipeThreshold*config.CanvasWidth() {
-					globalEvent.Position.X = objects.Number(x)
-				}
+				lastFired = time.Now()
 				h.touchEvent <- globalEvent
-				return nil
-			}))
-		}
+			}
+
+			return nil
+		}))
+
+		config.AddEventListener("touchend", js.FuncOf(func(_ js.Value, p []js.Value) any {
+			x := p[0].Get("changedTouches").Index(0).Get("clientX").Float()
+			y := p[0].Get("changedTouches").Index(0).Get("clientY").Float()
+			globalEvent.CalculateDelta(x, y)
+			h.touchEvent <- globalEvent
+			return nil
+		}))
 	})
 }
 

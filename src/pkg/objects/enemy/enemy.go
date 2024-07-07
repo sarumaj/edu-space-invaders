@@ -20,27 +20,6 @@ type Enemy struct {
 	Type                EnemyType        // Type is the type of the enemy.
 }
 
-// BerserkGivenAncestor increases the chance of the enemy to become a berserker or an annihilator
-// by repeating the berserk for the new enemy given the enemy type of the ancestor.
-func (enemy *Enemy) BerserkGivenAncestor(oldType EnemyType) {
-	enemy.Berserk()
-
-	// repeat the berserk for the new enemy
-	switch oldType {
-	case Annihilator:
-		enemy.Berserk()
-		fallthrough
-
-	case Berserker:
-		enemy.Berserk()
-		fallthrough
-
-	default:
-		enemy.Berserk()
-
-	}
-}
-
 // Berserk turns the enemy into a berserker or an annihilator.
 // If the enemy is a goodie or a freezer, it does nothing.
 // If the enemy is a normal enemy, it has a chance to become a berserker.
@@ -95,6 +74,27 @@ func (enemy *Enemy) Berserk() {
 		enemy.Size.Height = objects.Number(config.Config.Enemy.Height * boost.sizeFactor)
 		enemy.Position.X -= objects.Number(config.Config.Enemy.Width / boost.sizeFactor)
 		enemy.Position.Y -= objects.Number(config.Config.Enemy.Height / boost.sizeFactor)
+	}
+}
+
+// BerserkGivenAncestor increases the chance of the enemy to become a berserker or an annihilator
+// by repeating the berserk for the new enemy given the enemy type of the ancestor.
+func (enemy *Enemy) BerserkGivenAncestor(oldType EnemyType) {
+	enemy.Berserk()
+
+	// repeat the berserk for the new enemy
+	switch oldType {
+	case Annihilator:
+		enemy.Berserk()
+		fallthrough
+
+	case Berserker:
+		enemy.Berserk()
+		fallthrough
+
+	default:
+		enemy.Berserk()
+
 	}
 }
 

@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -313,9 +312,7 @@ func (h *handler) Loop(regenerate bool) {
 	// Monitor the FPS rate.
 	h.monitor()
 
-	fpsRate := time.Duration(float64(time.Second) / float64(config.Config.Control.DesiredFramesPerSecondRate))
-	h.sendMessage(fmt.Sprintf("Using FPS rate of %s", fpsRate))
-	ticker := time.NewTicker(fpsRate)
+	ticker := time.NewTicker(time.Second / time.Duration(config.Config.Control.DesiredFramesPerSecondRate))
 	for {
 		select {
 		case <-h.ctx.Done():

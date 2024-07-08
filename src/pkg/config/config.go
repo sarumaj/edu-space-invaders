@@ -97,7 +97,9 @@ type config struct {
 	}
 
 	Control struct {
-		SwipeCooldown time.Duration
+		CriticalFramesPerSecondRate int
+		DesiredFramesPerSecondRate  int
+		SwipeCooldown               time.Duration
 	}
 
 	Messages struct {

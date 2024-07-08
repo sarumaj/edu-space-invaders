@@ -112,7 +112,6 @@ func DrawStar(coords [2]float64, spikes, radius float64, color string, brightnes
 
 	// Calculate the positions of the star
 	var positions [][2]float64
-	positions = append(positions, [2]float64{cx, cy - radius})
 	for i := 0; i < int(spikes); i++ {
 		x = cx + math.Cos(rot)*radius
 		y = cy + math.Sin(rot)*radius
@@ -125,20 +124,17 @@ func DrawStar(coords [2]float64, spikes, radius float64, color string, brightnes
 		positions = append(positions, [2]float64{x, y})
 		rot += step
 	}
-	positions = append(positions, [2]float64{cx, cy - radius})
 
 	// Draw the star
 	// Darken the color based on the brightness
-	first := positions[0]
-	last := positions[len(positions)-1]
 	for _, c := range []string{color, fmt.Sprintf("rgba(0, 0, 0, %.2f)", 1-brightness)} {
 		ctx.Call("beginPath")
 		ctx.Set("fillStyle", c)
-		ctx.Call("moveTo", first[0], first[1])
+		ctx.Call("moveTo", cx, cy-radius)
 		for i := 1; i < len(positions)-1; i++ {
 			ctx.Call("lineTo", positions[i][0], positions[i][1])
 		}
-		ctx.Call("lineTo", last[0], last[1])
+		ctx.Call("lineTo", cx, cy-radius)
 		ctx.Call("closePath")
 		ctx.Call("fill")
 	}

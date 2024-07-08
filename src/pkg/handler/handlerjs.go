@@ -21,10 +21,14 @@ func (h *handler) monitor() {
 		frameCount++
 		now := time.Now()
 
-		if elapsed := now.Sub(lastFrameTime).Seconds(); elapsed >= 0.1 {
-			if fps := float64(frameCount) / elapsed; fps <= float64(config.Config.Control.CriticalFramesPerSecondRate) {
-				h.sendMessage(fmt.Sprintf("Low FPS detected: %.2f! Reducing resource consumption.", fps))
-				h.stars = nil
+		precision := 1.0 // every second
+		if config.Config.Control.CriticalFramesPerSecondRate > 10 {
+			precision = 0.1 // every 100ms
+		}
+
+		if elapsed := now.Sub(lastFrameTime).Seconds(); elapsed >= precision {
+			if fps := float64(frameCount) / elapsed; fps <= config.Config.Control.CriticalFramesPerSecondRate {
+				h.sendMessage(fmt.Sprintf("Low FPS detected: %.2f!", fps))
 			}
 			frameCount, lastFrameTime = 0, now
 		}
@@ -39,14 +43,22 @@ func (h *handler) monitor() {
 }
 
 // registerEventHandlers is a method that registers the event listeners.
-func (h *handler) registerEventHandlers() {
+func (h *handler) registerEventHandlers() (shutdown func()) {
+	var keydown js.Func
+	var keyup js.Func
+	var touchstart js.Func
+	var touchmove js.Func
+	var touchend js.Func
+
 	h.once.Do(func() {
 		registeredKeys := map[keyBinding]bool{
+			ArrowDown:  true,
 			ArrowLeft:  true,
 			ArrowRight: true,
+			ArrowUp:    true,
 			Space:      true,
 		}
-		config.AddEventListener("keydown", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		keydown = js.FuncOf(func(_ js.Value, p []js.Value) any {
 			key := keyBinding(p[0].Get("code").String())
 			if !registeredKeys[key] {
 				return nil
@@ -54,9 +66,8 @@ func (h *handler) registerEventHandlers() {
 			p[0].Call("preventDefault")
 			h.keydownEvent <- key
 			return nil
-		}))
-
-		config.AddEventListener("keyup", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		})
+		keyup = js.FuncOf(func(_ js.Value, p []js.Value) any {
 			key := keyBinding(p[0].Get("code").String())
 			if !registeredKeys[key] {
 				return nil
@@ -64,50 +75,46 @@ func (h *handler) registerEventHandlers() {
 			p[0].Call("preventDefault")
 			h.keyupEvent <- key
 			return nil
-		}))
+		})
+
+		config.AddEventListener("keydown", keydown)
+		config.AddEventListener("keyup", keyup)
 
 		var globalEvent touchEvent
-		config.AddEventListener("touchstart", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		touchstart = js.FuncOf(func(_ js.Value, p []js.Value) any {
 			p[0].Call("preventDefault")
 			globalEvent.Position.X = objects.Number(p[0].Get("changedTouches").Index(0).Get("clientX").Float())
 			globalEvent.Position.Y = objects.Number(p[0].Get("changedTouches").Index(0).Get("clientY").Float())
 			globalEvent.Delta = objects.Position{} // Reset the delta to prevent accidental movement of the spaceship
 			return nil
-		}))
-
-		var lastFired time.Time
-		config.AddEventListener("touchmove", js.FuncOf(func(_ js.Value, p []js.Value) any {
-			// Prevent rapid movement of the spaceship
-			if time.Since(lastFired) <= config.Config.Control.SwipeCooldown {
-				return nil
-			}
-
+		})
+		touchmove = js.FuncOf(func(_ js.Value, p []js.Value) any {
+			p[0].Call("preventDefault")
 			x := p[0].Get("changedTouches").Index(0).Get("clientX").Float()
 			y := p[0].Get("changedTouches").Index(0).Get("clientY").Float()
 			globalEvent.CalculateDelta(x, y)
-
-			// Prevent only horizontal swipes from being handled in default manner
-			if globalEvent.Delta.Y.Abs() < globalEvent.Delta.X.Abs() {
-				p[0].Call("preventDefault")
-			}
-
-			lastFired = time.Now()
 			h.touchEvent <- globalEvent
 			return nil
-		}))
-
-		config.AddEventListener("touchend", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		})
+		touchend = js.FuncOf(func(_ js.Value, p []js.Value) any {
+			p[0].Call("preventDefault")
 			x := p[0].Get("changedTouches").Index(0).Get("clientX").Float()
 			y := p[0].Get("changedTouches").Index(0).Get("clientY").Float()
 			globalEvent.CalculateDelta(x, y)
-
-			// Prevent only horizontal swipes from being handled in default manner
-			if globalEvent.Delta.Y.Abs() < globalEvent.Delta.X.Abs() {
-				p[0].Call("preventDefault")
-			}
-
 			h.touchEvent <- globalEvent
 			return nil
-		}))
+		})
+
+		config.AddEventListener("touchstart", touchstart)
+		config.AddEventListener("touchmove", touchmove)
+		config.AddEventListener("touchend", touchend)
 	})
+
+	return func() {
+		config.RemoveEventListener("keydown", keydown)
+		config.RemoveEventListener("keyup", keyup)
+		config.RemoveEventListener("touchstart", touchstart)
+		config.RemoveEventListener("touchmove", touchmove)
+		config.RemoveEventListener("touchend", touchend)
+	}
 }

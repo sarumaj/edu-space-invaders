@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/spaceship"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/star"
@@ -23,6 +24,7 @@ type handler struct {
 	keysHeld     map[keyBinding]bool  // keysHeld is the map of keys held
 	once         sync.Once            // once is meant to register the keydown event only once
 	spaceship    *spaceship.Spaceship // spaceship is the player's spaceship
+	shutdown     func()               // shutdown is the function to shutdown the handler
 	stars        star.Stars           // stars is the list of stars
 	touchEvent   chan touchEvent      // touchEvent is the channel for touch events
 }
@@ -65,7 +67,10 @@ func (h *handler) checkCollisions() {
 			case enemy.Freezer: // If the spaceship has collided with a freezer, freeze the spaceship.
 				h.enemies[j].Level.HitPoints = 0
 				h.spaceship.ChangeState(spaceship.Frozen)
-				h.sendMessage(config.Config.Messages.SpaceshipFrozen)
+				h.spaceship.Penalize(penalty)
+				h.sendMessage(config.Template{
+					Level: h.spaceship.Level.Progress,
+				}.Execute(config.Config.Messages.Templates.SpaceshipFrozen))
 				return
 
 			case enemy.Berserker:
@@ -123,7 +128,9 @@ func (h *handler) checkCollisions() {
 
 				// If the progress is a multiple of the enemy count progress step,
 				// generate a new enemy.
-				if h.spaceship.Level.Progress%config.Config.Enemy.CountProgressStep == 0 {
+				if h.spaceship.Level.Progress%config.Config.Enemy.CountProgressStep == 0 &&
+					len(h.enemies) < config.Config.Enemy.MaximumCount {
+
 					h.GenerateEnemy("", false)
 				}
 			}
@@ -144,13 +151,7 @@ func (h *handler) handleKeydown(key keyBinding) {
 	}
 
 	switch key {
-	case ArrowLeft:
-		h.spaceship.MoveLeft()
-
-	case ArrowRight:
-		h.spaceship.MoveRight()
-
-	case Space:
+	case ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Space:
 		h.keysHeld[key] = true
 
 	}
@@ -165,6 +166,18 @@ func (h *handler) handleKeyhold() {
 		}
 
 		switch key {
+		case ArrowDown:
+			h.spaceship.MoveDown()
+
+		case ArrowLeft:
+			h.spaceship.MoveLeft()
+
+		case ArrowRight:
+			h.spaceship.MoveRight()
+
+		case ArrowUp:
+			h.spaceship.MoveUp()
+
 		case Space:
 			h.spaceship.Fire()
 
@@ -188,13 +201,20 @@ func (h *handler) handleTouch(event touchEvent) {
 		return
 	}
 
-	switch {
-	case event.Delta.X < 0:
-		h.spaceship.MoveLeft()
+	if event.Delta.X.Abs().Float() > config.Config.Control.MinimumSwipeDistance {
+		if event.Delta.X.Float() < 0 {
+			h.spaceship.MoveLeft()
+		} else {
+			h.spaceship.MoveRight()
+		}
+	}
 
-	case event.Delta.X > 0:
-		h.spaceship.MoveRight()
-
+	if event.Delta.Y.Abs().Float() > config.Config.Control.MinimumSwipeDistance {
+		if event.Delta.Y.Float() < 0 {
+			h.spaceship.MoveUp()
+		} else {
+			h.spaceship.MoveDown()
+		}
 	}
 
 	h.spaceship.Fire()
@@ -220,6 +240,9 @@ func (h *handler) render() {
 		s.Draw()
 	}
 
+	// Draw background
+	config.DrawBackground(h.spaceship.Level.Speed * config.Config.Star.SpeedRatio)
+
 	// Draw spaceship
 	h.spaceship.Draw()
 
@@ -240,8 +263,10 @@ func (h *handler) render() {
 // It updates the state of the spaceship.
 // It checks the collisions.
 func (h *handler) refresh(regenerate bool) {
-	h.stars.Update(h.spaceship.Level.Speed)
-	h.enemies.Update(h.spaceship.Position, regenerate)
+	h.enemies.Update(objects.Position{
+		X: h.spaceship.Position.X + h.spaceship.Size.Width/2,
+		Y: h.spaceship.Position.Y,
+	}, regenerate)
 	h.spaceship.UpdateState()
 	h.spaceship.Bullets.Update()
 	h.checkCollisions()
@@ -264,6 +289,13 @@ func (h *handler) start() bool {
 	}
 
 	return false
+}
+
+// Await waits for the handler to finish and executes the shutdown function.
+func (h *handler) Await() {
+	if <-h.ctx.Done(); h.shutdown != nil {
+		h.shutdown()
+	}
 }
 
 // GenerateEnemy generates a new enemy with the specified name and random Y position.
@@ -336,9 +368,6 @@ func (h *handler) Loop(regenerate bool) {
 	}
 }
 
-// Wait waits for the handler to finish.
-func (h *handler) Wait() { <-h.ctx.Done() }
-
 // New creates a new handler.
 // It creates a new spaceship and registers the keydown event.
 func New() *handler {
@@ -353,7 +382,7 @@ func New() *handler {
 
 	h.ctx, h.cancel = context.WithCancel(context.Background())
 	h.ctx = context.WithValue(h.ctx, ctxKey("running"), false)
-	h.registerEventHandlers()
+	h.shutdown = h.registerEventHandlers()
 
 	return h
 }

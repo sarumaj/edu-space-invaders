@@ -9,30 +9,25 @@ import (
 
 // Star represents a star.
 type Star struct {
-	Position objects.Position
-	Radius   float64
-	Spikes   float64
-	Speed    float64
-	color    string
-}
-
-// Accelerate is a method that accelerates the star.
-func (s *Star) Accelerate(spaceshipSpeed float64) {
-	// The star's speed is proportional to the spaceship's speed.
-	s.Speed = spaceshipSpeed * config.Config.Star.SpeedRatio
+	Position  objects.Position
+	Radius    float64
+	Spikes    float64
+	Exhausted bool
+	color     string
 }
 
 // Draw is a method that draws the star.
 func (s *Star) Draw() {
+	if s.Exhausted {
+		return
+	}
 	config.DrawStar(s.Position.Pack(), s.Spikes, s.Radius, s.color, config.Config.Star.Brightness)
+	s.Exhaust()
 }
 
-// Move is a method that moves the star.
-func (s *Star) Move() {
-	s.Position.Y += objects.Number(s.Speed)
-	if s.Position.Y.Float() > config.CanvasHeight() {
-		*s = *Twinkle(objects.Position{X: s.Position.X, Y: 0})
-	}
+// Exhaust is a method that sets the star as exhausted.
+func (s *Star) Exhaust() {
+	s.Exhausted = true
 }
 
 // Twinkle is a function that creates a new star.
@@ -41,7 +36,6 @@ func Twinkle(pos objects.Position) *Star {
 		Position: pos,
 		Radius:   rand.Float64()*config.Config.Star.MinimumRadius + (config.Config.Star.MaximumRadius - config.Config.Star.MinimumRadius),
 		Spikes:   rand.Float64()*config.Config.Star.MinimumSpikes + (config.Config.Star.MaximumSpikes - config.Config.Star.MinimumSpikes),
-		Speed:    config.Config.Spaceship.InitialSpeed * config.Config.Star.SpeedRatio,
 		color: [...]string{
 			"white",
 			"LightYellow",

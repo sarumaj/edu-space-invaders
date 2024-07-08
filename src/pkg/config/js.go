@@ -10,15 +10,28 @@ import (
 )
 
 var (
-	canvas     = doc.Call("getElementById", "gameCanvas")
-	console    = js.Global().Get("console")
-	ctx        = canvas.Call("getContext", "2d")
-	doc        = js.Global().Get("document")
-	env        = js.Global().Get("go_env")
-	messageBox = doc.Call("getElementById", "message")
-	navigator  = js.Global().Get("navigator")
-	window     = js.Global().Get("window")
+	canvas                 = doc.Call("getElementById", "gameCanvas")
+	console                = js.Global().Get("console")
+	ctx                    = canvas.Call("getContext", "2d")
+	doc                    = js.Global().Get("document")
+	env                    = js.Global().Get("go_env")
+	invisibleCanvas        = doc.Call("createElement", "canvas")
+	invisibleCtx           = invisibleCanvas.Call("getContext", "2d")
+	invisibleCanvasScrollY = 0.0
+	messageBox             = doc.Call("getElementById", "message")
+	navigator              = js.Global().Get("navigator")
+	window                 = js.Global().Get("window")
 )
+
+func init() {
+	invisibleCanvas.Set("width", canvas.Get("width"))
+	invisibleCanvas.Set("height", canvas.Get("height"))
+	window.Call("addEventListener", "resize", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		invisibleCanvas.Set("width", canvas.Get("width"))
+		invisibleCanvas.Set("height", canvas.Get("height"))
+		return nil
+	}))
+}
 
 // AddEventListener is a function that adds an event listener to the document.
 func AddEventListener(event string, listener any) {
@@ -34,6 +47,18 @@ func CanvasHeight() float64 { return canvas.Get("height").Float() }
 // ClearCanvas is a function that clears the canvas.
 func ClearCanvas() {
 	ctx.Call("clearRect", 0, 0, canvas.Get("width").Float(), canvas.Get("height").Float())
+}
+
+// DrawBackground is a function that draws the background of the canvas.
+// The background is drawn with the specified speed.
+func DrawBackground(speed float64) {
+	invisibleCanvasScrollY += speed
+	if invisibleCanvasScrollY >= CanvasHeight() {
+		invisibleCanvasScrollY = 0
+	}
+
+	ctx.Call("drawImage", invisibleCanvas, 0, invisibleCanvasScrollY)
+	ctx.Call("drawImage", invisibleCanvas, 0, invisibleCanvasScrollY-CanvasHeight())
 }
 
 // DrawRect is a function that draws a rectangle on the canvas.
@@ -100,7 +125,7 @@ func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color string)
 	ctx.Call("stroke")
 }
 
-// DrawStar draws a star on the canvas.
+// DrawStar draws a star on the invisible canvas to be used as a background on the visible one.
 // The star is drawn at the specified position (cx, cy) with the specified number of spikes.
 // The outer radius and inner radius of the star are specified.
 // The star is filled with the specified color.
@@ -128,15 +153,15 @@ func DrawStar(coords [2]float64, spikes, radius float64, color string, brightnes
 	// Draw the star
 	// Darken the color based on the brightness
 	for _, c := range []string{color, fmt.Sprintf("rgba(0, 0, 0, %.2f)", 1-brightness)} {
-		ctx.Call("beginPath")
-		ctx.Set("fillStyle", c)
-		ctx.Call("moveTo", cx, cy-radius)
+		invisibleCtx.Call("beginPath")
+		invisibleCtx.Set("fillStyle", c)
+		invisibleCtx.Call("moveTo", cx, cy-radius)
 		for i := 1; i < len(positions)-1; i++ {
-			ctx.Call("lineTo", positions[i][0], positions[i][1])
+			invisibleCtx.Call("lineTo", positions[i][0], positions[i][1])
 		}
-		ctx.Call("lineTo", cx, cy-radius)
-		ctx.Call("closePath")
-		ctx.Call("fill")
+		invisibleCtx.Call("lineTo", cx, cy-radius)
+		invisibleCtx.Call("closePath")
+		invisibleCtx.Call("fill")
 	}
 }
 
@@ -180,6 +205,11 @@ func LogError(err error) {
 	if err != nil {
 		console.Call("error", err.Error())
 	}
+}
+
+// RemoveEventListener is a function that removes an event listener from the document.
+func RemoveEventListener(event string, listener any) {
+	doc.Call("removeEventListener", event, listener)
 }
 
 // SendMessage sends a message to the message box.

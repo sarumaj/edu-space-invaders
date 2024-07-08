@@ -6,6 +6,7 @@ package handler
 func (*handler) monitor() {}
 
 // registerEventHandlers is a method that registers the event listeners.
-func (h *handler) registerEventHandlers() {
+func (h *handler) registerEventHandlers() func() {
 	h.once.Do(func() {})
+	return func() {}
 }

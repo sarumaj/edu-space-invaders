@@ -48,6 +48,7 @@ type config struct {
 		InitialHitpoints          int
 		InitialSpeed              float64
 		Margin                    float64
+		MaximumCount              int
 		MaximumSpeed              float64
 		SpecialtyLikeliness       float64
 		Width                     float64
@@ -73,17 +74,17 @@ type config struct {
 	}
 
 	Spaceship struct {
-		AnnihilatorPenalty int
-		BerserkPenalty     int
-		CannonProgress     int
-		Cooldown           time.Duration
-		DefaultPenalty     int
-		Height             float64
-		InitialSpeed       float64
-		MaximumCannons     int
-		MaximumSpeed       float64
-		StateDuration      time.Duration
-		Width              float64
+		AnnihilatorPenalty   int
+		BerserkPenalty       int
+		CannonProgress       int
+		Cooldown             time.Duration
+		DefaultPenalty       int
+		Height               float64
+		InitialSpeed         float64
+		MaximumCannons       int
+		MaximumSpeed         float64
+		SpecialStateDuration time.Duration
+		Width                float64
 	}
 
 	Star struct {
@@ -97,9 +98,9 @@ type config struct {
 	}
 
 	Control struct {
-		CriticalFramesPerSecondRate int
-		DesiredFramesPerSecondRate  int
-		SwipeCooldown               time.Duration
+		CriticalFramesPerSecondRate float64
+		DesiredFramesPerSecondRate  float64
+		MinimumSwipeDistance        float64
 	}
 
 	Messages struct {
@@ -107,13 +108,13 @@ type config struct {
 		GameStartedTouchDevice   string
 		HowToStartNoTouchDevice  string
 		HowToStartTouchDevice    string
-		SpaceshipFrozen          string
 
 		Templates struct {
 			EnemyDestroyed               templateString
 			EnemyHit                     templateString
 			GameOver                     templateString
 			SpaceshipDowngradedByEnemy   templateString
+			SpaceshipFrozen              templateString
 			SpaceshipUpgradedByEnemyKill templateString
 			SpaceshipUpgradedByGoodie    templateString
 		} `ini:"Messages.Templates"`

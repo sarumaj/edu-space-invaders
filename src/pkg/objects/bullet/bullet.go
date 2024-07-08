@@ -21,7 +21,20 @@ type Bullet struct {
 // Draw draws the bullet.
 // The bullet is drawn as a yellow rectangle.
 func (bullet Bullet) Draw() {
-	config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "yellow")
+	switch {
+	case bullet.Damage > 1_000_000:
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "purple")
+	case bullet.Damage > 100_000:
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "blue")
+	case bullet.Damage > 10_000:
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "violet")
+	case bullet.Damage > 1_000:
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "red")
+	case bullet.Damage > 100:
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "orange")
+	default:
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "yellow")
+	}
 }
 
 // Exhaust sets the bullet as exhausted.

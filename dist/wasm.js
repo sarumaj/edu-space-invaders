@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const go = new Go(); // Defined in wasm_exec.js
 
   // Fetch the environment variable from the server
-  fetch("8082/.env", {
+  fetch(".env", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       // Fetch and instantiate the WebAssembly module
       return WebAssembly.instantiateStreaming(
-        fetch("8082/main.wasm"),
+        fetch("main.wasm"),
         go.importObject
       );
     })

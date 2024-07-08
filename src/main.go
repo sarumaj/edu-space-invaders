@@ -24,5 +24,5 @@ func main() {
 
 	go game.Loop(true)
 
-	game.Wait()
+	game.Await()
 }

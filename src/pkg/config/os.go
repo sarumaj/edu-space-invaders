@@ -19,6 +19,10 @@ func CanvasHeight() float64 { return 600 }
 // ClearCanvas is a function that clears the canvas.
 func ClearCanvas() {}
 
+// DrawBackground is a function that draws the background of the canvas.
+// The background is drawn with the specified speed.
+func DrawBackground(speed float64) {}
+
 // DrawRect is a function that draws a rectangle on the canvas.
 func DrawRect(coors [2]float64, size [2]float64, color string) {}
 
@@ -54,6 +58,9 @@ func LogError(err error) {
 		log.Println(err)
 	}
 }
+
+// RemoveEventListener is a function that removes an event listener from the document.
+func RemoveEventListener(event string, listener any) {}
 
 // SendMessage sends a message to the message box.
 func SendMessage(msg string) {

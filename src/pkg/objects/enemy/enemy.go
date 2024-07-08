@@ -2,6 +2,7 @@ package enemy
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 
 	"github.com/Pallinder/go-randomdata"
@@ -13,7 +14,7 @@ import (
 type Enemy struct {
 	Name                string           // Name is the name of the enemy.
 	Position            objects.Position // Position is the position of the enemy.
-	direction           int              // direction is the horizontal direction the enemy is moving.
+	direction           objects.Position // direction is the direction the enemy is moving.
 	Size                objects.Size     // Size is the size of the enemy.
 	SpecialtyLikeliness float64          // SpecialtyLikeliness is the likelihood of the enemy being a goodie or a freezer (expected to be lower than 1).
 	Level               *EnemyLevel      // Level is the level of the enemy.
@@ -136,42 +137,44 @@ func (enemy *Enemy) Hit(damage int) int {
 // If the spaceship is below the enemy, the enemy moves towards the spaceship.
 // Otherwise, the enemy moves randomly.
 func (enemy *Enemy) Move(spaceshipPosition objects.Position) {
-	enemy.Position.Y += objects.Number(enemy.Level.Speed)
 	if enemy.Type == Goodie {
+		enemy.Position.Y += objects.Number(enemy.Level.Speed)
 		return
 	}
 
-	// If the spaceship is below the enemy, the enemy moves towards the spaceship.
-	// The detection range is half of the canvas height.
-	if spaceshipPosition.Y.Float()-enemy.Position.Y.Float() < config.CanvasHeight()/2 {
-		// Check if the spaceship is on the left or right side of the enemy.
-		switch {
-		case enemy.Position.X < spaceshipPosition.X:
-			enemy.direction = 1
+	// Calculate the horizontal and vertical distances to the spaceship
+	dx := (spaceshipPosition.X - enemy.Position.X).Float()
+	dy := (spaceshipPosition.Y - enemy.Position.Y).Float()
 
-		case enemy.Position.X > spaceshipPosition.X:
-			enemy.direction = -1
+	// Calculate the distance to the spaceship
+	distance := math.Sqrt(dx*dx + dy*dy)
 
-		}
+	// Define the strength formula
+	strength := 1 / (distance + 1) // Add 1 to avoid division by zero
 
-		// Surprise dash of the enemy towards spaceship
-		enemy.Position.Y += objects.Number(rand.Float64() * enemy.Level.Speed)
-		enemy.direction *= (rand.Intn(3) + 1)
-	} else {
-		// Otherwise, the enemy moves randomly.
-		enemy.direction += (rand.Intn(3) - 1)
-		// Check if the enemy is at the edge of the canvas.
-		switch {
-		case enemy.Position.X <= 0:
-			enemy.direction = 1
+	// Add randomness to the chase based on strength
+	dx += (rand.Float64() - 0.5) * strength
+	dy += (rand.Float64() - 0.5) * strength
 
-		case enemy.Position.X.Float()+enemy.Size.Width.Float() >= config.CanvasWidth():
-			enemy.direction = -1
-
-		}
+	// Normalize the direction vector (dx, dy)
+	if distance != 0 {
+		dx /= distance
+		dy /= distance
 	}
 
-	enemy.Position.X += objects.Number(enemy.direction)
+	// Normalize the direction again after adding randomness
+	randomDistance := math.Sqrt(dx*dx + dy*dy)
+	if randomDistance != 0 {
+		dx /= randomDistance
+		dy /= randomDistance
+	}
+
+	// Move down using the speed
+	enemy.Position.Y += objects.Number(enemy.Level.Speed)
+
+	// Move horizontally and vertically towards the spaceship
+	enemy.Position.X += objects.Number(dx)
+	enemy.Position.Y += objects.Number(dy)
 }
 
 // String returns the string representation of the enemy.

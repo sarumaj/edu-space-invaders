@@ -10,15 +10,6 @@ import (
 
 type Stars []Star
 
-// Update is a method that updates the stars.
-func (stars *Stars) Update(spaceshipSpeed float64) {
-	for i := range *stars {
-		star := &(*stars)[i]
-		star.Accelerate(spaceshipSpeed)
-		star.Move()
-	}
-}
-
 // Explode is a function that creates a number of stars.
 // It creates a grid of cells and places stars in random positions within these cells.
 // The number of stars is determined by the input parameter.

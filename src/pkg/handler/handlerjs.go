@@ -21,7 +21,7 @@ func (h *handler) monitor() {
 		frameCount++
 		now := time.Now()
 
-		if elapsed := now.Sub(lastFrameTime).Seconds(); elapsed >= 0.001 {
+		if elapsed := now.Sub(lastFrameTime).Seconds(); elapsed >= 0.1 {
 			if fps := float64(frameCount) / elapsed; fps <= float64(config.Config.Control.CriticalFramesPerSecondRate) {
 				h.sendMessage(fmt.Sprintf("Low FPS detected: %.2f! Reducing resource consumption.", fps))
 				h.stars = nil

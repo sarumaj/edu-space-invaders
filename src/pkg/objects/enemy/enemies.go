@@ -18,21 +18,32 @@ func (enemies Enemies) countByTypes() map[EnemyType]int {
 	return types
 }
 
-// getHighestProgress returns the highest progress of the current enemies generation.
-func (enemies Enemies) getHighestProgress() int {
-	highestLevel := 1
-	for _, e := range enemies {
-		if e.Level.Progress > highestLevel {
-			highestLevel = e.Level.Progress
+func (enemies Enemies) getHighestProperty(property func(Enemy) objects.Number) objects.Number {
+	var highest objects.Number
+	for _, enemy := range enemies {
+		if property(enemy) > highest {
+			highest = property(enemy)
 		}
 	}
 
-	return highestLevel
+	return highest
+}
+
+// getHighestProgress returns the highest progress of the current enemies generation.
+func (enemies Enemies) getHighestProgress() int {
+	progress := enemies.getHighestProperty(func(e Enemy) objects.Number { return objects.Number(e.Level.Progress) })
+	if progress == 0 {
+		return 1
+	}
+
+	return progress.Int()
 }
 
 // getMostFrequentType returns the most frequent enemy type given the enemies generation.
-func (enemies Enemies) getMostFrequentType() EnemyType {
-	types := enemies.countByTypes()
+func (enemies Enemies) getMostFrequentType(types map[EnemyType]int) EnemyType {
+	if types == nil {
+		types = enemies.countByTypes()
+	}
 
 	var max int
 	var mostFrequentType EnemyType
@@ -46,37 +57,21 @@ func (enemies Enemies) getMostFrequentType() EnemyType {
 	return mostFrequentType
 }
 
-// isOverlapping checks if the new enemy is overlapping with any of the existing enemies.
-func (enemies Enemies) isOverlapping(newEnemy Enemy) bool {
-	for _, e := range enemies {
-		if newEnemy.Position.X.Float() < e.Position.X.Float()+e.Size.Width.Float()+config.Config.Enemy.Margin &&
-			newEnemy.Position.X.Float()+newEnemy.Size.Width.Float()+config.Config.Enemy.Margin > e.Position.X.Float() &&
-			newEnemy.Position.Y.Float() < e.Position.Y.Float()+e.Size.Height.Float()+config.Config.Enemy.Margin &&
-			newEnemy.Position.Y.Float()+newEnemy.Size.Height.Float()+config.Config.Enemy.Margin > e.Position.Y.Float() {
-
-			return true
-		}
-	}
-
-	return false
-}
-
 // AppendNew appends a new enemy to the collection.
 // The new enemy is created with the specified name and random Y position.
 // The new enemy is placed at the highest level of the existing enemies.
 // The new enemy is turned into a goodie and berserk based on the probabilities.
 func (enemies *Enemies) AppendNew(name string, randomY bool) {
-	for {
-		newEnemy := Challenge(name, randomY)
-		if !enemies.isOverlapping(*newEnemy) {
-			newEnemy.ToProgressLevel(enemies.getHighestProgress())
-			newEnemy.Surprise(enemies.countByTypes())
-			newEnemy.BerserkGivenAncestor(enemies.getMostFrequentType())
+	stats := enemies.countByTypes()
+	highestProgress := enemies.getHighestProgress()
+	frequentType := enemies.getMostFrequentType(stats)
 
-			*enemies = append(*enemies, *newEnemy)
-			break
-		}
-	}
+	newEnemy := Challenge(name, randomY)
+	newEnemy.ToProgressLevel(highestProgress)
+	newEnemy.Surprise(stats)
+	newEnemy.BerserkGivenAncestor(frequentType)
+
+	*enemies = append(*enemies, *newEnemy)
 }
 
 // Update updates the enemies.
@@ -86,12 +81,14 @@ func (enemies *Enemies) AppendNew(name string, randomY bool) {
 // The enemies are regenerated when the spaceship reaches the bottom of the screen.
 // The new enemies are placed at the highest level of the existing enemies.
 // The new enemies are turned into a goodie and berserk based on the probabilities.
-func (enemies *Enemies) Update(spaceshipPosition objects.Position, regenerate bool) {
+func (enemies *Enemies) Update(spaceshipPosition objects.Position) {
+	stats := enemies.countByTypes()
+
 	var visibleEnemies Enemies
 	for i := range *enemies {
 		enemy := &(*enemies)[i]
 		if enemy.Level.HitPoints <= 0 {
-			if regenerate {
+			if *config.Config.Enemy.Regenerate {
 				visibleEnemies.AppendNew("", false)
 			}
 
@@ -99,10 +96,10 @@ func (enemies *Enemies) Update(spaceshipPosition objects.Position, regenerate bo
 		}
 
 		enemy.Move(spaceshipPosition)
-		if enemy.Position.Y.Float()+enemy.Size.Height.Float() >= config.CanvasHeight() {
+		if (enemy.Position.Y + enemy.Size.Height).Float() >= config.CanvasHeight() {
 			newEnemy := Challenge(enemy.Name, false)
 			newEnemy.ToProgressLevel(enemy.Level.Progress + 1)
-			newEnemy.Surprise(enemies.countByTypes())
+			newEnemy.Surprise(stats)
 			newEnemy.BerserkGivenAncestor(enemy.Type)
 			*enemy = *newEnemy
 		}

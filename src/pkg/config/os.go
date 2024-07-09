@@ -16,6 +16,9 @@ func CanvasWidth() float64 { return 800 }
 // CanvasHeight returns the height of the canvas (in px).
 func CanvasHeight() float64 { return 600 }
 
+// ClearBackground is a function that clears the invisible canvas.
+func ClearBackground() {}
+
 // ClearCanvas is a function that clears the canvas.
 func ClearCanvas() {}
 
@@ -23,8 +26,11 @@ func ClearCanvas() {}
 // The background is drawn with the specified speed.
 func DrawBackground(speed float64) {}
 
+// DrawLine is a function that draws a line on the canvas.
+func DrawLine(start, end [2]float64, color string, thickness float64) {}
+
 // DrawRect is a function that draws a rectangle on the canvas.
-func DrawRect(coors [2]float64, size [2]float64, color string) {}
+func DrawRect(coords [2]float64, size [2]float64, color string, cornerRadius float64) {}
 
 // DrawSpaceship is a function that draws a spaceship on the canvas.
 // The spaceship is drawn at the specified position (x, y) with the specified width and height.
@@ -47,6 +53,9 @@ func IsTouchDevice() bool {
 	return false
 }
 
+// LoadAudio is a function that loads an audio file from the specified URL.
+func LoadAudio(url string) ([]byte, error) { return nil, nil }
+
 // Log is a function that logs a message.
 func Log(msg string) {
 	log.Println(msg)
@@ -59,6 +68,9 @@ func LogError(err error) {
 	}
 }
 
+// PlayAudio is a function that plays an audio track.
+func PlayAudio(name string, loop bool) {}
+
 // RemoveEventListener is a function that removes an event listener from the document.
 func RemoveEventListener(event string, listener any) {}
 
@@ -66,6 +78,12 @@ func RemoveEventListener(event string, listener any) {}
 func SendMessage(msg string) {
 	log.Println(msg)
 }
+
+// StopAudio is a function that stops an audio track.
+func StopAudio(name string) {}
+
+// StopAudioSources is a function that stops all audio sources that match the selector.
+func StopAudioSources(selector func(name string) bool) {}
 
 // ThrowError is a function that throws an error.
 func ThrowError(err error) {

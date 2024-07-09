@@ -4,15 +4,32 @@ package config
 
 import (
 	"fmt"
+	"io"
 	"math"
+	"net/http"
 	"strings"
+	"sync"
 	"syscall/js"
 )
 
 var (
-	canvas                 = doc.Call("getElementById", "gameCanvas")
-	console                = js.Global().Get("console")
-	ctx                    = canvas.Call("getContext", "2d")
+	audioCtx = func() js.Value {
+		ctx := js.Global().Get("AudioContext").New()
+		if !ctx.Truthy() {
+			ctx = js.Global().Get("webkitAudioContext").New()
+		}
+		return ctx
+	}()
+	audioMutex   = sync.Mutex{}
+	audioPlayers = make(map[string]js.Value)
+	audioTracks  = make(map[string][]byte)
+	canvas       = doc.Call("getElementById", "gameCanvas")
+	console      = js.Global().Get("console")
+	ctx          = func() js.Value {
+		contextOpts := js.Global().Get("Object").New()
+		contextOpts.Set("willReadFrequently", true)
+		return canvas.Call("getContext", "2d", contextOpts)
+	}()
 	doc                    = js.Global().Get("document")
 	env                    = js.Global().Get("go_env")
 	invisibleCanvas        = doc.Call("createElement", "canvas")
@@ -21,6 +38,7 @@ var (
 	messageBox             = doc.Call("getElementById", "message")
 	navigator              = js.Global().Get("navigator")
 	window                 = js.Global().Get("window")
+	windowLocation         = window.Get("location")
 )
 
 func init() {
@@ -44,6 +62,11 @@ func CanvasWidth() float64 { return canvas.Get("width").Float() }
 // CanvasHeight returns the height of the canvas (in px).
 func CanvasHeight() float64 { return canvas.Get("height").Float() }
 
+// ClearBackground is a function that clears the invisible canvas.
+func ClearBackground() {
+	invisibleCtx.Call("clearRect", 0, 0, invisibleCanvas.Get("width").Float(), invisibleCanvas.Get("height").Float())
+}
+
 // ClearCanvas is a function that clears the canvas.
 func ClearCanvas() {
 	ctx.Call("clearRect", 0, 0, canvas.Get("width").Float(), canvas.Get("height").Float())
@@ -61,13 +84,42 @@ func DrawBackground(speed float64) {
 	ctx.Call("drawImage", invisibleCanvas, 0, invisibleCanvasScrollY-CanvasHeight())
 }
 
+// DrawLine is a function that draws a line on the canvas.
+func DrawLine(start, end [2]float64, color string, thickness float64) {
+	defaultLineWidth := ctx.Get("lineWidth")
+	defer ctx.Set("lineWidth", defaultLineWidth)
+
+	ctx.Set("strokeStyle", color)
+	ctx.Set("lineWidth", thickness)
+	ctx.Call("beginPath")
+	ctx.Call("moveTo", start[0], start[1])
+	ctx.Call("lineTo", end[0], end[1])
+	ctx.Call("stroke")
+}
+
 // DrawRect is a function that draws a rectangle on the canvas.
-func DrawRect(coors [2]float64, size [2]float64, color string) {
-	x, y := coors[0], coors[1]
+func DrawRect(coords [2]float64, size [2]float64, color string, cornerRadius float64) {
+	x, y := coords[0], coords[1]
 	width, height := size[0], size[1]
 
+	if cornerRadius == 0 {
+		ctx.Set("fillStyle", color)
+		ctx.Call("fillRect", x, y, width, height)
+		return
+	}
+
 	ctx.Set("fillStyle", color)
-	ctx.Call("fillRect", x, y, width, height)
+	ctx.Call("beginPath")
+	ctx.Call("moveTo", x+cornerRadius, y)
+	ctx.Call("lineTo", x+width-cornerRadius, y)
+	ctx.Call("quadraticCurveTo", x+width, y, x+width, y+cornerRadius)
+	ctx.Call("lineTo", x+width, y+height-cornerRadius)
+	ctx.Call("quadraticCurveTo", x+width, y+height, x+width-cornerRadius, y+height)
+	ctx.Call("lineTo", x+cornerRadius, y+height)
+	ctx.Call("quadraticCurveTo", x, y+height, x, y+height-cornerRadius)
+	ctx.Call("lineTo", x, y+cornerRadius)
+	ctx.Call("quadraticCurveTo", x, y, x+cornerRadius, y)
+	ctx.Call("fill")
 }
 
 // DrawSpaceship is a function that draws a spaceship on the canvas.
@@ -195,6 +247,26 @@ func IsTouchDevice() bool {
 	return false
 }
 
+// LoadAudio is a function that loads an audio file.
+func LoadAudio(name string) ([]byte, error) {
+	protocol := windowLocation.Get("protocol").String()
+	hostname := windowLocation.Get("hostname").String()
+	port := windowLocation.Get("port").String()
+
+	response, err := http.Get(fmt.Sprintf("%s//%s:%s/audio/%s", protocol, hostname, port, name))
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	raw, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return raw, nil
+}
+
 // Log is a function that logs a message.
 func Log(msg string) {
 	console.Call("log", msg)
@@ -207,6 +279,67 @@ func LogError(err error) {
 	}
 }
 
+// PlayAudio is a function that plays an audio track.
+func PlayAudio(name string, loop bool) {
+	if !*Config.Control.AudioEnabled {
+		return
+	}
+
+	audioMutex.Lock()
+	if _, ok := audioPlayers[name]; ok {
+		audioMutex.Unlock()
+		return
+	}
+	audioMutex.Unlock()
+
+	track, ok := audioTracks[name]
+	if !ok {
+		raw, err := LoadAudio(name)
+		if err != nil {
+			LogError(err)
+			return
+		}
+
+		audioTracks[name], track = raw, raw
+	}
+
+	buffer := js.Global().Get("Uint8Array").New(len(track))
+	js.CopyBytesToJS(buffer, track)
+
+	audioBufferPromise := audioCtx.Call("decodeAudioData", buffer.Get("buffer"))
+	then := js.FuncOf(func(_ js.Value, p []js.Value) any {
+		source := audioCtx.Call("createBufferSource")
+		source.Set("buffer", p[0])
+		source.Call("connect", audioCtx.Get("destination"))
+
+		source.Call("addEventListener", "ended", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+			audioMutex.Lock()
+			delete(audioPlayers, name)
+			audioMutex.Unlock()
+
+			if loop {
+				defer PlayAudio(name, loop)
+			}
+
+			return nil
+		}))
+
+		audioMutex.Lock()
+		audioPlayers[name] = source
+		audioMutex.Unlock()
+
+		source.Call("start")
+		return nil
+	})
+	catch := js.FuncOf(func(_ js.Value, p []js.Value) any {
+		message := p[0].Get("message").String()
+		stack := p[0].Get("stack").String()
+		LogError(fmt.Errorf("failed to decode audio data: %s\n%s\n", message, stack))
+		return nil
+	})
+	audioBufferPromise.Call("then", then).Call("catch", catch)
+}
+
 // RemoveEventListener is a function that removes an event listener from the document.
 func RemoveEventListener(event string, listener any) {
 	doc.Call("removeEventListener", event, listener)
@@ -214,14 +347,36 @@ func RemoveEventListener(event string, listener any) {
 
 // SendMessage sends a message to the message box.
 func SendMessage(msg string) {
-	content := messageBox.Get("innerText").String()
-	lines := append(strings.Split(content, "\n"), msg)
+	content := messageBox.Get("innerHTML").String()
+	lines := append(strings.Split(content, "<br>"), msg)
 	if len(lines) > Config.MessageBox.BufferSize {
 		lines = lines[len(lines)-Config.MessageBox.BufferSize:]
 	}
 
-	messageBox.Set("innerText", strings.Join(lines, "\n"))
+	messageBox.Set("innerHTML", strings.Join(lines, "<br>"))
 	messageBox.Set("scrollTop", messageBox.Get("scrollHeight"))
+}
+
+// StopAudio is a function that stops an audio track.
+func StopAudio(name string) {
+	audioMutex.Lock()
+	if source, ok := audioPlayers[name]; ok {
+		source.Call("stop")
+		delete(audioPlayers, name)
+	}
+	audioMutex.Unlock()
+}
+
+// StopAudioSources is a function that stops all audio sources that match the selector.
+func StopAudioSources(selector func(name string) bool) {
+	audioMutex.Lock()
+	for name, source := range audioPlayers {
+		if selector(name) {
+			source.Call("stop")
+			delete(audioPlayers, name)
+		}
+	}
+	audioMutex.Unlock()
 }
 
 // ThrowError is a function that throws an error.

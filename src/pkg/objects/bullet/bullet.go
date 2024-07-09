@@ -23,17 +23,23 @@ type Bullet struct {
 func (bullet Bullet) Draw() {
 	switch {
 	case bullet.Damage > 1_000_000:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "purple")
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "purple", 0)
+
 	case bullet.Damage > 100_000:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "blue")
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "blue", 0)
+
 	case bullet.Damage > 10_000:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "violet")
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "violet", 0)
+
 	case bullet.Damage > 1_000:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "red")
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "red", 0)
+
 	case bullet.Damage > 100:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "orange")
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "orange", 0)
+
 	default:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "yellow")
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "yellow", 0)
+
 	}
 }
 
@@ -44,18 +50,18 @@ func (b *Bullet) Exhaust() {
 
 // HasHit returns true if the bullet has hit the enemy.
 func (b Bullet) HasHit(e enemy.Enemy) bool {
-	return b.Position.X < e.Position.X+e.Size.Width &&
-		b.Position.X+b.Size.Width > e.Position.X &&
-		b.Position.Y < e.Position.Y+e.Size.Height &&
-		b.Position.Y+b.Size.Height > e.Position.Y
+	return b.Position.Less(e.Position.Add(e.Size.ToVector())) &&
+		b.Position.Add(e.Size.ToVector()).Greater(e.Position)
 }
 
 // Move moves the bullet.
 // The bullet moves upwards and slightly to the left or right.
 // The skew of the bullet is based on the position of the cannon.
 func (b *Bullet) Move() {
-	b.Position.Y -= objects.Number(b.Speed)
-	b.Position.X += objects.Number(b.skew * b.Speed)
+	b.Position = b.Position.Add(objects.Position{
+		Y: -objects.Number(b.Speed),
+		X: objects.Number(b.skew * b.Speed),
+	})
 }
 
 // String returns the string representation of the bullet.

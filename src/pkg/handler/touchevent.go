@@ -8,8 +8,9 @@ import (
 
 // touchEvent represents a touch event.
 type touchEvent struct {
-	Position objects.Position
-	Delta    objects.Position
+	Position    objects.Position
+	Delta       objects.Position
+	IsDoubleTap bool
 }
 
 // CalculateDelta calculates the delta difference of the touch event.

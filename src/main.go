@@ -17,12 +17,17 @@ func main() {
 	mode := config.Getenv("SPACE_INVADERS_MODE")
 	config.Log(fmt.Sprintf("SPACE_INVADERS_MODE: %s", mode))
 
-	config.Log("Generating enemies")
-	game.GenerateEnemies(config.Config.Enemy.Count, true)
+	for {
+		config.Log("Generating enemies")
+		game.GenerateEnemies(config.Config.Enemy.Count, true)
 
-	config.Log("Starting game loop")
+		config.Log("Starting the game loop")
+		go game.Loop()
 
-	go game.Loop(true)
+		config.Log("Awaiting the end of the game")
+		game.Await()
 
-	game.Await()
+		config.Log("Restarting the game")
+		game.Restart()
+	}
 }

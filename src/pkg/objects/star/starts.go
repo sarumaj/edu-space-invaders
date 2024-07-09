@@ -1,7 +1,6 @@
 package star
 
 import (
-	"math"
 	"math/rand/v2"
 
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
@@ -15,24 +14,24 @@ type Stars []Star
 // The number of stars is determined by the input parameter.
 func Explode(num int) Stars {
 	// Define the grid size
-	gridSize := math.Sqrt((config.CanvasWidth() * config.CanvasHeight()) / float64(num))
-	cols := int(config.CanvasWidth() / gridSize)
-	rows := int(config.CanvasHeight() / gridSize)
+	gridSize := objects.Number((config.CanvasWidth() * config.CanvasHeight()) / float64(num)).Root()
+	newBox := objects.Position{
+		X: objects.Number(config.CanvasWidth()),
+		Y: objects.Number(config.CanvasHeight()),
+	}.Div(gridSize).ToBox()
 
 	// Create a grid of cells and place stars in random positions within these cells
 	var stars Stars
-	for row := 0; row < rows; row++ {
-		for col := 0; col < cols; col++ {
+	for row := objects.Number(0); row < newBox.Height; row++ {
+		for col := objects.Number(0); col < newBox.Width; col++ {
 			if num <= 0 {
 				return stars
 			}
 
-			x := (float64(col) + rand.Float64()) * gridSize
-			y := (float64(row) + rand.Float64()) * gridSize
 			stars = append(stars, *Twinkle(objects.Position{
-				X: objects.Number(x),
-				Y: objects.Number(y),
-			}))
+				X: col + objects.Number(rand.Float64()),
+				Y: row + objects.Number(rand.Float64()),
+			}.Mul(objects.Number(gridSize))))
 
 			num--
 		}

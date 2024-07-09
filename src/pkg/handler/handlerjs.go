@@ -3,7 +3,7 @@
 package handler
 
 import (
-	"fmt"
+	"strings"
 	"syscall/js"
 	"time"
 
@@ -13,6 +13,10 @@ import (
 
 // monitor is a method that watches the FPS rate of the game.
 func (h *handler) monitor() {
+	if !running.Get(h.ctx) {
+		return
+	}
+
 	frameCount := 0
 	lastFrameTime := time.Now()
 
@@ -28,7 +32,12 @@ func (h *handler) monitor() {
 
 		if elapsed := now.Sub(lastFrameTime).Seconds(); elapsed >= precision {
 			if fps := float64(frameCount) / elapsed; fps <= config.Config.Control.CriticalFramesPerSecondRate {
-				h.sendMessage(fmt.Sprintf("Low FPS detected: %.2f!", fps))
+				h.sendMessage(config.Execute(config.Sprintf(`Low FPS detected: {{ "%.2f" | color "red" }}!`, fps)))
+
+				// Stop all audio sources except the theme
+				go config.StopAudioSources(func(name string) bool {
+					return !strings.HasPrefix(name, "theme_")
+				})
 			}
 			frameCount, lastFrameTime = 0, now
 		}
@@ -43,7 +52,7 @@ func (h *handler) monitor() {
 }
 
 // registerEventHandlers is a method that registers the event listeners.
-func (h *handler) registerEventHandlers() (shutdown func()) {
+func (h *handler) registerEventHandlers() {
 	var keydown js.Func
 	var keyup js.Func
 	var touchstart js.Func
@@ -56,6 +65,7 @@ func (h *handler) registerEventHandlers() (shutdown func()) {
 			ArrowLeft:  true,
 			ArrowRight: true,
 			ArrowUp:    true,
+			Pause:      true,
 			Space:      true,
 		}
 		keydown = js.FuncOf(func(_ js.Value, p []js.Value) any {
@@ -96,11 +106,13 @@ func (h *handler) registerEventHandlers() (shutdown func()) {
 			h.touchEvent <- globalEvent
 			return nil
 		})
+		var lastTap time.Time
 		touchend = js.FuncOf(func(_ js.Value, p []js.Value) any {
 			p[0].Call("preventDefault")
 			x := p[0].Get("changedTouches").Index(0).Get("clientX").Float()
 			y := p[0].Get("changedTouches").Index(0).Get("clientY").Float()
 			globalEvent.CalculateDelta(x, y)
+			globalEvent.IsDoubleTap, lastTap = time.Since(lastTap) < config.Config.Control.DoubleTapDuration, time.Now()
 			h.touchEvent <- globalEvent
 			return nil
 		})
@@ -109,12 +121,4 @@ func (h *handler) registerEventHandlers() (shutdown func()) {
 		config.AddEventListener("touchmove", touchmove)
 		config.AddEventListener("touchend", touchend)
 	})
-
-	return func() {
-		config.RemoveEventListener("keydown", keydown)
-		config.RemoveEventListener("keyup", keyup)
-		config.RemoveEventListener("touchstart", touchstart)
-		config.RemoveEventListener("touchmove", touchmove)
-		config.RemoveEventListener("touchend", touchend)
-	}
 }

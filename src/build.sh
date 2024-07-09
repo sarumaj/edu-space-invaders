@@ -33,6 +33,7 @@ done
 
 # Create target directory if it doesn't exist
 log_message "Creating target directory: $TARGET_DIR"
+rm -rf "$TARGET_DIR"
 mkdir -p "$TARGET_DIR"
 
 # Build the Go program
@@ -80,7 +81,7 @@ import (
 	"time"
 )
 
-//go:embed *.html *.css *.js *.wasm *.ico
+//go:embed *.html *.css *.js *.wasm *.ico audio/*.wav
 var embeddedFsys embed.FS
 
 var _ http.File = httpFile{}
@@ -95,6 +96,10 @@ var Hashes = func() map[string]string {
 
 	hashes := make(map[string]string)
 	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
 		content, err := embeddedFsys.ReadFile(entry.Name())
 		if err != nil {
 			log.Fatal(err)

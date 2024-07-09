@@ -40,14 +40,24 @@ func (spaceship *Spaceship) ChangeState(state SpaceshipState) {
 
 	spaceship.State = state
 	spaceship.lastStateTransition = time.Now()
+
+	switch spaceship.State {
+	case Boosted:
+		go config.PlayAudio("spaceship_boost.wav", false)
+
+	case Frozen:
+		go config.PlayAudio("spaceship_freeze.wav", false)
+
+	case Damaged:
+		go config.PlayAudio("spaceship_crash.wav", false)
+
+	}
 }
 
 // DetectCollision checks if the spaceship has collided with an enemy.
 func (spaceship Spaceship) DetectCollision(e enemy.Enemy) bool {
-	return spaceship.Position.X < e.Position.X+e.Size.Width &&
-		spaceship.Position.X+spaceship.Size.Width > e.Position.X &&
-		spaceship.Position.Y < e.Position.Y+e.Size.Height &&
-		spaceship.Position.Y+spaceship.Size.Height > e.Position.Y
+	return spaceship.Position.Less(e.Position.Add(e.Size.ToVector())) &&
+		spaceship.Position.Add(spaceship.Size.ToVector()).Greater(e.Position)
 }
 
 // Draw draws the spaceship on the canvas.
@@ -86,14 +96,23 @@ func (spaceship *Spaceship) Fire() {
 
 	for i := 1; i < spaceship.Level.Cannons+1; i++ {
 		spaceship.Bullets.Reload(
-			spaceship.Position.X.Float()+spaceship.Size.Width.Float()*float64(i)/float64(spaceship.Level.Cannons+1)-config.Config.Bullet.Width/2,
-			spaceship.Position.Y.Float(),
+			spaceship.Position.Add(objects.Position{
+				// X position of the bullet
+				// The X position of the bullet is calculated based on the position of the cannon.
+				// The X position of the bullet is the X position of the spaceship plus the width of the spaceship
+				// times the position of the cannon minus the width of the bullet divided by 2.
+				X: spaceship.Size.Width*objects.Number(i)/objects.Number(spaceship.Level.Cannons+1) - objects.Number(config.Config.Bullet.Width/2),
+			}),
 			spaceship.GetBulletDamage(),
+			// Skew of the bullet
+			// Skew is the skew of the bullet based on the position of the cannon.
 			float64(i)/float64(spaceship.Level.Cannons+1),
 		)
 	}
 
 	spaceship.lastFired = time.Now()
+
+	go config.PlayAudio("spaceship_cannon_fire.wav", false)
 }
 
 // GetBulletDamage returns the damage of the bullets fired by the spaceship.
@@ -117,6 +136,8 @@ func (spaceship *Spaceship) MoveDown() {
 	} else {
 		spaceship.Position.Y = objects.Number(config.CanvasHeight() - spaceship.Size.Height.Float())
 	}
+
+	go config.PlayAudio("spaceship_deceleration.wav", false)
 }
 
 // MoveLeft moves the spaceship to the left.
@@ -132,6 +153,8 @@ func (spaceship *Spaceship) MoveLeft() {
 	} else {
 		spaceship.Position.X = 0
 	}
+
+	go config.PlayAudio("spaceship_whoosh.wav", false)
 }
 
 // MoveRight moves the spaceship to the right.
@@ -148,6 +171,8 @@ func (spaceship *Spaceship) MoveRight() {
 	} else {
 		spaceship.Position.X = objects.Number(config.CanvasWidth() - spaceship.Size.Width.Float())
 	}
+
+	go config.PlayAudio("spaceship_whoosh.wav", false)
 }
 
 // MoveUp moves the spaceship up.
@@ -163,6 +188,8 @@ func (spaceship *Spaceship) MoveUp() {
 	} else {
 		spaceship.Position.Y = 0
 	}
+
+	go config.PlayAudio("spaceship_acceleration.wav", false)
 }
 
 // Penalize penalizes the spaceship by downgrading its level.

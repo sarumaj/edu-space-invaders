@@ -13,8 +13,8 @@ func TestTemplate(t *testing.T) {
 		want string
 	}{
 		{"test#1",
-			args{Template{Damage: 10000, Name: "Test", Level: 1}, `Damage: {{ printf "%d" .Damage }}, Name: {{ printf "%q" .Name }}, Level: {{ printf "%d" .Level }}`},
-			`Damage: 10,000, Name: "Test", Level: 1`},
+			args{Template{Damage: 10000, Name: "Test", Level: 1}, `Damage: {{ printf "%d" .Damage | color "red" }}, {{ "Name" | italic }}: {{ printf "%q" .Name | bold }}, Level: {{ printf "%d" .Level }}`},
+			`Damage: <span style="color: red;">10,000</span>, <i>Name</i>: <b>"Test"</b>, Level: 1`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.args.t.Execute(tt.args.str); got != tt.want {

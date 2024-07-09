@@ -1,4 +1,4 @@
-// Code generated on 2024-07-09 00:28:38.682
+// Code generated on 2024-07-09 23:13:33.940
 package dist
 
 import (
@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-//go:embed *.html *.css *.js *.wasm *.ico
+//go:embed *.html *.css *.js *.wasm *.ico audio/*.wav
 var embeddedFsys embed.FS
 
 var _ http.File = httpFile{}
@@ -30,6 +30,10 @@ var Hashes = func() map[string]string {
 
 	hashes := make(map[string]string)
 	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
 		content, err := embeddedFsys.ReadFile(entry.Name())
 		if err != nil {
 			log.Fatal(err)

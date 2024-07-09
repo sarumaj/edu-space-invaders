@@ -1,25 +1,23 @@
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", async function () {
   const go = new Go(); // Defined in wasm_exec.js
 
-  // Fetch the environment variable from the server
-  fetch(".env", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({}),
-  })
-    .then((response) => response.json())
-    .then((env) => {
-      // Set the environment variables in the global context for WASM to access
-      globalThis.go_env = env;
+  async function envCallback() {
+    try {
+      const response = await fetch(".env", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const env = await response.json();
+      return env;
+    } catch (err) {
+      console.error("Error getting env:", err);
+      return {};
+    }
+  }
 
-      // Fetch and instantiate the WebAssembly module
-      return WebAssembly.instantiateStreaming(
-        fetch("main.wasm"),
-        go.importObject
-      );
-    })
+  globalThis.go_env = await envCallback();
+  WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject)
     .then((result) => {
       go.run(result.instance);
     })

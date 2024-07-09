@@ -12,8 +12,6 @@ import (
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/star"
 )
 
-type ctxKey string
-
 // handler is the game handler.
 type handler struct {
 	ctx          context.Context      // ctx is an abortable context of the handler
@@ -24,7 +22,6 @@ type handler struct {
 	keysHeld     map[keyBinding]bool  // keysHeld is the map of keys held
 	once         sync.Once            // once is meant to register the keydown event only once
 	spaceship    *spaceship.Spaceship // spaceship is the player's spaceship
-	shutdown     func()               // shutdown is the function to shutdown the handler
 	stars        star.Stars           // stars is the list of stars
 	touchEvent   chan touchEvent      // touchEvent is the channel for touch events
 }
@@ -46,17 +43,16 @@ func (h *handler) checkCollisions() {
 		if e.Level.HitPoints > 0 && h.spaceship.DetectCollision(e) {
 			// If the spaceship is boosted, destroy the enemy.
 			if h.spaceship.State == spaceship.Boosted {
-				h.enemies[j].Level.HitPoints = 0
+				h.enemies[j].Destroy()
 				h.sendMessage(config.Template{
 					Name: e.Name,
 				}.Execute(config.Config.Messages.Templates.EnemyDestroyed))
 				return
 			}
 
-			penalty := config.Config.Spaceship.DefaultPenalty
 			switch e.Type {
 			case enemy.Goodie: // If the spaceship has collided with a goodie, upgrade the spaceship.
-				h.enemies[j].Level.HitPoints = 0
+				h.enemies[j].Destroy()
 				h.spaceship.Level.Up()
 				h.spaceship.ChangeState(spaceship.Boosted)
 				h.sendMessage(config.Template{
@@ -65,25 +61,29 @@ func (h *handler) checkCollisions() {
 				return
 
 			case enemy.Freezer: // If the spaceship has collided with a freezer, freeze the spaceship.
-				h.enemies[j].Level.HitPoints = 0
+				h.enemies[j].Destroy()
 				h.spaceship.ChangeState(spaceship.Frozen)
-				h.spaceship.Penalize(penalty)
+				h.spaceship.Penalize(config.Config.Spaceship.FreezerPenalty)
 				h.sendMessage(config.Template{
 					Level: h.spaceship.Level.Progress,
 				}.Execute(config.Config.Messages.Templates.SpaceshipFrozen))
 				return
 
+			}
+
+			// Handle collisions with normal, berserker and annihilator enemies.
+			penalty := config.Config.Spaceship.DefaultPenalty
+			switch e.Type {
 			case enemy.Berserker:
 				penalty = config.Config.Spaceship.BerserkPenalty
 
 			case enemy.Annihilator:
 				penalty = config.Config.Spaceship.AnnihilatorPenalty
-
 			}
 
-			// Apply penalty to the spaceship.
-			h.enemies[j].Level.HitPoints = 0
+			h.enemies[j].Destroy()
 			if h.spaceship.Level.Progress > 1 {
+				// Apply penalty to the spaceship.
 				h.spaceship.Penalize(penalty)
 				h.spaceship.ChangeState(spaceship.Damaged)
 				h.sendMessage(config.Template{
@@ -154,6 +154,9 @@ func (h *handler) handleKeydown(key keyBinding) {
 	case ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Space:
 		h.keysHeld[key] = true
 
+	case Pause:
+		h.pause()
+
 	}
 }
 
@@ -201,6 +204,11 @@ func (h *handler) handleTouch(event touchEvent) {
 		return
 	}
 
+	if event.IsDoubleTap {
+		h.pause()
+		return
+	}
+
 	if event.Delta.X.Abs().Float() > config.Config.Control.MinimumSwipeDistance {
 		if event.Delta.X.Float() < 0 {
 			h.spaceship.MoveLeft()
@@ -220,6 +228,17 @@ func (h *handler) handleTouch(event touchEvent) {
 	h.spaceship.Fire()
 }
 
+// pause pauses the game.
+func (h *handler) pause() {
+	running.Set(&h.ctx, false)
+
+	if config.IsTouchDevice() {
+		h.sendMessage(config.Config.Messages.GamePausedTouchDevice)
+	} else {
+		h.sendMessage(config.Config.Messages.GamePausedNoTouchDevice)
+	}
+}
+
 // render is a method that renders the game.
 // It draws the spaceship, bullets and enemies on the canvas.
 // The spaceship is drawn in white color.
@@ -233,9 +252,14 @@ func (h *handler) handleTouch(event touchEvent) {
 // The spaceship is drawn in white color if it is normal.
 // If draws objects as rectangles.
 func (h *handler) render() {
-	config.ClearCanvas()
+	if !running.Get(h.ctx) && !isFirstTime.Get(h.ctx) {
+		return
+	}
 
-	// Draw stars
+	config.ClearCanvas()
+	config.ClearBackground()
+
+	// Draw stars on the background
 	for _, s := range h.stars {
 		s.Draw()
 	}
@@ -262,11 +286,15 @@ func (h *handler) render() {
 // It updates the enemies.
 // It updates the state of the spaceship.
 // It checks the collisions.
-func (h *handler) refresh(regenerate bool) {
+func (h *handler) refresh() {
+	if !running.Get(h.ctx) {
+		return
+	}
+
 	h.enemies.Update(objects.Position{
 		X: h.spaceship.Position.X + h.spaceship.Size.Width/2,
 		Y: h.spaceship.Position.Y,
-	}, regenerate)
+	})
 	h.spaceship.UpdateState()
 	h.spaceship.Bullets.Update()
 	h.checkCollisions()
@@ -277,13 +305,18 @@ func (*handler) sendMessage(msg string) { config.SendMessage(msg) }
 
 // start starts the game if not already started.
 func (h *handler) start() bool {
-	if !h.IsRunning() {
-		h.ctx = context.WithValue(h.ctx, ctxKey("running"), true)
-		if config.IsTouchDevice() {
-			h.sendMessage(config.Config.Messages.GameStartedTouchDevice)
-		} else {
-			h.sendMessage(config.Config.Messages.GameStartedNoTouchDevice)
+	if !running.Get(h.ctx) {
+		running.Set(&h.ctx, true)
+
+		if isFirstTime.Get(h.ctx) {
+			if config.IsTouchDevice() {
+				h.sendMessage(config.Config.Messages.GameStartedTouchDevice)
+			} else {
+				h.sendMessage(config.Config.Messages.GameStartedNoTouchDevice)
+			}
 		}
+
+		go config.PlayAudio("theme_heroic.wav", true)
 
 		return true
 	}
@@ -293,9 +326,8 @@ func (h *handler) start() bool {
 
 // Await waits for the handler to finish and executes the shutdown function.
 func (h *handler) Await() {
-	if <-h.ctx.Done(); h.shutdown != nil {
-		h.shutdown()
-	}
+	<-h.ctx.Done()
+	go config.StopAudio("theme_heroic.wav")
 }
 
 // GenerateEnemy generates a new enemy with the specified name and random Y position.
@@ -308,22 +340,27 @@ func (h *handler) GenerateEnemies(num int, randomY bool) {
 	}
 }
 
-// IsRunning returns true if the handler is running.
-func (h *handler) IsRunning() bool { v, ok := h.ctx.Value(ctxKey("running")).(bool); return ok && v }
-
 // Loop starts the game loop.
 // It refreshes the game state, renders the game, and handles the keydown events.
 // It should be called in a separate goroutine.
-func (h *handler) Loop(regenerate bool) {
-	if !h.IsRunning() {
-		if config.IsTouchDevice() {
-			h.sendMessage(config.Config.Messages.HowToStartTouchDevice)
+func (h *handler) Loop() {
+	if !running.Get(h.ctx) {
+		if isFirstTime.Get(h.ctx) {
+			if config.IsTouchDevice() {
+				h.sendMessage(config.Config.Messages.HowToStartTouchDevice)
+			} else {
+				h.sendMessage(config.Config.Messages.HowToStartNoTouchDevice)
+			}
 		} else {
-			h.sendMessage(config.Config.Messages.HowToStartNoTouchDevice)
+			if config.IsTouchDevice() {
+				h.sendMessage(config.Config.Messages.HowToRestartTouchDevice)
+			} else {
+				h.sendMessage(config.Config.Messages.HowToRestartNoTouchDevice)
+			}
 		}
 	}
 
-	for !h.IsRunning() {
+	for !running.Get(h.ctx) {
 		h.render()
 		select {
 		case <-h.ctx.Done():
@@ -351,7 +388,7 @@ func (h *handler) Loop(regenerate bool) {
 			return
 
 		case <-ticker.C:
-			h.refresh(regenerate)
+			h.refresh()
 			h.render()
 			h.handleKeyhold()
 
@@ -368,6 +405,16 @@ func (h *handler) Loop(regenerate bool) {
 	}
 }
 
+// Restart restarts the game.
+func (h *handler) Restart() {
+	h.spaceship = spaceship.Embark()
+	h.enemies = nil
+	h.stars = star.Explode(config.Config.Star.Count)
+	h.ctx, h.cancel = context.WithCancel(context.Background())
+	running.Set(&h.ctx, false)
+	isFirstTime.Set(&h.ctx, false)
+}
+
 // New creates a new handler.
 // It creates a new spaceship and registers the keydown event.
 func New() *handler {
@@ -381,8 +428,9 @@ func New() *handler {
 	}
 
 	h.ctx, h.cancel = context.WithCancel(context.Background())
-	h.ctx = context.WithValue(h.ctx, ctxKey("running"), false)
-	h.shutdown = h.registerEventHandlers()
+	running.Set(&h.ctx, false)
+	isFirstTime.Set(&h.ctx, true)
+	h.registerEventHandlers()
 
 	return h
 }

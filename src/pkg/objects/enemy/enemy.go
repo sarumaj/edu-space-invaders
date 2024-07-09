@@ -2,7 +2,6 @@ package enemy
 
 import (
 	"fmt"
-	"math"
 	"math/rand"
 
 	"github.com/Pallinder/go-randomdata"
@@ -14,7 +13,6 @@ import (
 type Enemy struct {
 	Name                string           // Name is the name of the enemy.
 	Position            objects.Position // Position is the position of the enemy.
-	direction           objects.Position // direction is the direction the enemy is moving.
 	Size                objects.Size     // Size is the size of the enemy.
 	SpecialtyLikeliness float64          // SpecialtyLikeliness is the likelihood of the enemy being a goodie or a freezer (expected to be lower than 1).
 	Level               *EnemyLevel      // Level is the level of the enemy.
@@ -70,11 +68,16 @@ func (enemy *Enemy) Berserk() {
 	enemy.Level.Defense += boost.healthPoints
 	enemy.Level.Speed *= boost.speedFactor
 
-	if config.Config.Enemy.Width*boost.sizeFactor < config.CanvasWidth() && config.Config.Enemy.Height*boost.sizeFactor < config.CanvasHeight() {
-		enemy.Size.Width = objects.Number(config.Config.Enemy.Width * boost.sizeFactor)
-		enemy.Size.Height = objects.Number(config.Config.Enemy.Height * boost.sizeFactor)
-		enemy.Position.X -= objects.Number(config.Config.Enemy.Width / boost.sizeFactor)
-		enemy.Position.Y -= objects.Number(config.Config.Enemy.Height / boost.sizeFactor)
+	canvasSize, newSize := objects.Size{
+		Width:  objects.Number(config.CanvasWidth()),
+		Height: objects.Number(config.CanvasHeight()),
+	}, objects.Position{
+		X: objects.Number(config.Config.Enemy.Width),
+		Y: objects.Number(config.Config.Enemy.Height),
+	}.Mul(objects.Number(boost.sizeFactor)).ToBox()
+	if newSize.ToVector().Less(canvasSize.ToVector()) {
+		enemy.Size = newSize
+		enemy.Position = enemy.Position.Sub(newSize.ToVector().Div(objects.Number(boost.sizeFactor)))
 	}
 }
 
@@ -99,6 +102,13 @@ func (enemy *Enemy) BerserkGivenAncestor(oldType EnemyType) {
 	}
 }
 
+// Destroy destroys the enemy.
+// The health points of the enemy are set to 0.
+func (enemy *Enemy) Destroy() {
+	enemy.Level.HitPoints = 0
+	go config.PlayAudio("enemy_destroyed.wav", false)
+}
+
 // Draw draws the enemy.
 // The enemy is drawn as a rectangle with the specified color.
 // The color is based on the type of the enemy.
@@ -121,12 +131,15 @@ func (enemy Enemy) Draw() {
 // The damage is reduced by the defense of the enemy.
 // If the damage is less than 0, it is set to 0.
 func (enemy *Enemy) Hit(damage int) int {
-	damage = damage - rand.Intn(enemy.Level.Defense)
+	damage = damage - rand.Intn(enemy.Level.Defense*enemy.Level.Progress)
 	if damage < 0 {
 		damage = rand.Intn(config.Config.Bullet.InitialDamage)
 	}
 
 	enemy.Level.HitPoints -= damage
+
+	go config.PlayAudio("enemy_hit.wav", false)
+
 	return damage
 }
 
@@ -143,38 +156,35 @@ func (enemy *Enemy) Move(spaceshipPosition objects.Position) {
 	}
 
 	// Calculate the horizontal and vertical distances to the spaceship
-	dx := (spaceshipPosition.X - enemy.Position.X).Float()
-	dy := (spaceshipPosition.Y - enemy.Position.Y).Float()
+	delta := spaceshipPosition.Sub(enemy.Position)
 
 	// Calculate the distance to the spaceship
-	distance := math.Sqrt(dx*dx + dy*dy)
+	distance := delta.Magnitude()
 
 	// Define the strength formula
-	strength := 1 / (distance + 1) // Add 1 to avoid division by zero
+	strength := objects.Number(enemy.Level.Progress) / (distance + 1) // Add 1 to avoid division by zero
 
 	// Add randomness to the chase based on strength
-	dx += (rand.Float64() - 0.5) * strength
-	dy += (rand.Float64() - 0.5) * strength
+	delta = delta.Add(objects.Position{
+		X: objects.Number(rand.Float64() - 0.5),
+		Y: objects.Number(rand.Float64() - 0.5),
+	}).Mul(strength)
 
 	// Normalize the direction vector (dx, dy)
 	if distance != 0 {
-		dx /= distance
-		dy /= distance
+		delta = delta.Div(distance)
 	}
 
 	// Normalize the direction again after adding randomness
-	randomDistance := math.Sqrt(dx*dx + dy*dy)
-	if randomDistance != 0 {
-		dx /= randomDistance
-		dy /= randomDistance
+	if normal := delta.Normalize(); !normal.IsZero() {
+		delta = normal
 	}
 
 	// Move down using the speed
 	enemy.Position.Y += objects.Number(enemy.Level.Speed)
 
 	// Move horizontally and vertically towards the spaceship
-	enemy.Position.X += objects.Number(dx)
-	enemy.Position.Y += objects.Number(dy)
+	enemy.Position = enemy.Position.Add(delta)
 }
 
 // String returns the string representation of the enemy.

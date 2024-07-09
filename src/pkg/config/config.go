@@ -50,6 +50,7 @@ type config struct {
 		Margin                    float64
 		MaximumCount              int
 		MaximumSpeed              float64
+		Regenerate                *bool
 		SpecialtyLikeliness       float64
 		Width                     float64
 
@@ -79,6 +80,7 @@ type config struct {
 		CannonProgress       int
 		Cooldown             time.Duration
 		DefaultPenalty       int
+		FreezerPenalty       int
 		Height               float64
 		InitialSpeed         float64
 		MaximumCannons       int
@@ -98,16 +100,22 @@ type config struct {
 	}
 
 	Control struct {
+		AudioEnabled                *bool
 		CriticalFramesPerSecondRate float64
 		DesiredFramesPerSecondRate  float64
+		DoubleTapDuration           time.Duration
 		MinimumSwipeDistance        float64
 	}
 
 	Messages struct {
-		GameStartedNoTouchDevice string
-		GameStartedTouchDevice   string
-		HowToStartNoTouchDevice  string
-		HowToStartTouchDevice    string
+		GamePausedNoTouchDevice   string
+		GamePausedTouchDevice     string
+		GameStartedNoTouchDevice  string
+		GameStartedTouchDevice    string
+		HowToRestartNoTouchDevice string
+		HowToRestartTouchDevice   string
+		HowToStartNoTouchDevice   string
+		HowToStartTouchDevice     string
 
 		Templates struct {
 			EnemyDestroyed               templateString

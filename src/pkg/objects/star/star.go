@@ -31,9 +31,9 @@ func (s *Star) Exhaust() {
 }
 
 // Twinkle is a function that creates a new star.
-func Twinkle(pos objects.Position) *Star {
+func Twinkle(position objects.Position) *Star {
 	return &Star{
-		Position: pos,
+		Position: position,
 		Radius:   rand.Float64()*config.Config.Star.MinimumRadius + (config.Config.Star.MaximumRadius - config.Config.Star.MinimumRadius),
 		Spikes:   rand.Float64()*config.Config.Star.MinimumSpikes + (config.Config.Star.MaximumSpikes - config.Config.Star.MinimumSpikes),
 		color: [...]string{

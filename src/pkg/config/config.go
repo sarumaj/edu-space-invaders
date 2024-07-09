@@ -105,6 +105,7 @@ type config struct {
 		DesiredFramesPerSecondRate  float64
 		DoubleTapDuration           time.Duration
 		MinimumSwipeDistance        float64
+		SwipeProximityRange         float64
 	}
 
 	Messages struct {

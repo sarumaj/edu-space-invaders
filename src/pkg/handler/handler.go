@@ -209,15 +209,17 @@ func (h *handler) handleTouch(event touchEvent) {
 		return
 	}
 
-	if event.Delta.X.Abs().Float() > config.Config.Control.MinimumSwipeDistance {
+	// Check if the swipe distance is greater than the minimum swipe distance.
+	// Check if the spaceship is in the swipe proximity range.
+	if event.Delta.Distance(event.Position).Float() > config.Config.Control.MinimumSwipeDistance &&
+		event.Position.Distance(h.spaceship.Position).Float() < config.Config.Control.SwipeProximityRange {
+
 		if event.Delta.X.Float() < 0 {
 			h.spaceship.MoveLeft()
 		} else {
 			h.spaceship.MoveRight()
 		}
-	}
 
-	if event.Delta.Y.Abs().Float() > config.Config.Control.MinimumSwipeDistance {
 		if event.Delta.Y.Float() < 0 {
 			h.spaceship.MoveUp()
 		} else {

@@ -44,22 +44,16 @@ func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color string)
 func DrawStar(coords [2]float64, spikes, radius float64, color string, brightness float64) {}
 
 // Getenv is a function that returns the value of the environment variable key.
-func Getenv(key string) string {
-	return os.Getenv(key)
-}
+func Getenv(key string) string { return os.Getenv(key) }
 
 // IsTouchDevice is a function that returns true if the device is a touch device.
-func IsTouchDevice() bool {
-	return false
-}
+func IsTouchDevice() bool { return false }
 
 // LoadAudio is a function that loads an audio file from the specified URL.
 func LoadAudio(url string) ([]byte, error) { return nil, nil }
 
 // Log is a function that logs a message.
-func Log(msg string) {
-	log.Println(msg)
-}
+func Log(msg string) { log.Println(msg) }
 
 // LogError is a function that logs an error.
 func LogError(err error) {
@@ -75,9 +69,10 @@ func PlayAudio(name string, loop bool) {}
 func RemoveEventListener(event string, listener any) {}
 
 // SendMessage sends a message to the message box.
-func SendMessage(msg string) {
-	log.Println(msg)
-}
+func SendMessage(msg string) { log.Println(msg) }
+
+// Setenv is a function that sets the environment variable key to value.
+func Setenv(key, value string) { _ = os.Setenv(key, value) }
 
 // StopAudio is a function that stops an audio track.
 func StopAudio(name string) {}
@@ -91,3 +86,6 @@ func ThrowError(err error) {
 		panic(err)
 	}
 }
+
+// Unsetenv is a function that unsets the environment variable key.
+func Unsetenv(key string) { _ = os.Unsetenv(key) }

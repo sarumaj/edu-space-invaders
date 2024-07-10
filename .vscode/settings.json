@@ -10,6 +10,7 @@
     "Dawid",
     "enemylevel",
     "enemytype",
+    "envvariable",
     "fsys",
     "Fsys",
     "Furter",
@@ -39,6 +40,7 @@
     "touchevent",
     "touchmove",
     "touchstart",
+    "unsets",
     "usedocker"
   ]
 }

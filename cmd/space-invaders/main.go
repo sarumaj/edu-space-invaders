@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	gin "github.com/gin-gonic/gin"
 	rkboot "github.com/rookie-ninja/rk-boot/v2"
@@ -17,10 +18,11 @@ import (
 	dist "github.com/sarumaj/edu-space-invaders/dist"
 )
 
+const envVarPrefix = "SPACE_INVADERS_"
+
 //go:embed boot.yaml
 var bootRaw []byte
 
-var debug = flag.Bool("debug", false, "enable debug mode")
 var port = flag.Int("port", func() int {
 	parsed, err := strconv.Atoi(os.Getenv("PORT"))
 	if err == nil {
@@ -60,9 +62,21 @@ func handleEnvVars(ctx *gin.Context) {
 	body := gin.H{}
 	_ = ctx.ShouldBind(&body)
 
-	body["SPACE_INVADERS_MODE"] = os.Getenv("SPACE_INVADERS_MODE")
+	// Set the environment variables based on the request body.
+	// Communication from WASM to Go is done through the request body.
 	for k, v := range body {
-		_ = os.Setenv(k, fmt.Sprintf("%v", v))
+		if strings.HasPrefix(k, envVarPrefix) {
+			_ = os.Setenv(k, fmt.Sprintf("%v", v))
+		}
+	}
+
+	// Return the environment variables as a response.
+	// Communication from Go to WASM is done through the response body.
+	for _, pair := range os.Environ() {
+		k, v, _ := strings.Cut(pair, "=")
+		if strings.HasPrefix(k, envVarPrefix) {
+			body[k] = v
+		}
 	}
 
 	ctx.JSON(http.StatusOK, body)
@@ -71,11 +85,6 @@ func handleEnvVars(ctx *gin.Context) {
 // main is the entry point of the game server.
 func main() {
 	flag.Parse()
-
-	// Set the mode based on the environment variable.
-	// Can be used in the future to set the mode based on the command line argument
-	// and alternate the game environment.
-	_ = os.Setenv("SPACE_INVADERS_MODE", map[bool]string{true: "DEVELOPMENT", false: "PRODUCTION"}[*debug])
 
 	// Set the port based on the environment variable (necessary for Heroku).
 	_ = os.Setenv("RK_GIN_0_PORT", fmt.Sprint(*port))

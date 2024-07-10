@@ -15,14 +15,10 @@ var printer = message.NewPrinter(language.English)
 type templateString string
 
 // Template represents a message template.
-type Template struct {
-	Damage int
-	Name   string
-	Level  int
-}
+type Template map[string]any
 
-// Render renders the template with the given string.
-func (t Template) Execute(str templateString) string {
+// execute renders the template with the given string.
+func (t Template) execute(str templateString) string {
 	out := bytes.NewBuffer(nil)
 	parsed, err := template.New(fmt.Sprintf("%p", out)).Funcs(template.FuncMap{
 		"color": func(color string, args ...any) string {
@@ -49,7 +45,15 @@ func (t Template) Execute(str templateString) string {
 }
 
 // Execute returns a template string with the given arguments.
-func Execute(str templateString) string { return Template{}.Execute(str) }
+func Execute[String interface{ string | templateString }](str String, t ...Template) string {
+	if len(t) > 0 {
+		return t[0].execute(templateString(str))
+	}
+
+	return Template{}.execute(templateString(str))
+}
 
 // Sprintf returns a template string with the given arguments.
-func Sprintf(in string, args ...any) templateString { return templateString(fmt.Sprintf(in, args...)) }
+func Sprintf[String interface{ string | templateString }](in String, args ...any) String {
+	return String(fmt.Sprintf(string(in), args...))
+}

@@ -357,6 +357,11 @@ func SendMessage(msg string) {
 	messageBox.Set("scrollTop", messageBox.Get("scrollHeight"))
 }
 
+// Setenv is a function that sets the environment variable key to value.
+func Setenv(key, value string) {
+	env.Set(key, value)
+}
+
 // StopAudio is a function that stops an audio track.
 func StopAudio(name string) {
 	audioMutex.Lock()
@@ -384,4 +389,9 @@ func ThrowError(err error) {
 	if err != nil {
 		js.Global().Call("eval", fmt.Sprintf("throw new Error('%s')", err.Error()))
 	}
+}
+
+// Unsetenv is a function that unsets the environment variable key.
+func Unsetenv(key string) {
+	env.Delete(key)
 }

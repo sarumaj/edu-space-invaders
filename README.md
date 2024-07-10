@@ -70,6 +70,8 @@ To setup similar project follow following steps:
       - [unit tests for config.go](src/pkg/config/config_test.go)
       - [code file config.go](src/pkg/config/config.go)
       - [game config file config.ini](src/pkg/config/config.ini)
+      - [unit tests for envvariable.go](src/pkg/config/envvariable_test.go)
+      - [code file envvariable.go](src/pkg/config/envvariable.go)
       - [code file js.go](src/pkg/config/js.go)
       - [code file os.go](src/pkg/config/os.go)
       - [unit tests for template.go](src/pkg/config/template_test.go)

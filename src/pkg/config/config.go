@@ -101,9 +101,10 @@ type config struct {
 
 	Control struct {
 		AudioEnabled                *bool
+		Debug                       envVariable[bool]
 		CriticalFramesPerSecondRate float64
 		DesiredFramesPerSecondRate  float64
-		DoubleTapDuration           time.Duration
+		HoldTapDuration             time.Duration
 		MinimumSwipeDistance        float64
 		SwipeProximityRange         float64
 	}
@@ -122,6 +123,7 @@ type config struct {
 			EnemyDestroyed               templateString
 			EnemyHit                     templateString
 			GameOver                     templateString
+			PerformanceDropped           templateString
 			SpaceshipDowngradedByEnemy   templateString
 			SpaceshipFrozen              templateString
 			SpaceshipUpgradedByEnemyKill templateString

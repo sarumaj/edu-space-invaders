@@ -3,7 +3,6 @@
 package handler
 
 import (
-	"strings"
 	"syscall/js"
 	"time"
 
@@ -32,12 +31,17 @@ func (h *handler) monitor() {
 
 		if elapsed := now.Sub(lastFrameTime).Seconds(); elapsed >= precision {
 			if fps := float64(frameCount) / elapsed; fps <= config.Config.Control.CriticalFramesPerSecondRate {
-				h.sendMessage(config.Execute(config.Sprintf(`Low FPS detected: {{ "%.2f" | color "red" }}!`, fps)))
+				h.sendMessage(config.Execute(config.Config.Messages.Templates.PerformanceDropped, config.Template{
+					"FPS": fps,
+				}))
 
-				// Stop all audio sources except the theme
-				go config.StopAudioSources(func(name string) bool {
-					return !strings.HasPrefix(name, "theme_")
+				// Stop all audio sources
+				go config.StopAudioSources(func(string) bool {
+					return true
 				})
+
+				// Disable audio globally
+				*config.Config.Control.AudioEnabled = false
 			}
 			frameCount, lastFrameTime = 0, now
 		}
@@ -93,26 +97,30 @@ func (h *handler) registerEventHandlers() {
 		var globalEvent touchEvent
 		touchstart = js.FuncOf(func(_ js.Value, p []js.Value) any {
 			p[0].Call("preventDefault")
-			globalEvent.Position.X = objects.Number(p[0].Get("changedTouches").Index(0).Get("clientX").Float())
-			globalEvent.Position.Y = objects.Number(p[0].Get("changedTouches").Index(0).Get("clientY").Float())
-			globalEvent.Delta = objects.Position{} // Reset the delta to prevent accidental movement of the spaceship
+			globalEvent.StartPosition = objects.Position{
+				X: objects.Number(p[0].Get("changedTouches").Index(0).Get("clientX").Float()),
+				Y: objects.Number(p[0].Get("changedTouches").Index(0).Get("clientY").Float()),
+			}
+			globalEvent.EndPosition = objects.Position{} // Reset the delta to prevent accidental movement of the spaceship
+			globalEvent.StartTime = time.Now()
 			return nil
 		})
 		touchmove = js.FuncOf(func(_ js.Value, p []js.Value) any {
 			p[0].Call("preventDefault")
-			x := p[0].Get("changedTouches").Index(0).Get("clientX").Float()
-			y := p[0].Get("changedTouches").Index(0).Get("clientY").Float()
-			globalEvent.CalculateDelta(x, y)
+			globalEvent.EndPosition = objects.Position{
+				X: objects.Number(p[0].Get("changedTouches").Index(0).Get("clientX").Float()),
+				Y: objects.Number(p[0].Get("changedTouches").Index(0).Get("clientY").Float()),
+			}
 			h.touchEvent <- globalEvent
 			return nil
 		})
-		var lastTap time.Time
 		touchend = js.FuncOf(func(_ js.Value, p []js.Value) any {
 			p[0].Call("preventDefault")
-			x := p[0].Get("changedTouches").Index(0).Get("clientX").Float()
-			y := p[0].Get("changedTouches").Index(0).Get("clientY").Float()
-			globalEvent.CalculateDelta(x, y)
-			globalEvent.IsDoubleTap, lastTap = time.Since(lastTap) < config.Config.Control.DoubleTapDuration, time.Now()
+			globalEvent.EndPosition = objects.Position{
+				X: objects.Number(p[0].Get("changedTouches").Index(0).Get("clientX").Float()),
+				Y: objects.Number(p[0].Get("changedTouches").Index(0).Get("clientY").Float()),
+			}
+			globalEvent.EndTime = time.Now()
 			h.touchEvent <- globalEvent
 			return nil
 		})

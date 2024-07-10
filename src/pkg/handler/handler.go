@@ -204,19 +204,18 @@ func (h *handler) handleTouch(event touchEvent) {
 		return
 	}
 
-	duration := event.TapDuration()
 	delta := event.Delta()
 	deltaAbs := delta.Magnitude()
 	distance := event.StartPosition.Distance(h.spaceship.Position)
 
 	if config.Config.Control.Debug.Get() {
-		h.sendMessage(config.Execute(config.Sprintf("Touch (Delta: %.2f, Distance to spaceship: %.2f, Duration: %s)", deltaAbs, distance, duration)))
+		h.sendMessage(config.Execute(config.Sprintf("Touch (Delta: %.2f, Distance to spaceship: %.2f, Duration: %s)", deltaAbs, distance)))
 	}
 
 	// Check if the duration is greater than the hold-tap duration.
 	// If the duration is greater than the hold-tap duration and the delta is less than the minimum swipe distance,
 	// pause the game.
-	if duration > config.Config.Control.HoldTapDuration && deltaAbs.Float() < config.Config.Control.MinimumSwipeDistance {
+	if len(event.Correlations) > 1 {
 		h.pause()
 		return
 	}

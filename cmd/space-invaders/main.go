@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -16,6 +17,7 @@ import (
 	rkboot "github.com/rookie-ninja/rk-boot/v2"
 	rkgin "github.com/rookie-ninja/rk-gin/v2/boot"
 	dist "github.com/sarumaj/edu-space-invaders/dist"
+	zapcore "go.uber.org/zap/zapcore"
 )
 
 const envVarPrefix = "SPACE_INVADERS_"
@@ -89,15 +91,21 @@ func main() {
 	// Set the port based on the environment variable (necessary for Heroku).
 	_ = os.Setenv("RK_GIN_0_PORT", fmt.Sprint(*port))
 
+	envData := os.Environ()
+	slices.Sort(envData)
+
 	boot := rkboot.NewBoot(rkboot.WithBootConfigRaw(bootRaw))
 
 	entry := rkgin.GetGinEntry("space-invaders")
-	entry.Router.Use(cacheControlMiddleware())
 
+	entry.LoggerEntry.Info("Booting up", zapcore.Field{Key: "environ", Interface: envData, Type: zapcore.ReflectType})
+
+	entry.Router.Use(cacheControlMiddleware())
 	entry.Router.StaticFS("/", dist.HttpFS)
 	entry.Router.POST("/.env", handleEnvVars)
 
 	boot.Bootstrap(context.Background())
 
 	boot.WaitForShutdownSig(context.Background())
+	entry.LoggerEntry.Warn("Unexpected shut down")
 }

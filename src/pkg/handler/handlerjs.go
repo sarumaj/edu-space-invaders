@@ -42,7 +42,10 @@ func (h *handler) monitor() {
 
 				// Disable audio globally
 				*config.Config.Control.AudioEnabled = false
+			} else if config.Config.Control.Debug.Get() {
+				h.sendMessage(config.Execute(config.Sprintf("FPS: %.2f", fps)))
 			}
+
 			frameCount, lastFrameTime = 0, now
 		}
 
@@ -97,30 +100,64 @@ func (h *handler) registerEventHandlers() {
 		var globalEvent touchEvent
 		touchstart = js.FuncOf(func(_ js.Value, p []js.Value) any {
 			p[0].Call("preventDefault")
+			changedTouches := p[0].Get("changedTouches")
 			globalEvent.StartPosition = objects.Position{
-				X: objects.Number(p[0].Get("changedTouches").Index(0).Get("clientX").Float()),
-				Y: objects.Number(p[0].Get("changedTouches").Index(0).Get("clientY").Float()),
+				X: objects.Number(changedTouches.Index(0).Get("clientX").Float()),
+				Y: objects.Number(changedTouches.Index(0).Get("clientY").Float()),
 			}
 			globalEvent.EndPosition = objects.Position{} // Reset the delta to prevent accidental movement of the spaceship
 			globalEvent.StartTime = time.Now()
+			globalEvent.Correlations = nil // Reset correlations
+			for i := 1; i < changedTouches.Length(); i++ {
+				globalEvent.Correlations = append(globalEvent.Correlations, touchEvent{
+					StartPosition: objects.Position{
+						X: objects.Number(changedTouches.Index(i).Get("clientX").Float()),
+						Y: objects.Number(changedTouches.Index(i).Get("clientY").Float()),
+					},
+					StartTime: globalEvent.StartTime,
+				})
+			}
 			return nil
 		})
 		touchmove = js.FuncOf(func(_ js.Value, p []js.Value) any {
 			p[0].Call("preventDefault")
+			changedTouches := p[0].Get("changedTouches")
 			globalEvent.EndPosition = objects.Position{
-				X: objects.Number(p[0].Get("changedTouches").Index(0).Get("clientX").Float()),
-				Y: objects.Number(p[0].Get("changedTouches").Index(0).Get("clientY").Float()),
+				X: objects.Number(changedTouches.Index(0).Get("clientX").Float()),
+				Y: objects.Number(changedTouches.Index(0).Get("clientY").Float()),
+			}
+			for i := 1; i < changedTouches.Length(); i++ {
+				if i >= len(globalEvent.Correlations) {
+					break
+				}
+
+				globalEvent.Correlations[i-1].EndPosition = objects.Position{
+					X: objects.Number(changedTouches.Index(i).Get("clientX").Float()),
+					Y: objects.Number(changedTouches.Index(i).Get("clientY").Float()),
+				}
 			}
 			h.touchEvent <- globalEvent
 			return nil
 		})
 		touchend = js.FuncOf(func(_ js.Value, p []js.Value) any {
 			p[0].Call("preventDefault")
+			changedTouches := p[0].Get("changedTouches")
 			globalEvent.EndPosition = objects.Position{
-				X: objects.Number(p[0].Get("changedTouches").Index(0).Get("clientX").Float()),
-				Y: objects.Number(p[0].Get("changedTouches").Index(0).Get("clientY").Float()),
+				X: objects.Number(changedTouches.Index(0).Get("clientX").Float()),
+				Y: objects.Number(changedTouches.Index(0).Get("clientY").Float()),
 			}
 			globalEvent.EndTime = time.Now()
+			for i := 1; i < changedTouches.Length(); i++ {
+				if i >= len(globalEvent.Correlations) {
+					break
+				}
+
+				globalEvent.Correlations[i-1].EndPosition = objects.Position{
+					X: objects.Number(changedTouches.Index(i).Get("clientX").Float()),
+					Y: objects.Number(changedTouches.Index(i).Get("clientY").Float()),
+				}
+				globalEvent.Correlations[i-1].EndTime = globalEvent.EndTime
+			}
 			h.touchEvent <- globalEvent
 			return nil
 		})

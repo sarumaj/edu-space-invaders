@@ -104,9 +104,9 @@ type config struct {
 		Debug                       envVariable[bool]
 		CriticalFramesPerSecondRate float64
 		DesiredFramesPerSecondRate  float64
-		HoldTapDuration             time.Duration
 		MinimumSwipeDistance        float64
 		SwipeProximityRange         float64
+		TapCorrelationWindow        time.Duration
 	}
 
 	Messages struct {

@@ -11,6 +11,7 @@ import (
 type touchEvent struct {
 	StartPosition, EndPosition objects.Position
 	StartTime, EndTime         time.Time
+	Correlations               []touchEvent
 }
 
 // Delta returns the delta of the touch event.

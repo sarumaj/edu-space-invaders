@@ -82,7 +82,7 @@ import (
 	"time"
 )
 
-//go:embed *.html *.css *.js *.wasm *.ico audio/*.wav
+//go:embed *.html *.css *.js *.wasm *.ico audio/*.wav *.json icons/*.png
 var embeddedFsys embed.FS
 
 var _ http.File = httpFile{}
@@ -90,24 +90,39 @@ var _ http.File = httpFile{}
 var _ fs.FileInfo = httpFileInfo{}
 
 var hashMap = func() map[string]string {
-	entries, err := embeddedFsys.ReadDir(".")
-	if err != nil {
-		log.Fatal(err)
+	hashes := make(map[string]string)
+
+	var readDir func(string) error
+	readDir = func(name string) error {
+		entries, err := embeddedFsys.ReadDir(name)
+		if err != nil {
+			return err
+		}
+
+		for _, entry := range entries {
+			path := filepath.Join(name, entry.Name())
+			if entry.IsDir() {
+				if err := readDir(path); err != nil {
+					return err
+				}
+
+			} else {
+				content, err := embeddedFsys.ReadFile(path)
+				if err != nil {
+					return err
+				}
+
+				hash := sha256.Sum256(content)
+				hashes[path] = hex.EncodeToString(hash[:])
+
+			}
+		}
+
+		return nil
 	}
 
-	hashes := make(map[string]string)
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		content, err := embeddedFsys.ReadFile(entry.Name())
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		hash := sha256.Sum256(content)
-		hashes[entry.Name()] = hex.EncodeToString(hash[:])
+	if err := readDir("."); err != nil {
+		log.Fatal(err)
 	}
 
 	return hashes

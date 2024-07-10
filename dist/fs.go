@@ -1,4 +1,4 @@
-// Code generated on 2024-07-10T16:36:04.649Z+00:00, DO NOT EDIT.
+// Code generated on 2024-07-10T22:59:35.453Z+00:00, DO NOT EDIT.
 package dist
 
 import (
@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-//go:embed *.html *.css *.js *.wasm *.ico audio/*.wav
+//go:embed *.html *.css *.js *.wasm *.ico audio/*.wav *.json icons/*.png
 var embeddedFsys embed.FS
 
 var _ http.File = httpFile{}
@@ -23,24 +23,39 @@ var _ http.File = httpFile{}
 var _ fs.FileInfo = httpFileInfo{}
 
 var hashMap = func() map[string]string {
-	entries, err := embeddedFsys.ReadDir(".")
-	if err != nil {
-		log.Fatal(err)
+	hashes := make(map[string]string)
+
+	var readDir func(string) error
+	readDir = func(name string) error {
+		entries, err := embeddedFsys.ReadDir(name)
+		if err != nil {
+			return err
+		}
+
+		for _, entry := range entries {
+			path := filepath.Join(name, entry.Name())
+			if entry.IsDir() {
+				if err := readDir(path); err != nil {
+					return err
+				}
+
+			} else {
+				content, err := embeddedFsys.ReadFile(path)
+				if err != nil {
+					return err
+				}
+
+				hash := sha256.Sum256(content)
+				hashes[path] = hex.EncodeToString(hash[:])
+
+			}
+		}
+
+		return nil
 	}
 
-	hashes := make(map[string]string)
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		content, err := embeddedFsys.ReadFile(entry.Name())
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		hash := sha256.Sum256(content)
-		hashes[entry.Name()] = hex.EncodeToString(hash[:])
+	if err := readDir("."); err != nil {
+		log.Fatal(err)
 	}
 
 	return hashes
@@ -90,7 +105,7 @@ func (h httpFS) Open(name string) (http.File, error) {
 	return nil, fs.ErrNotExist
 }
 
-func BuildTime() string { return "2024-07-10T16:36:04.649Z+00:00" }
+func BuildTime() string { return "2024-07-10T22:59:35.453Z+00:00" }
 
 func LookupHash(name string) (string, bool) {
 	hash, ok := hashMap[name]

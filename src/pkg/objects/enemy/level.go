@@ -17,7 +17,7 @@ type EnemyLevel struct {
 // If the enemy hit points are greater than 100, it decreases the hit points by 10.
 // If the enemy defense is greater than 0, it decreases the defense by 10.
 func (lvl *EnemyLevel) Down() {
-	if lvl.Progress == 1 {
+	if lvl.Progress == 0 {
 		return
 	}
 

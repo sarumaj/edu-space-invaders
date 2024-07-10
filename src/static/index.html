@@ -8,6 +8,19 @@
     />
     <title>Space Invaders On Assembly Line</title>
     <link rel="stylesheet" href="style.css" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="favicon.ico" type="image/x-icon" />
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
+    <link
+      rel="apple-touch-icon"
+      sizes="192x192"
+      href="icons/icon-192x192.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="512x512"
+      href="icons/icon-512x512.png"
+    />
   </head>
   <body>
     <div id="gameContainer">
@@ -17,5 +30,20 @@
     </div>
     <script src="wasm_exec.js"></script>
     <script src="wasm.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("service-worker.js").then(
+          (registration) => {
+            console.log(
+              "ServiceWorker registration successful with scope: ",
+              registration.scope
+            );
+          },
+          (error) => {
+            console.log("ServiceWorker registration failed: ", error);
+          }
+        );
+      }
+    </script>
   </body>
 </html>

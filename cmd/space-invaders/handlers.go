@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,7 +17,7 @@ func cacheControlMiddleware() gin.HandlerFunc {
 	defaultEntrypoint := "index.html"
 
 	return func(ctx *gin.Context) {
-		path := filepath.Base(ctx.Request.URL.Path)
+		path := strings.Trim(ctx.Request.URL.Path, "/")
 		if path == "/" {
 			path = defaultEntrypoint
 		}

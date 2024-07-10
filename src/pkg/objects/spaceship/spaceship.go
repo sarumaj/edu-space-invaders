@@ -13,7 +13,8 @@ import (
 
 // Spaceship represents the player's spaceship.
 type Spaceship struct {
-	Position            objects.Position //Position of the spaceship
+	Position            objects.Position // Position of the spaceship
+	Speed               objects.Position // Speed of the spaceship in both directions
 	Size                objects.Size     // Size of the spaceship
 	Bullets             bullet.Bullets   // Bullets fired by the spaceship
 	Cooldown            time.Duration    // Time between shots
@@ -87,6 +88,9 @@ func (spaceship Spaceship) Draw() {
 // of the cannon.
 func (spaceship *Spaceship) Fire() {
 	if spaceship.State == Frozen {
+		config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+			"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).Round(time.Millisecond),
+		}))
 		return
 	}
 
@@ -122,19 +126,32 @@ func (spaceship Spaceship) GetBulletDamage() int {
 	return base*modifier + rand.Intn(base*modifier)
 }
 
+// IsDestroyed checks if the spaceship is destroyed.
+func (spaceship Spaceship) IsDestroyed() bool {
+	return spaceship.Level.Progress == 0
+}
+
 // MoveDown moves the spaceship down.
 // The spaceship's position is updated based on the spaceship's speed.
 // If the spaceship's position is greater than the canvas height,
 // it is set to the canvas height.
 func (spaceship *Spaceship) MoveDown() {
 	if spaceship.State == Frozen {
+		config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+			"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).Round(time.Millisecond),
+		}))
 		return
 	}
 
-	if spaceship.Position.Y.Float()+spaceship.Size.Height.Float()+spaceship.Level.Speed < config.CanvasHeight() {
-		spaceship.Position.Y += objects.Number(spaceship.Level.Speed)
+	if spaceship.Speed.Y.Float() < config.Config.Spaceship.MaximumSpeed {
+		spaceship.Speed.Y += objects.Number(spaceship.Level.AccelerateRate)
+	}
+
+	if spaceship.Position.Y+spaceship.Size.Height+spaceship.Speed.Y < objects.Number(config.CanvasHeight()) {
+		spaceship.Position.Y += spaceship.Speed.Y
 	} else {
 		spaceship.Position.Y = objects.Number(config.CanvasHeight() - spaceship.Size.Height.Float())
+		spaceship.Speed.Y = 0
 	}
 
 	go config.PlayAudio("spaceship_deceleration.wav", false)
@@ -145,13 +162,21 @@ func (spaceship *Spaceship) MoveDown() {
 // If the spaceship's position is less than 0, it is set to 0.
 func (spaceship *Spaceship) MoveLeft() {
 	if spaceship.State == Frozen {
+		config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+			"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).Round(time.Millisecond),
+		}))
 		return
 	}
 
-	if spaceship.Position.X.Float()-spaceship.Level.Speed > 0 {
-		spaceship.Position.X -= objects.Number(spaceship.Level.Speed)
+	if spaceship.Speed.X.Float() < config.Config.Spaceship.MaximumSpeed {
+		spaceship.Speed.X += objects.Number(spaceship.Level.AccelerateRate)
+	}
+
+	if spaceship.Position.X-spaceship.Speed.X > 0 {
+		spaceship.Position.X -= spaceship.Speed.X
 	} else {
 		spaceship.Position.X = 0
+		spaceship.Speed.X = 0
 	}
 
 	go config.PlayAudio("spaceship_whoosh.wav", false)
@@ -163,13 +188,21 @@ func (spaceship *Spaceship) MoveLeft() {
 // it is set to the canvas width.
 func (spaceship *Spaceship) MoveRight() {
 	if spaceship.State == Frozen {
+		config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+			"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).Round(time.Millisecond),
+		}))
 		return
 	}
 
-	if spaceship.Position.X.Float()+spaceship.Size.Width.Float()+spaceship.Level.Speed < config.CanvasWidth() {
-		spaceship.Position.X += objects.Number(spaceship.Level.Speed)
+	if spaceship.Speed.X.Float() < config.Config.Spaceship.MaximumSpeed {
+		spaceship.Speed.X += objects.Number(spaceship.Level.AccelerateRate)
+	}
+
+	if spaceship.Position.X+spaceship.Size.Width+spaceship.Speed.X < objects.Number(config.CanvasWidth()) {
+		spaceship.Position.X += spaceship.Speed.X
 	} else {
 		spaceship.Position.X = objects.Number(config.CanvasWidth() - spaceship.Size.Width.Float())
+		spaceship.Speed.X = 0
 	}
 
 	go config.PlayAudio("spaceship_whoosh.wav", false)
@@ -180,23 +213,78 @@ func (spaceship *Spaceship) MoveRight() {
 // If the spaceship's position is less than 0, it is set to 0.
 func (spaceship *Spaceship) MoveUp() {
 	if spaceship.State == Frozen {
+		config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+			"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).Round(time.Millisecond),
+		}))
 		return
 	}
 
-	if spaceship.Position.Y.Float()-spaceship.Level.Speed > 0 {
-		spaceship.Position.Y -= objects.Number(spaceship.Level.Speed)
+	if spaceship.Speed.Y.Float() < config.Config.Spaceship.MaximumSpeed {
+		spaceship.Speed.Y += objects.Number(spaceship.Level.AccelerateRate)
+	}
+
+	if spaceship.Position.Y-spaceship.Speed.Y > 0 {
+		spaceship.Position.Y -= spaceship.Speed.Y
 	} else {
 		spaceship.Position.Y = 0
+		spaceship.Speed.Y = 0
 	}
 
 	go config.PlayAudio("spaceship_acceleration.wav", false)
+}
+
+// MoveTo moves the spaceship to the specified position.
+// The spaceship's position is updated based on the delta.
+// If the spaceship's position is less than 0, it is set to 0.
+// If the spaceship's position is greater than the canvas width,
+// it is set to the canvas width.
+// If the spaceship's position is less than 0, it is set to 0.
+// If the spaceship's position is greater than the canvas height,
+// it is set to the canvas height.
+func (spaceship *Spaceship) MoveTo(target objects.Position) {
+	if spaceship.State == Frozen {
+		config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+			"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).Round(time.Millisecond),
+		}))
+		return
+	}
+
+	if spaceship.Speed.Y.Float() < config.Config.Spaceship.MaximumSpeed {
+		spaceship.Speed.Y += objects.Number(spaceship.Level.AccelerateRate)
+	}
+
+	if spaceship.Speed.X.Float() < config.Config.Spaceship.MaximumSpeed {
+		spaceship.Speed.X += objects.Number(spaceship.Level.AccelerateRate)
+	}
+
+	delta := spaceship.Position.Sub(target).Normalize()
+	delta = delta.Mul(spaceship.Speed.Magnitude())
+	target = spaceship.Position.Sub(delta)
+
+	if target.X < 0 {
+		target.X = 0
+	}
+
+	if target.X > objects.Number(config.CanvasWidth())-spaceship.Size.Width {
+		target.X = objects.Number(config.CanvasWidth()) - spaceship.Size.Width
+	}
+
+	if target.Y < 0 {
+		target.Y = 0
+	}
+
+	if target.Y > objects.Number(config.CanvasHeight())-spaceship.Size.Height {
+		target.Y = objects.Number(config.CanvasHeight()) - spaceship.Size.Height
+	}
+
+	spaceship.Position = target
 }
 
 // Penalize penalizes the spaceship by downgrading its level.
 // The spaceship is downgraded by the specified number of levels.
 // If the spaceship's level is less than 1, it is set to 1.
 func (spaceship *Spaceship) Penalize(levels int) {
-	for i := 0; i < levels && spaceship.Level.Progress > 1; i++ {
+	for i := 0; i < levels && spaceship.Level.Progress > 0; i++ {
 		spaceship.Level.Down()
 	}
 }
@@ -217,23 +305,35 @@ func (spaceship *Spaceship) UpdateHighScore() {
 // If the time since the last state transition is greater than
 // the spaceship state duration, the spaceship's state is set to Neutral.
 func (spaceship *Spaceship) UpdateState() {
-	if time.Since(spaceship.lastStateTransition) > config.Config.Spaceship.SpecialStateDuration {
-		if spaceship.State == Boosted {
+	switch spaceship.State {
+	case Boosted:
+		if time.Since(spaceship.lastStateTransition) > config.Config.Spaceship.BoostDuration {
 			spaceship.Level.Cannons /= 2
 			spaceship.Size.Width = objects.Number(config.Config.Spaceship.Width)
 			spaceship.Position.X += objects.Number(config.Config.Spaceship.Width / 2)
+
+			if spaceship.Level.Cannons == 0 {
+				spaceship.Level.Cannons = 1
+			}
+
+			spaceship.State = Neutral
 		}
 
-		if spaceship.Level.Cannons == 0 {
-			spaceship.Level.Cannons = 1
+	case Frozen:
+		if time.Since(spaceship.lastStateTransition) > config.Config.Spaceship.FreezeDuration {
+			spaceship.State = Neutral
 		}
 
-		spaceship.State = Neutral
+	case Damaged:
+		if time.Since(spaceship.lastStateTransition) > config.Config.Spaceship.DamageDuration {
+			spaceship.State = Neutral
+		}
+
 	}
 }
 
 // Embark creates a new spaceship.
-// The spaceship is created at the center of the canvas.
+// The spaceship is created at the bottom of the canvas.
 // The spaceship's position, size, cooldown, level, and state are set.
 func Embark() *Spaceship {
 	return &Spaceship{
@@ -247,9 +347,9 @@ func Embark() *Spaceship {
 		},
 		Cooldown: config.Config.Spaceship.Cooldown,
 		Level: &SpaceshipLevel{
-			Progress: 1,
-			Cannons:  1,
-			Speed:    config.Config.Spaceship.InitialSpeed,
+			AccelerateRate: objects.Number(config.Config.Spaceship.Acceleration),
+			Progress:       1,
+			Cannons:        1,
 		},
 	}
 }

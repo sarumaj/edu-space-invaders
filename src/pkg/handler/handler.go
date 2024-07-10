@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/spaceship"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/star"
@@ -44,31 +43,7 @@ func (h *handler) checkCollisions() {
 			// If the spaceship is boosted, destroy the enemy.
 			if h.spaceship.State == spaceship.Boosted {
 				h.enemies[j].Destroy()
-				h.sendMessage(config.Execute(config.Config.Messages.Templates.EnemyDestroyed, config.Template{
-					"Name": e.Name,
-				}))
 				return
-			}
-
-			switch e.Type {
-			case enemy.Goodie: // If the spaceship has collided with a goodie, upgrade the spaceship.
-				h.enemies[j].Destroy()
-				h.spaceship.Level.Up()
-				h.spaceship.ChangeState(spaceship.Boosted)
-				h.sendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipUpgradedByGoodie, config.Template{
-					"SpaceshipLevel": h.spaceship.Level.Progress,
-				}))
-				return
-
-			case enemy.Freezer: // If the spaceship has collided with a freezer, freeze the spaceship.
-				h.enemies[j].Destroy()
-				h.spaceship.ChangeState(spaceship.Frozen)
-				h.spaceship.Penalize(config.Config.Spaceship.FreezerPenalty)
-				h.sendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipFrozen, config.Template{
-					"SpaceshipLevel": h.spaceship.Level.Progress,
-				}))
-				return
-
 			}
 
 			// Handle collisions with normal, berserker and annihilator enemies.
@@ -81,24 +56,57 @@ func (h *handler) checkCollisions() {
 				penalty = config.Config.Spaceship.AnnihilatorPenalty
 			}
 
-			h.enemies[j].Destroy()
-			if h.spaceship.Level.Progress > 1 {
-				// Apply penalty to the spaceship.
+			if h.spaceship.State == spaceship.Frozen {
+				h.enemies[j].Destroy()
 				h.spaceship.Penalize(penalty)
-				h.spaceship.ChangeState(spaceship.Damaged)
-				h.sendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipDowngradedByEnemy, config.Template{
+				config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipDowngradedByEnemy, config.Template{
 					"SpaceshipLevel": h.spaceship.Level.Progress,
 				}))
+				if h.spaceship.IsDestroyed() {
+					config.SendMessage(config.Execute(config.Config.Messages.Templates.GameOver, config.Template{
+						"HighScore": h.spaceship.HighScore,
+					}))
+					h.cancel()
+				}
 				return
 			}
 
-			// If the spaceship has no health points, game over.
+			switch e.Type {
+			case enemy.Goodie: // If the spaceship has collided with a goodie, upgrade the spaceship.
+				h.enemies[j].Destroy()
+				h.spaceship.Level.Up()
+				h.spaceship.ChangeState(spaceship.Boosted)
+				config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipUpgradedByGoodie, config.Template{
+					"SpaceshipLevel": h.spaceship.Level.Progress,
+					"BoostDuration":  config.Config.Spaceship.BoostDuration,
+				}))
+				return
+
+			case enemy.Freezer: // If the spaceship has collided with a freezer, freeze the spaceship.
+				h.enemies[j].Destroy()
+				h.spaceship.ChangeState(spaceship.Frozen)
+				h.spaceship.Penalize(config.Config.Spaceship.FreezerPenalty)
+				config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipFrozen, config.Template{
+					"SpaceshipLevel": h.spaceship.Level.Progress,
+					"FreezeDuration": config.Config.Spaceship.FreezeDuration,
+				}))
+				return
+
+			}
+
+			h.enemies[j].Destroy()
+			h.spaceship.Penalize(penalty)
 			h.spaceship.ChangeState(spaceship.Damaged)
-			h.sendMessage(config.Execute(config.Config.Messages.Templates.GameOver, config.Template{
-				"HighScore": h.spaceship.HighScore,
+			config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipDowngradedByEnemy, config.Template{
+				"SpaceshipLevel": h.spaceship.Level.Progress,
 			}))
-			h.cancel()
-			return
+			if h.spaceship.IsDestroyed() {
+				config.SendMessage(config.Execute(config.Config.Messages.Templates.GameOver, config.Template{
+					"HighScore": h.spaceship.HighScore,
+				}))
+				h.cancel()
+				return
+			}
 		}
 
 		for i, b := range h.spaceship.Bullets {
@@ -110,20 +118,17 @@ func (h *handler) checkCollisions() {
 				!b.HasHit(e):
 
 			default: // The bullet has hit the enemy.
-				h.sendMessage(config.Execute(config.Config.Messages.Templates.EnemyHit, config.Template{
-					"EnemyName": e.Name,
-					"Damage":    h.enemies[j].Hit(b.Damage),
-				}))
 				h.spaceship.Bullets[i].Exhaust()
+				h.enemies[j].Hit(b.Damage)
 
 				// If the enemy has no health points, upgrade the spaceship.
-				if h.enemies[j].Level.HitPoints <= 0 {
-					h.sendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipUpgradedByEnemyKill, config.Template{
+				if h.enemies[j].IsDestroyed() {
+					h.spaceship.Level.Up()
+					h.spaceship.UpdateHighScore()
+					config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipUpgradedByEnemyKill, config.Template{
 						"EnemyName":      e.Name,
 						"SpaceshipLevel": h.spaceship.Level.Progress,
 					}))
-					h.spaceship.Level.Up()
-					h.spaceship.UpdateHighScore()
 				}
 
 				// If the progress is a multiple of the enemy count progress step,
@@ -204,38 +209,28 @@ func (h *handler) handleTouch(event touchEvent) {
 		return
 	}
 
-	delta := event.Delta()
-	deltaAbs := delta.Magnitude()
-	distance := event.StartPosition.Distance(h.spaceship.Position)
-
-	if config.Config.Control.Debug.Get() {
-		h.sendMessage(config.Execute(config.Sprintf(
-			"Touch (Delta: %.2f, Distance to spaceship: %.2f, Duration: %s, Correlations: %d)", deltaAbs, distance)))
-	}
-
-	// Check if the duration is greater than the hold-tap duration.
-	// If the duration is greater than the hold-tap duration and the delta is less than the minimum swipe distance,
-	// pause the game.
-	if len(event.Correlations) > 1 {
+	// If there are correlated touch events, pause the game.
+	if len(event.Correlations) > 0 {
 		h.pause()
 		return
 	}
 
-	// Check if the swipe distance is greater than the minimum swipe distance.
+	sizeCorrection := h.spaceship.Size.ToVector().Div(2)
+	spaceshipPosition := h.spaceship.Position.Add(h.spaceship.Size.ToVector().Div(2))
+
 	// Check if the spaceship is in the swipe proximity range.
-	if deltaAbs.Float() > config.Config.Control.MinimumSwipeDistance &&
-		distance.Float() <= config.Config.Control.SwipeProximityRange {
+	switch {
+	case
+		event.StartPosition.Distance(spaceshipPosition).Float() <= config.Config.Control.SwipeProximityRange,
+		event.CurrentPosition.Distance(spaceshipPosition).Float() <= config.Config.Control.SwipeProximityRange:
 
-		if delta.X.Float() < 0 {
-			h.spaceship.MoveLeft()
-		} else {
-			h.spaceship.MoveRight()
-		}
+		switch {
+		case !event.CurrentPosition.IsZero():
+			h.spaceship.MoveTo(event.CurrentPosition.Sub(sizeCorrection))
 
-		if delta.Y.Float() < 0 {
-			h.spaceship.MoveUp()
-		} else {
-			h.spaceship.MoveDown()
+		case !event.StartPosition.IsZero():
+			h.spaceship.MoveTo(event.StartPosition.Sub(sizeCorrection))
+
 		}
 	}
 
@@ -247,9 +242,9 @@ func (h *handler) pause() {
 	running.Set(&h.ctx, false)
 
 	if config.IsTouchDevice() {
-		h.sendMessage(config.Config.Messages.GamePausedTouchDevice)
+		config.SendMessage(config.Config.Messages.GamePausedTouchDevice)
 	} else {
-		h.sendMessage(config.Config.Messages.GamePausedNoTouchDevice)
+		config.SendMessage(config.Config.Messages.GamePausedNoTouchDevice)
 	}
 }
 
@@ -279,7 +274,7 @@ func (h *handler) render() {
 	}
 
 	// Draw background
-	config.DrawBackground(h.spaceship.Level.Speed * config.Config.Star.SpeedRatio)
+	config.DrawBackground(h.spaceship.Speed.Magnitude().Float() * config.Config.Star.SpeedRatio)
 
 	// Draw spaceship
 	h.spaceship.Draw()
@@ -305,17 +300,11 @@ func (h *handler) refresh() {
 		return
 	}
 
-	h.enemies.Update(objects.Position{
-		X: h.spaceship.Position.X + h.spaceship.Size.Width/2,
-		Y: h.spaceship.Position.Y,
-	})
+	h.enemies.Update(h.spaceship.Position.Add(h.spaceship.Size.ToVector().Div(2)))
 	h.spaceship.UpdateState()
 	h.spaceship.Bullets.Update()
 	h.checkCollisions()
 }
-
-// sendMessage sends a message to the message box.
-func (*handler) sendMessage(msg string) { config.SendMessage(msg) }
 
 // start starts the game if not already started.
 func (h *handler) start() bool {
@@ -324,9 +313,9 @@ func (h *handler) start() bool {
 
 		if isFirstTime.Get(h.ctx) {
 			if config.IsTouchDevice() {
-				h.sendMessage(config.Config.Messages.GameStartedTouchDevice)
+				config.SendMessage(config.Config.Messages.GameStartedTouchDevice)
 			} else {
-				h.sendMessage(config.Config.Messages.GameStartedNoTouchDevice)
+				config.SendMessage(config.Config.Messages.GameStartedNoTouchDevice)
 			}
 		}
 
@@ -361,15 +350,15 @@ func (h *handler) Loop() {
 	if !running.Get(h.ctx) {
 		if isFirstTime.Get(h.ctx) {
 			if config.IsTouchDevice() {
-				h.sendMessage(config.Config.Messages.HowToStartTouchDevice)
+				config.SendMessage(config.Config.Messages.HowToStartTouchDevice)
 			} else {
-				h.sendMessage(config.Config.Messages.HowToStartNoTouchDevice)
+				config.SendMessage(config.Config.Messages.HowToStartNoTouchDevice)
 			}
 		} else {
 			if config.IsTouchDevice() {
-				h.sendMessage(config.Config.Messages.HowToRestartTouchDevice)
+				config.SendMessage(config.Config.Messages.HowToRestartTouchDevice)
 			} else {
-				h.sendMessage(config.Config.Messages.HowToRestartNoTouchDevice)
+				config.SendMessage(config.Config.Messages.HowToRestartNoTouchDevice)
 			}
 		}
 	}

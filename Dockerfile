@@ -17,7 +17,11 @@ RUN go generate ./... && \
     -ldflags="-s -w -extldflags=-static" \
     -tags="osusergo netgo static_build" \
     -o /server \
-    "cmd/space-invaders" && \
+    "cmd/space-invaders/main.go" "cmd/space-invaders/handlers.go" && \
     rm -rf /usr/src/app
 
-CMD ["/server"]
+FROM scratch AS final
+
+COPY --from=builder /server /
+
+ENTRYPOINT ["/server"]

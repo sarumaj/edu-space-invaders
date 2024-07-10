@@ -9,6 +9,11 @@ body {
   overflow: hidden;
 }
 
+html,
+body {
+  touch-action: none; /* Disable touch events */
+}
+
 #gameContainer {
   display: flex;
   flex-direction: column;

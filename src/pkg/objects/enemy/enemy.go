@@ -105,6 +105,9 @@ func (enemy *Enemy) BerserkGivenAncestor(oldType EnemyType) {
 // Destroy destroys the enemy.
 // The health points of the enemy are set to 0.
 func (enemy *Enemy) Destroy() {
+	config.SendMessage(config.Execute(config.Config.Messages.Templates.EnemyDestroyed, config.Template{
+		"EnemyName": enemy.Name,
+	}))
 	enemy.Level.HitPoints = 0
 	go config.PlayAudio("enemy_destroyed.wav", false)
 }
@@ -130,17 +133,25 @@ func (enemy Enemy) Draw() {
 // Hit reduces the health points of the enemy.
 // The damage is reduced by the defense of the enemy.
 // If the damage is less than 0, it is set to 0.
-func (enemy *Enemy) Hit(damage int) int {
-	damage = damage - rand.Intn(enemy.Level.Defense*enemy.Level.Progress)
+func (enemy *Enemy) Hit(damage int) {
+	damage = damage - enemy.Level.Defense - rand.Intn(enemy.Level.Defense*enemy.Level.Progress)
 	if damage < 0 {
 		damage = rand.Intn(config.Config.Bullet.InitialDamage)
 	}
 
 	enemy.Level.HitPoints -= damage
 
-	go config.PlayAudio("enemy_hit.wav", false)
+	config.SendMessage(config.Execute(config.Config.Messages.Templates.EnemyHit, config.Template{
+		"EnemyName": enemy.Name,
+		"Damage":    damage,
+	}))
 
-	return damage
+	go config.PlayAudio("enemy_hit.wav", false)
+}
+
+// IsDestroyed returns true if the enemy is destroyed.
+func (enemy Enemy) IsDestroyed() bool {
+	return enemy.Level.HitPoints <= 0
 }
 
 // Move moves the enemy.
@@ -169,16 +180,6 @@ func (enemy *Enemy) Move(spaceshipPosition objects.Position) {
 		X: objects.Number(rand.Float64() - 0.5),
 		Y: objects.Number(rand.Float64() - 0.5),
 	}).Mul(strength)
-
-	// Normalize the direction vector (dx, dy)
-	if distance != 0 {
-		delta = delta.Div(distance)
-	}
-
-	// Normalize the direction again after adding randomness
-	if normal := delta.Normalize(); !normal.IsZero() {
-		delta = normal
-	}
 
 	// Move down using the speed
 	enemy.Position.Y += objects.Number(enemy.Level.Speed)

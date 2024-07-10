@@ -75,18 +75,20 @@ type config struct {
 	}
 
 	Spaceship struct {
-		AnnihilatorPenalty   int
-		BerserkPenalty       int
-		CannonProgress       int
-		Cooldown             time.Duration
-		DefaultPenalty       int
-		FreezerPenalty       int
-		Height               float64
-		InitialSpeed         float64
-		MaximumCannons       int
-		MaximumSpeed         float64
-		SpecialStateDuration time.Duration
-		Width                float64
+		Acceleration       float64
+		AnnihilatorPenalty int
+		BerserkPenalty     int
+		BoostDuration      time.Duration
+		CannonProgress     int
+		Cooldown           time.Duration
+		DamageDuration     time.Duration
+		DefaultPenalty     int
+		FreezeDuration     time.Duration
+		FreezerPenalty     int
+		Height             float64
+		MaximumCannons     int
+		MaximumSpeed       float64
+		Width              float64
 	}
 
 	Star struct {
@@ -104,9 +106,7 @@ type config struct {
 		Debug                       envVariable[bool]
 		CriticalFramesPerSecondRate float64
 		DesiredFramesPerSecondRate  float64
-		MinimumSwipeDistance        float64
 		SwipeProximityRange         float64
-		TapCorrelationWindow        time.Duration
 	}
 
 	Messages struct {
@@ -126,6 +126,7 @@ type config struct {
 			PerformanceDropped           templateString
 			SpaceshipDowngradedByEnemy   templateString
 			SpaceshipFrozen              templateString
+			SpaceshipStillFrozen         templateString
 			SpaceshipUpgradedByEnemyKill templateString
 			SpaceshipUpgradedByGoodie    templateString
 		} `ini:"Messages.Templates"`

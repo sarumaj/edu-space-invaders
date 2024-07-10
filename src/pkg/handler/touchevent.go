@@ -9,14 +9,19 @@ import (
 
 // touchEvent represents a touch event.
 type touchEvent struct {
-	StartPosition, EndPosition objects.Position
-	StartTime, EndTime         time.Time
-	Correlations               []touchEvent
+	StartPosition, CurrentPosition, EndPosition objects.Position
+	StartTime, EndTime                          time.Time
+	Correlations                                []touchEvent
 }
 
-// Delta returns the delta of the touch event.
-func (t touchEvent) Delta() objects.Position {
-	return t.EndPosition.Sub(t.StartPosition)
+// Clear clears the touch event.
+func (t *touchEvent) Clear() {
+	t.StartPosition = objects.Position{}
+	t.CurrentPosition = objects.Position{}
+	t.EndPosition = objects.Position{}
+	t.StartTime = time.Time{}
+	t.EndTime = time.Time{}
+	t.Correlations = nil
 }
 
 // TapDuration returns the duration of the tap.
@@ -31,5 +36,5 @@ func (t touchEvent) TapDuration() time.Duration {
 
 // String returns the string representation of the touch event.
 func (t touchEvent) String() string {
-	return fmt.Sprintf("Touch (Start: %s, Delta: %s, Duration: %s)", t.StartPosition, t.Delta(), t.TapDuration())
+	return fmt.Sprintf("Touch (Start: %s, End: %s, Duration: %s)", t.StartPosition, t.EndPosition, t.TapDuration())
 }

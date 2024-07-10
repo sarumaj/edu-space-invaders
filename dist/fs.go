@@ -1,4 +1,4 @@
-// Code generated on 2024-07-10 12:30:04.997
+// Code generated on 2024-07-10T11:20:46.426Z+00:00, DO NOT EDIT.
 package dist
 
 import (
@@ -22,7 +22,7 @@ var _ http.File = httpFile{}
 
 var _ fs.FileInfo = httpFileInfo{}
 
-var Hashes = func() map[string]string {
+var hashMap = func() map[string]string {
 	entries, err := embeddedFsys.ReadDir(".")
 	if err != nil {
 		log.Fatal(err)
@@ -79,7 +79,7 @@ func (h httpFS) Open(name string) (http.File, error) {
 		return h.fsys.Open(name)
 	}
 
-	if hash, ok := Hashes[strings.TrimSuffix(filepath.Base(name), ".sha256")]; ok {
+	if hash, ok := hashMap[strings.TrimSuffix(filepath.Base(name), ".sha256")]; ok {
 		return httpFile{
 			name:   name,
 			size:   int64(len(hash)),
@@ -88,4 +88,11 @@ func (h httpFS) Open(name string) (http.File, error) {
 	}
 
 	return nil, fs.ErrNotExist
+}
+
+func BuildTime() string { return "2024-07-10T11:20:46.426Z+00:00" }
+
+func LookupHash(name string) (string, bool) {
+	hash, ok := hashMap[name]
+	return hash, ok
 }

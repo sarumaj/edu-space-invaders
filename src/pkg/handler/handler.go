@@ -209,7 +209,8 @@ func (h *handler) handleTouch(event touchEvent) {
 	distance := event.StartPosition.Distance(h.spaceship.Position)
 
 	if config.Config.Control.Debug.Get() {
-		h.sendMessage(config.Execute(config.Sprintf("Touch (Delta: %.2f, Distance to spaceship: %.2f, Duration: %s)", deltaAbs, distance)))
+		h.sendMessage(config.Execute(config.Sprintf(
+			"Touch (Delta: %.2f, Distance to spaceship: %.2f, Duration: %s, Correlations: %d)", deltaAbs, distance)))
 	}
 
 	// Check if the duration is greater than the hold-tap duration.

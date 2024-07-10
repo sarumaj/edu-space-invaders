@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	gin "github.com/gin-gonic/gin"
 	rkboot "github.com/rookie-ninja/rk-boot/v2"
@@ -42,8 +43,8 @@ func cacheControlMiddleware() gin.HandlerFunc {
 			path = "index.html"
 		}
 
-		eTag := dist.Hashes[path]
-		if eTag != "" {
+		eTag, ok := dist.LookupHash(path)
+		if ok {
 			if eTag == ctx.GetHeader("If-None-Match") {
 				ctx.Status(http.StatusNotModified)
 				return
@@ -60,28 +61,45 @@ func cacheControlMiddleware() gin.HandlerFunc {
 // handleEnvVars is a handler that sets the environment variables.
 // It reads the body of the request and sets the environment variables.
 // It returns the body of the request as a response.
-func handleEnvVars(ctx *gin.Context) {
-	body := gin.H{}
-	_ = ctx.ShouldBind(&body)
+func handleEnvVars() gin.HandlerFunc {
+	environ := os.Environ()
+	return func(ctx *gin.Context) {
+		body := gin.H{}
+		_ = ctx.ShouldBind(&body)
 
-	// Set the environment variables based on the request body.
-	// Communication from WASM to Go is done through the request body.
-	for k, v := range body {
-		if strings.HasPrefix(k, envVarPrefix) {
-			_ = os.Setenv(k, fmt.Sprintf("%v", v))
+		// Set the environment variables based on the request body.
+		// Communication from WASM to Go is done through the request body.
+		for k, v := range body {
+			if strings.HasPrefix(k, envVarPrefix) {
+				_ = os.Setenv(k, fmt.Sprintf("%v", v))
+			}
 		}
-	}
 
-	// Return the environment variables as a response.
-	// Communication from Go to WASM is done through the response body.
-	for _, pair := range os.Environ() {
-		k, v, _ := strings.Cut(pair, "=")
-		if strings.HasPrefix(k, envVarPrefix) {
-			body[k] = v
+		// Return the environment variables as a response.
+		// Communication from Go to WASM is done through the response body.
+		for _, pair := range environ {
+			k, v, _ := strings.Cut(pair, "=")
+			if strings.HasPrefix(k, envVarPrefix) {
+				body[k] = v
+			}
 		}
-	}
 
-	ctx.JSON(http.StatusOK, body)
+		ctx.JSON(http.StatusOK, body)
+	}
+}
+
+// handleHealthCheck is a handler that returns the health check status.
+func handleHealthCheck() gin.HandlerFunc {
+	bootTime := time.Now()
+	return func(ctx *gin.Context) {
+		ctx.JSON(http.StatusOK, gin.H{
+			"bootTime":  bootTime.Format(time.RFC3339),
+			"buildTime": dist.BuildTime(),
+			"current":   time.Now().Format(time.RFC3339),
+			"status":    "ok",
+			"uptime":    time.Since(bootTime).String(),
+		})
+	}
 }
 
 // main is the entry point of the game server.
@@ -102,7 +120,8 @@ func main() {
 
 	entry.Router.Use(cacheControlMiddleware())
 	entry.Router.StaticFS("/", dist.HttpFS)
-	entry.Router.POST("/.env", handleEnvVars)
+	entry.Router.POST("/.env", handleEnvVars())
+	entry.Router.GET("/health", handleHealthCheck())
 
 	boot.Bootstrap(context.Background())
 

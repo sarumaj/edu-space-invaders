@@ -63,8 +63,9 @@ log_message "Static files copied successfully"
 
 # Create the fs.go file
 log_message "Creating fs.go file"
+BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ%:z")
 cat <<EOL >"$TARGET_DIR/fs.go"
-// Code generated on $(date +"%Y-%m-%d %H:%M:%S.%3N")
+// Code generated on ${BUILD_TIME}, DO NOT EDIT.
 package dist
 
 import (
@@ -88,7 +89,7 @@ var _ http.File = httpFile{}
 
 var _ fs.FileInfo = httpFileInfo{}
 
-var Hashes = func() map[string]string {
+var hashMap = func() map[string]string {
 	entries, err := embeddedFsys.ReadDir(".")
 	if err != nil {
 		log.Fatal(err)
@@ -145,7 +146,7 @@ func (h httpFS) Open(name string) (http.File, error) {
 		return h.fsys.Open(name)
 	}
 
-	if hash, ok := Hashes[strings.TrimSuffix(filepath.Base(name), ".sha256")]; ok {
+	if hash, ok := hashMap[strings.TrimSuffix(filepath.Base(name), ".sha256")]; ok {
 		return httpFile{
 			name:   name,
 			size:   int64(len(hash)),
@@ -154,6 +155,13 @@ func (h httpFS) Open(name string) (http.File, error) {
 	}
 
 	return nil, fs.ErrNotExist
+}
+
+func BuildTime() string { return "${BUILD_TIME}" }
+
+func LookupHash(name string) (string, bool) {
+	hash, ok := hashMap[name]
+	return hash, ok
 }
 EOL
 log_message "fs.go file created successfully"

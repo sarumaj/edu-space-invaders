@@ -17,7 +17,7 @@ RUN go generate ./... && \
     -ldflags="-s -w -extldflags=-static" \
     -tags="osusergo netgo static_build" \
     -o /server \
-    "cmd/space-invaders/" && \
+    "cmd/space-invaders" && \
     rm -rf /usr/src/app
 
 CMD ["/server"]

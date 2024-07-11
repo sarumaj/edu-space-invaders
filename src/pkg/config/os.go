@@ -62,11 +62,23 @@ func LogError(err error) {
 	}
 }
 
+// PauseAudio is a function that pauses an audio track.
+func PauseAudio(name string) {}
+
+// PauseAudioSources is a function that pauses all audio sources that match the selector.
+func PauseAudioSources(selector func(name string) bool) {}
+
 // PlayAudio is a function that plays an audio track.
 func PlayAudio(name string, loop bool) {}
 
 // RemoveEventListener is a function that removes an event listener from the document.
 func RemoveEventListener(event string, listener any) {}
+
+// ResumeAudio is a function that resumes an audio track.
+func ResumeAudio(name string) {}
+
+// ResumeAudioSources is a function that resumes all audio sources that match the selector.
+func ResumeAudioSources(selector func(name string) bool) {}
 
 // SendMessage sends a message to the message box.
 func SendMessage(msg string) { log.Println(msg) }

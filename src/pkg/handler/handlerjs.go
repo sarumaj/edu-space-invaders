@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"strings"
 	"syscall/js"
 	"time"
 
@@ -38,10 +39,13 @@ func (h *handler) monitor() {
 					}))
 
 					// Stop all audio sources
-					go config.StopAudioSources(func(string) bool { return true })
-
-					// Disable audio globally
-					*config.Config.Control.AudioEnabled = false
+					go config.StopAudioSources(func(name string) bool { return !strings.HasPrefix(name, "theme_") })
+					go config.PauseAudio("theme_heroic.wav")
+				}
+			} else if fps > (config.Config.Control.DesiredFramesPerSecondRate+config.Config.Control.CriticalFramesPerSecondRate)/2 {
+				if *config.Config.Control.AudioEnabled {
+					// Resume all audio sources
+					go config.ResumeAudio("theme_heroic.wav")
 				}
 			}
 

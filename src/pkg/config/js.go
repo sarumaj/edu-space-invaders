@@ -55,6 +55,18 @@ func init() {
 		invisibleCanvas.Set("height", canvas.Get("height"))
 		return nil
 	}))
+	js.Global().Set("toggleAudio", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		if *Config.Control.AudioEnabled {
+			go StopAudioSources(func(string) bool { return true })
+		} else {
+			go PlayAudio("theme_heroic.wav", true)
+		}
+		*Config.Control.AudioEnabled = !*Config.Control.AudioEnabled
+		return nil
+	}))
+	js.Global().Set("isAudioEnabled", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		return js.ValueOf(*Config.Control.AudioEnabled)
+	}))
 }
 
 // AddEventListener is a function that adds an event listener to the document.
@@ -320,7 +332,7 @@ func PlayAudio(name string, loop bool) {
 	}
 
 	audioPlayersMutex.Lock()
-	if _, ok := audioPlayers[name]; ok {
+	if player, ok := audioPlayers[name]; ok && player.playing {
 		audioPlayersMutex.Unlock()
 		return
 	}
@@ -438,8 +450,10 @@ func StopAudio(name string) {
 	defer audioPlayersMutex.Unlock()
 
 	if player, ok := audioPlayers[name]; ok {
+		player.playing = false
+		player.startTime = 0
 		player.source.Call("stop")
-		delete(audioPlayers, name)
+		audioPlayers[name] = player
 	}
 }
 
@@ -450,8 +464,10 @@ func StopAudioSources(selector func(name string) bool) {
 
 	for name, player := range audioPlayers {
 		if selector(name) {
+			player.playing = false
+			player.startTime = 0
 			player.source.Call("stop")
-			delete(audioPlayers, name)
+			audioPlayers[name] = player
 		}
 	}
 }

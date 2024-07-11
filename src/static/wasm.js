@@ -1,6 +1,5 @@
 document.addEventListener("DOMContentLoaded", async function () {
   const go = new Go(); // Defined in wasm_exec.js
-  const envVarPrefix = "SPACE_INVADERS_";
 
   async function envCallback() {
     try {
@@ -12,10 +11,8 @@ document.addEventListener("DOMContentLoaded", async function () {
       const data = await response.json();
 
       // Filter out only the environment variables that start with "SPACE_INVADERS_"
-      // Security: This is a very basic way to filter out only the environment variables that are needed
-      // This is not a foolproof way to secure the environment variables
       const env = Object.keys(data)
-        .filter((key) => key.startsWith(envVarPrefix))
+        .filter((key) => key.startsWith("SPACE_INVADERS_"))
         .reduce((obj, key) => {
           obj[key] = data[key];
           return obj;
@@ -30,11 +27,35 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   globalThis.go_env = await envCallback();
 
-  WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject)
-    .then((result) => {
-      go.run(result.instance);
-    })
-    .catch((err) => {
-      console.error("Error instantiating WASM module:", err);
-    });
+  const wasmModule = await WebAssembly.instantiateStreaming(
+    fetch("main.wasm"),
+    go.importObject
+  );
+  go.run(wasmModule.instance);
+
+  // Initialize audioEnabled from Go
+  const isAudioEnabledFunc = window.isAudioEnabled; // Ensure we have a reference to the function
+  const toggleAudioFunc = window.toggleAudio; // Ensure we have a reference to the function
+
+  let audioEnabled = await isAudioEnabledFunc(); // Ensure that isAudioEnabled is awaited and set
+  const audioIcon = document.getElementById("audioIcon");
+  if (audioEnabled) {
+    audioIcon.className = "fas fa-volume-up";
+  } else {
+    audioIcon.className = "fas fa-volume-mute";
+  }
+
+  window.toggleAudio = async function () {
+    await toggleAudioFunc(); // Call the Go function to toggle audio
+    audioEnabled = await isAudioEnabledFunc(); // Get the updated audio state
+    if (audioEnabled) {
+      audioIcon.className = "fas fa-volume-up";
+    } else {
+      audioIcon.className = "fas fa-volume-mute";
+    }
+  };
+
+  document
+    .getElementById("audioToggle")
+    .addEventListener("click", window.toggleAudio);
 });

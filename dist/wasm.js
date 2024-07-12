@@ -40,18 +40,22 @@ document.addEventListener("DOMContentLoaded", async function () {
   let audioEnabled = await isAudioEnabledFunc(); // Ensure that isAudioEnabled is awaited and set
   const audioIcon = document.getElementById("audioIcon");
   if (audioEnabled) {
-    audioIcon.className = "fas fa-volume-up";
+    audioIcon.classList.remove("fa-volume-mute");
+    audioIcon.classList.add("fa-volume-up");
   } else {
-    audioIcon.className = "fas fa-volume-mute";
+    audioIcon.classList.remove("fa-volume-up");
+    audioIcon.classList.add("fa-volume-mute");
   }
 
   window.toggleAudio = async function () {
     await toggleAudioFunc(); // Call the Go function to toggle audio
     audioEnabled = await isAudioEnabledFunc(); // Get the updated audio state
     if (audioEnabled) {
-      audioIcon.className = "fas fa-volume-up";
+      audioIcon.classList.remove("fa-volume-mute");
+      audioIcon.classList.add("fa-volume-up");
     } else {
-      audioIcon.className = "fas fa-volume-mute";
+      audioIcon.classList.remove("fa-volume-up");
+      audioIcon.classList.add("fa-volume-mute");
     }
   };
 

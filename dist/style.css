@@ -44,7 +44,7 @@ canvas {
 }
 
 .animated-click-end {
-  transform: rotate(360deg); /* Reset the button rotation */
+  transform: rotate(360deg); /* Keep the button rotated after the click */
 }
 
 #gameContainer {

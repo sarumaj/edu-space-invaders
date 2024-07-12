@@ -2,14 +2,12 @@ package handler
 
 import (
 	"context"
-	"time"
 )
 
 const (
-	isFirstTime contextAccess[bool]      = "isFirstTime" // isFirstTime is a context key that indicates whether the game is played for the first time.
-	running     contextAccess[bool]      = "running"     // running is a context key that indicates whether the game is running.
-	suspended   contextAccess[bool]      = "suspended"   // suspended is a context key that indicates whether the game is suspended.
-	throttledAt contextAccess[time.Time] = "throttledAt" // throttledAt is a context key that indicates the time when the game was throttled.
+	isFirstTime contextAccess[bool] = "isFirstTime" // isFirstTime is a context key that indicates whether the game is played for the first time.
+	running     contextAccess[bool] = "running"     // running is a context key that indicates whether the game is running.
+	suspended   contextAccess[bool] = "suspended"   // suspended is a context key that indicates whether the game is suspended.
 )
 
 // contextAccess is a type that allows access to a context value.

@@ -3,7 +3,6 @@
 package handler
 
 import (
-	"strings"
 	"syscall/js"
 	"time"
 
@@ -18,6 +17,7 @@ func (h *handler) monitor() {
 	}
 
 	frameCount := 0
+	suspendedFrameCount := 0
 	lastFrameTime := time.Now()
 
 	var watchdog func(js.Value, []js.Value) any
@@ -31,24 +31,40 @@ func (h *handler) monitor() {
 		}
 
 		if elapsed := now.Sub(lastFrameTime).Seconds(); elapsed >= precision {
-			if fps := float64(frameCount) / elapsed; fps <= config.Config.Control.CriticalFramesPerSecondRate {
-				if *config.Config.Control.AudioEnabled {
-					// Notify the user about the performance drop
-					config.SendMessage(config.Execute(config.Config.Messages.Templates.PerformanceDropped, config.Template{
+			switch fps := float64(frameCount) / elapsed; {
+			case fps <= config.Config.Control.CriticalFramesPerSecondRate:
+				// Notify the user about the performance drop
+				config.SendMessage(config.Execute(config.Config.Messages.Templates.PerformanceDropped, config.Template{
+					"FPS": fps,
+				}))
+
+				// Pause the game
+				if running.Get(h.ctx) {
+					running.Set(&h.ctx, false)
+					suspended.Set(&h.ctx, true)
+				}
+
+			case fps >= (config.Config.Control.CriticalFramesPerSecondRate+config.Config.Control.DesiredFramesPerSecondRate)/2 && !running.Get(h.ctx):
+				if suspendedFrameCount < config.Config.Control.SuspensionFrames {
+					// Increase the suspended frame count
+					suspendedFrameCount++
+
+				} else {
+					// Reset the suspended frame count
+					suspendedFrameCount = 0
+
+					// Notify the user about the performance boost
+					config.SendMessage(config.Execute(config.Config.Messages.Templates.PerformanceImproved, config.Template{
 						"FPS": fps,
 					}))
 
-					// Stop all audio sources
-					go config.StopAudioSources(func(name string) bool { return !strings.HasPrefix(name, "theme_") })
-					go config.PauseAudio("theme_heroic.wav")
-				}
-			} else if fps > (config.Config.Control.DesiredFramesPerSecondRate+config.Config.Control.CriticalFramesPerSecondRate)/2 {
-				if *config.Config.Control.AudioEnabled {
-					// Resume all audio sources
-					go config.ResumeAudio("theme_heroic.wav")
-				}
-			}
+					// Resume the game
+					running.Set(&h.ctx, true)
+					suspended.Set(&h.ctx, false)
 
+				}
+
+			}
 			frameCount, lastFrameTime = 0, now
 		}
 

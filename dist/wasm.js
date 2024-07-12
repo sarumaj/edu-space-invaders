@@ -55,7 +55,10 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
   };
 
-  document
-    .getElementById("audioToggle")
-    .addEventListener("click", window.toggleAudio);
+  audioToggleBtn = document.getElementById("audioToggle");
+  audioToggleBtn.addEventListener("click", window.toggleAudio);
+  audioToggleBtn.addEventListener("touchend", function (event) {
+    event.preventDefault(); // Prevent mouse event from also being triggered
+    toggleAudio();
+  });
 });

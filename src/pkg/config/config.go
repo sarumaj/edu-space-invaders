@@ -106,6 +106,7 @@ type config struct {
 		Debug                       envVariable[bool]
 		CriticalFramesPerSecondRate float64
 		DesiredFramesPerSecondRate  float64
+		SuspensionFrames            int
 		SwipeProximityRange         float64
 	}
 
@@ -124,6 +125,7 @@ type config struct {
 			EnemyHit                     templateString
 			GameOver                     templateString
 			PerformanceDropped           templateString
+			PerformanceImproved          templateString
 			SpaceshipDowngradedByEnemy   templateString
 			SpaceshipFrozen              templateString
 			SpaceshipStillFrozen         templateString

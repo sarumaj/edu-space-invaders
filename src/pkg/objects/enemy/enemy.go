@@ -177,8 +177,8 @@ func (enemy *Enemy) Move(spaceshipPosition objects.Position) {
 
 	// Add randomness to the chase based on strength
 	delta = delta.Add(objects.Position{
-		X: objects.Number(rand.Float64() - 0.5),
-		Y: objects.Number(rand.Float64() - 0.5),
+		X: objects.Number(rand.Float64() - 0.5), // Random number between -0.5 and 0.5
+		Y: objects.Number(rand.Float64() - 1),   // Random number between -1 and 0
 	}).Mul(strength)
 
 	// Move down using the speed

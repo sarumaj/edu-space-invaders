@@ -261,7 +261,11 @@ func (h *handler) pause() {
 // The spaceship is drawn in white color if it is normal.
 // If draws objects as rectangles.
 func (h *handler) render() {
-	if !running.Get(h.ctx) && !isFirstTime.Get(h.ctx) {
+	switch {
+	case
+		!running.Get(h.ctx) && !isFirstTime.Get(h.ctx),
+		suspended.Get(h.ctx):
+
 		return
 	}
 
@@ -308,6 +312,10 @@ func (h *handler) refresh() {
 
 // start starts the game if not already started.
 func (h *handler) start() bool {
+	if suspended.Get(h.ctx) {
+		return true
+	}
+
 	if !running.Get(h.ctx) {
 		running.Set(&h.ctx, true)
 
@@ -347,6 +355,7 @@ func (h *handler) GenerateEnemies(num int, randomY bool) {
 // It refreshes the game state, renders the game, and handles the keydown events.
 // It should be called in a separate goroutine.
 func (h *handler) Loop() {
+	// Notify the user about how to start the game.
 	if !running.Get(h.ctx) {
 		if isFirstTime.Get(h.ctx) {
 			if config.IsTouchDevice() {
@@ -363,6 +372,7 @@ func (h *handler) Loop() {
 		}
 	}
 
+	// Wait for the initial user input.
 	for !running.Get(h.ctx) {
 		h.render()
 		select {

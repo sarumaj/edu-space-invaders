@@ -28,6 +28,7 @@ canvas {
   border: none;
   cursor: pointer;
   color: white;
+  touch-action: manipulation; /* Allow touch interactions specifically for this button */
 }
 
 #audioToggle:focus {

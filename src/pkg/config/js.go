@@ -24,7 +24,6 @@ var (
 	audioPlayers = make(map[string]struct {
 		source    js.Value
 		startTime float64
-		playing   bool
 	})
 	audioPlayersMutex = sync.Mutex{}
 	audioTracks       = make(map[string][]byte)
@@ -245,6 +244,18 @@ func Getenv(key string) string {
 	return got.String()
 }
 
+// IsPlaying is a function that returns true if the audio track is playing.
+func IsPlaying(name string) bool {
+	audioPlayersMutex.Lock()
+	defer audioPlayersMutex.Unlock()
+
+	if player, ok := audioPlayers[name]; ok {
+		return player.source.Truthy()
+	}
+
+	return false
+}
+
 // IsTouchDevice is a function that returns true if the device is a touch device.
 func IsTouchDevice() bool {
 	switch {
@@ -297,34 +308,6 @@ func LogError(err error) {
 	}
 }
 
-// PauseAudio is a function that pauses an audio track.
-func PauseAudio(name string) {
-	audioPlayersMutex.Lock()
-	defer audioPlayersMutex.Unlock()
-
-	if player, ok := audioPlayers[name]; ok && player.playing {
-		player.startTime = audioCtx.Get("currentTime").Float()
-		player.playing = false
-		player.source.Call("stop")
-		audioPlayers[name] = player
-	}
-}
-
-// PauseAudioSources is a function that pauses all audio sources that match the selector.
-func PauseAudioSources(selector func(name string) bool) {
-	audioPlayersMutex.Lock()
-	defer audioPlayersMutex.Unlock()
-
-	for name, player := range audioPlayers {
-		if selector(name) && player.playing {
-			player.startTime = audioCtx.Get("currentTime").Float()
-			player.playing = false
-			player.source.Call("stop")
-			audioPlayers[name] = player
-		}
-	}
-}
-
 // PlayAudio is a function that plays an audio track.
 func PlayAudio(name string, loop bool) {
 	if !*Config.Control.AudioEnabled {
@@ -332,7 +315,9 @@ func PlayAudio(name string, loop bool) {
 	}
 
 	audioPlayersMutex.Lock()
-	if player, ok := audioPlayers[name]; ok && player.playing {
+	player, playerOk := audioPlayers[name]
+	if playerOk {
+		Log(fmt.Sprintf("Audio source already playing: %s", name))
 		audioPlayersMutex.Unlock()
 		return
 	}
@@ -374,15 +359,13 @@ func PlayAudio(name string, loop bool) {
 			return nil
 		}))
 
+		player.source = source
 		audioPlayersMutex.Lock()
-		audioPlayers[name] = struct {
-			source    js.Value
-			startTime float64
-			playing   bool
-		}{source, 0, true}
+		audioPlayers[name] = player
 		audioPlayersMutex.Unlock()
 
-		source.Call("start", js.ValueOf(0), js.ValueOf(0))
+		Log(fmt.Sprintf("Playing audio source: %s", name))
+		source.Call("start", js.ValueOf(0), js.ValueOf(player.startTime))
 		return nil
 	})
 	catch := js.FuncOf(func(_ js.Value, p []js.Value) any {
@@ -397,34 +380,6 @@ func PlayAudio(name string, loop bool) {
 // RemoveEventListener is a function that removes an event listener from the document.
 func RemoveEventListener(event string, listener any) {
 	doc.Call("removeEventListener", event, listener)
-}
-
-// ResumeAudio is a function that resumes an audio track.
-func ResumeAudio(name string) {
-	audioPlayersMutex.Lock()
-	defer audioPlayersMutex.Unlock()
-
-	if player, ok := audioPlayers[name]; ok && !player.playing {
-		player.startTime = 0
-		player.playing = true
-		player.source.Call("start", js.ValueOf(0), js.ValueOf(player.startTime))
-		audioPlayers[name] = player
-	}
-}
-
-// ResumeAudioSources is a function that resumes all audio sources that match the selector.
-func ResumeAudioSources(selector func(name string) bool) {
-	audioPlayersMutex.Lock()
-	defer audioPlayersMutex.Unlock()
-
-	for name, player := range audioPlayers {
-		if selector(name) && !player.playing {
-			player.startTime = 0
-			player.playing = true
-			player.source.Call("start", js.ValueOf(0), js.ValueOf(player.startTime))
-			audioPlayers[name] = player
-		}
-	}
 }
 
 // SendMessage sends a message to the message box.
@@ -449,10 +404,11 @@ func StopAudio(name string) {
 	audioPlayersMutex.Lock()
 	defer audioPlayersMutex.Unlock()
 
-	if player, ok := audioPlayers[name]; ok {
-		player.playing = false
-		player.startTime = 0
+	if player, ok := audioPlayers[name]; ok && player.source.Truthy() {
+		Log(fmt.Sprintf("Stopping audio source: %s", name))
+		player.startTime = audioCtx.Get("currentTime").Float()
 		player.source.Call("stop")
+		player.source = js.Null()
 		audioPlayers[name] = player
 	}
 }
@@ -463,10 +419,11 @@ func StopAudioSources(selector func(name string) bool) {
 	defer audioPlayersMutex.Unlock()
 
 	for name, player := range audioPlayers {
-		if selector(name) {
-			player.playing = false
-			player.startTime = 0
+		if selector(name) && player.source.Truthy() {
+			Log(fmt.Sprintf("Stopping audio source: %s", name))
+			player.startTime = audioCtx.Get("currentTime").Float()
 			player.source.Call("stop")
+			player.source = js.Null()
 			audioPlayers[name] = player
 		}
 	}

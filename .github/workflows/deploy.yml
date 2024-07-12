@@ -60,7 +60,7 @@ jobs:
           rollbackonhealthcheckfailed: true
           usedocker: true
         env:
-          HD_SPACE_INVADERS_DEBUG: "true"
+          HD_SPACE_INVADERS_DEBUG: "false"
 
       - name: Update code documentation
         run: curl -fsSL https://proxy.golang.org/${{ steps.export_module_name.outputs.MODULE_NAME }}/@v/${{ github.ref_name }}.info

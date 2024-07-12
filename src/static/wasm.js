@@ -40,25 +40,56 @@ document.addEventListener("DOMContentLoaded", async function () {
   let audioEnabled = await isAudioEnabledFunc(); // Ensure that isAudioEnabled is awaited and set
   const audioIcon = document.getElementById("audioIcon");
   if (audioEnabled) {
-    audioIcon.className = "fas fa-volume-up";
+    audioIcon.classList.remove("fas fa-volume-mute");
+    audioIcon.classList.add("fas fa-volume-up");
   } else {
-    audioIcon.className = "fas fa-volume-mute";
+    audioIcon.classList.remove("fas fa-volume-up");
+    audioIcon.classList.add("fas fa-volume-mute");
   }
 
   window.toggleAudio = async function () {
     await toggleAudioFunc(); // Call the Go function to toggle audio
     audioEnabled = await isAudioEnabledFunc(); // Get the updated audio state
     if (audioEnabled) {
-      audioIcon.className = "fas fa-volume-up";
+      audioIcon.classList.remove("fas fa-volume-mute");
+      audioIcon.classList.add("fas fa-volume-up");
     } else {
-      audioIcon.className = "fas fa-volume-mute";
+      audioIcon.classList.remove("fas fa-volume-up");
+      audioIcon.classList.add("fas fa-volume-mute");
     }
   };
 
-  audioToggleBtn = document.getElementById("audioToggle");
+  const audioToggleBtn = document.getElementById("audioToggle");
   audioToggleBtn.addEventListener("click", window.toggleAudio);
   audioToggleBtn.addEventListener("touchend", function (event) {
     event.preventDefault(); // Prevent mouse event from also being triggered
     toggleAudio();
+  });
+
+  const refreshBtn = document.getElementById("refreshButton");
+  function animateButton() {
+    return new Promise((resolve) => {
+      refreshBtn.classList.add("animated-click");
+      refreshBtn.addEventListener(
+        "transitionend",
+        () => {
+          refreshBtn.classList.remove("animated-click");
+          refreshBtn.classList.add("animated-click-end");
+          resolve();
+        },
+        { once: true }
+      );
+    });
+  }
+  refreshBtn.addEventListener("click", () => {
+    animateButton().then(() => {
+      location.reload(); // Reload after the animation completes
+    });
+  });
+  refreshBtn.addEventListener("touchend", function (event) {
+    event.preventDefault(); // Prevent mouse event from also being triggered
+    animateButton().then(() => {
+      location.reload(); // Reload after the animation completes
+    });
   });
 });

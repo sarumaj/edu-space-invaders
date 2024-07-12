@@ -55,10 +55,37 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
   };
 
-  audioToggleBtn = document.getElementById("audioToggle");
+  const audioToggleBtn = document.getElementById("audioToggle");
   audioToggleBtn.addEventListener("click", window.toggleAudio);
   audioToggleBtn.addEventListener("touchend", function (event) {
     event.preventDefault(); // Prevent mouse event from also being triggered
     toggleAudio();
+  });
+
+  const refreshBtn = document.getElementById("refreshButton");
+  function animateButton() {
+    return new Promise((resolve) => {
+      refreshBtn.classList.add("animated-click");
+      refreshBtn.addEventListener(
+        "transitionend",
+        () => {
+          refreshBtn.classList.remove("animated-click");
+          refreshBtn.classList.add("animated-click-end");
+          resolve();
+        },
+        { once: true }
+      );
+    });
+  }
+  refreshBtn.addEventListener("click", () => {
+    animateButton().then(() => {
+      location.reload(); // Reload after the animation completes
+    });
+  });
+  refreshBtn.addEventListener("touchend", function (event) {
+    event.preventDefault(); // Prevent mouse event from also being triggered
+    animateButton().then(() => {
+      location.reload(); // Reload after the animation completes
+    });
   });
 });

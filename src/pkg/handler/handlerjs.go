@@ -34,9 +34,11 @@ func (h *handler) monitor() {
 			switch fps := float64(frameCount) / elapsed; {
 			case fps <= config.Config.Control.CriticalFramesPerSecondRate:
 				// Notify the user about the performance drop
-				config.SendMessage(config.Execute(config.Config.Messages.Templates.PerformanceDropped, config.Template{
-					"FPS": fps,
-				}))
+				if config.Config.Control.Debug.Get() {
+					config.SendMessage(config.Execute(config.Config.Messages.Templates.PerformanceDropped, config.Template{
+						"FPS": fps,
+					}))
+				}
 
 				// Pause the game
 				if running.Get(h.ctx) {
@@ -53,10 +55,12 @@ func (h *handler) monitor() {
 					// Reset the suspended frame count
 					suspendedFrameCount = 0
 
-					// Notify the user about the performance boost
-					config.SendMessage(config.Execute(config.Config.Messages.Templates.PerformanceImproved, config.Template{
-						"FPS": fps,
-					}))
+					if config.Config.Control.Debug.Get() {
+						// Notify the user about the performance boost
+						config.SendMessage(config.Execute(config.Config.Messages.Templates.PerformanceImproved, config.Template{
+							"FPS": fps,
+						}))
+					}
 
 					// Resume the game
 					running.Set(&h.ctx, true)

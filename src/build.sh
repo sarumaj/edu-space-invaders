@@ -39,6 +39,7 @@ mkdir -p "$TARGET_DIR"
 # Build the Go program
 log_message "Building the Go program"
 GOOS=js GOARCH=wasm go build -trimpath -ldflags="-s -w" -o "$TARGET_DIR/main.wasm" "$SCRIPT_DIR/main.go"
+
 if [ -f "$TARGET_DIR/main.wasm" ]; then
 	log_message "Go program built successfully"
 else

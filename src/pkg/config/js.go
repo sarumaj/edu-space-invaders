@@ -25,9 +25,9 @@ var (
 		source    js.Value
 		startTime float64
 	})
-	audioPlayersMutex = sync.Mutex{}
+	audioPlayersMutex = sync.RWMutex{}
 	audioTracks       = make(map[string][]byte)
-	audioTracksMutex  = sync.Mutex{}
+	audioTracksMutex  = sync.RWMutex{}
 	canvas            = doc.Call("getElementById", "gameCanvas")
 	console           = js.Global().Get("console")
 	ctx               = func() js.Value {
@@ -246,10 +246,11 @@ func Getenv(key string) string {
 
 // IsPlaying is a function that returns true if the audio track is playing.
 func IsPlaying(name string) bool {
-	audioPlayersMutex.Lock()
-	defer audioPlayersMutex.Unlock()
+	audioPlayersMutex.RLock()
+	player, ok := audioPlayers[name]
+	audioPlayersMutex.RUnlock()
 
-	if player, ok := audioPlayers[name]; ok {
+	if ok {
 		return player.source.Truthy()
 	}
 
@@ -282,7 +283,12 @@ func LoadAudio(name string) ([]byte, error) {
 	hostname := windowLocation.Get("hostname").String()
 	port := windowLocation.Get("port").String()
 
-	response, err := http.Get(fmt.Sprintf("%s//%s:%s/audio/%s", protocol, hostname, port, name))
+	url := fmt.Sprintf("%s//%s:%s/audio/%s", protocol, hostname, port, name)
+	if port == "" {
+		url = fmt.Sprintf("%s//%s/audio/%s", protocol, hostname, name)
+	}
+
+	response, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -314,19 +320,19 @@ func PlayAudio(name string, loop bool) {
 		return
 	}
 
-	audioPlayersMutex.Lock()
+	audioPlayersMutex.RLock()
 	player, playerOk := audioPlayers[name]
-	if playerOk {
+	audioPlayersMutex.RUnlock()
+
+	if playerOk && player.source.Truthy() {
 		Log(fmt.Sprintf("Audio source already playing: %s", name))
-		audioPlayersMutex.Unlock()
 		return
 	}
-	audioPlayersMutex.Unlock()
 
-	audioTracksMutex.Lock()
-	track, ok := audioTracks[name]
-	audioTracksMutex.Unlock()
-	if !ok {
+	audioTracksMutex.RLock()
+	track, trackOk := audioTracks[name]
+	audioTracksMutex.RUnlock()
+	if !trackOk {
 		raw, err := LoadAudio(name)
 		if err != nil {
 			LogError(err)
@@ -349,7 +355,10 @@ func PlayAudio(name string, loop bool) {
 
 		source.Call("addEventListener", "ended", js.FuncOf(func(_ js.Value, _ []js.Value) any {
 			audioPlayersMutex.Lock()
-			delete(audioPlayers, name)
+			audioPlayers[name] = struct {
+				source    js.Value
+				startTime float64
+			}{source: js.Null(), startTime: 0}
 			audioPlayersMutex.Unlock()
 
 			if loop {
@@ -401,32 +410,39 @@ func Setenv(key, value string) {
 
 // StopAudio is a function that stops an audio track.
 func StopAudio(name string) {
-	audioPlayersMutex.Lock()
-	defer audioPlayersMutex.Unlock()
+	audioPlayersMutex.RLock()
+	player, playerOk := audioPlayers[name]
+	audioPlayersMutex.RUnlock()
 
-	if player, ok := audioPlayers[name]; ok && player.source.Truthy() {
+	if playerOk && player.source.Truthy() {
 		Log(fmt.Sprintf("Stopping audio source: %s", name))
 		player.startTime = audioCtx.Get("currentTime").Float()
 		player.source.Call("stop")
 		player.source = js.Null()
+
+		audioPlayersMutex.Lock()
 		audioPlayers[name] = player
+		audioPlayersMutex.Unlock()
 	}
 }
 
 // StopAudioSources is a function that stops all audio sources that match the selector.
 func StopAudioSources(selector func(name string) bool) {
 	audioPlayersMutex.Lock()
-	defer audioPlayersMutex.Unlock()
 
+	var stopped []string
 	for name, player := range audioPlayers {
 		if selector(name) && player.source.Truthy() {
-			Log(fmt.Sprintf("Stopping audio source: %s", name))
 			player.startTime = audioCtx.Get("currentTime").Float()
 			player.source.Call("stop")
 			player.source = js.Null()
 			audioPlayers[name] = player
+			stopped = append(stopped, name)
 		}
 	}
+
+	Log(fmt.Sprintf("Stopped audio sources: %v", stopped))
+	audioPlayersMutex.Unlock()
 }
 
 // ThrowError is a function that throws an error.

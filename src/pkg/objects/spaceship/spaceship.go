@@ -23,6 +23,7 @@ type Spaceship struct {
 	HighScore           int              // HighScore is the high score of the spaceship.
 	lastFired           time.Time        // Last time the spaceship fired
 	lastStateTransition time.Time        // Last time the spaceship changed state
+	lastThrottledLog    time.Time        // Last time the spaceship throttled log messages
 }
 
 // ChangeState changes the state of the spaceship.
@@ -88,9 +89,14 @@ func (spaceship Spaceship) Draw() {
 // of the cannon.
 func (spaceship *Spaceship) Fire() {
 	if spaceship.State == Frozen {
-		config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
-			"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).Round(time.Millisecond),
-		}))
+		now := time.Now()
+		if now.Sub(spaceship.lastThrottledLog) >= config.Config.Spaceship.LogThrottling {
+			config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+				"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).
+					Round(config.Config.Spaceship.LogThrottling),
+			}))
+			spaceship.lastThrottledLog = now
+		}
 		return
 	}
 
@@ -137,9 +143,14 @@ func (spaceship Spaceship) IsDestroyed() bool {
 // it is set to the canvas height.
 func (spaceship *Spaceship) MoveDown() {
 	if spaceship.State == Frozen {
-		config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
-			"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).Round(time.Millisecond),
-		}))
+		now := time.Now()
+		if now.Sub(spaceship.lastThrottledLog) >= config.Config.Spaceship.LogThrottling {
+			config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+				"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).
+					Round(config.Config.Spaceship.LogThrottling),
+			}))
+			spaceship.lastThrottledLog = now
+		}
 		return
 	}
 
@@ -162,9 +173,14 @@ func (spaceship *Spaceship) MoveDown() {
 // If the spaceship's position is less than 0, it is set to 0.
 func (spaceship *Spaceship) MoveLeft() {
 	if spaceship.State == Frozen {
-		config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
-			"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).Round(time.Millisecond),
-		}))
+		now := time.Now()
+		if now.Sub(spaceship.lastThrottledLog) >= config.Config.Spaceship.LogThrottling {
+			config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+				"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).
+					Round(config.Config.Spaceship.LogThrottling),
+			}))
+			spaceship.lastThrottledLog = now
+		}
 		return
 	}
 
@@ -188,9 +204,14 @@ func (spaceship *Spaceship) MoveLeft() {
 // it is set to the canvas width.
 func (spaceship *Spaceship) MoveRight() {
 	if spaceship.State == Frozen {
-		config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
-			"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).Round(time.Millisecond),
-		}))
+		now := time.Now()
+		if now.Sub(spaceship.lastThrottledLog) >= config.Config.Spaceship.LogThrottling {
+			config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+				"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).
+					Round(config.Config.Spaceship.LogThrottling),
+			}))
+			spaceship.lastThrottledLog = now
+		}
 		return
 	}
 
@@ -213,9 +234,14 @@ func (spaceship *Spaceship) MoveRight() {
 // If the spaceship's position is less than 0, it is set to 0.
 func (spaceship *Spaceship) MoveUp() {
 	if spaceship.State == Frozen {
-		config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
-			"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).Round(time.Millisecond),
-		}))
+		now := time.Now()
+		if now.Sub(spaceship.lastThrottledLog) >= config.Config.Spaceship.LogThrottling {
+			config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+				"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).
+					Round(config.Config.Spaceship.LogThrottling),
+			}))
+			spaceship.lastThrottledLog = now
+		}
 		return
 	}
 
@@ -243,9 +269,14 @@ func (spaceship *Spaceship) MoveUp() {
 // it is set to the canvas height.
 func (spaceship *Spaceship) MoveTo(target objects.Position) {
 	if spaceship.State == Frozen {
-		config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
-			"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).Round(time.Millisecond),
-		}))
+		now := time.Now()
+		if now.Sub(spaceship.lastThrottledLog) >= config.Config.Spaceship.LogThrottling {
+			config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+				"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).
+					Round(config.Config.Spaceship.LogThrottling),
+			}))
+			spaceship.lastThrottledLog = now
+		}
 		return
 	}
 

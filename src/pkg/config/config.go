@@ -86,6 +86,7 @@ type config struct {
 		FreezeDuration     time.Duration
 		FreezerPenalty     int
 		Height             float64
+		LogThrottling      time.Duration
 		MaximumCannons     int
 		MaximumSpeed       float64
 		Width              float64

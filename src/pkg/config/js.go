@@ -20,7 +20,6 @@ var (
 		}
 		return ctx
 	}()
-
 	audioPlayers      = make(map[string]audioPlayer)
 	audioPlayersMutex = sync.RWMutex{}
 	audioTracks       = make(map[string][]byte)

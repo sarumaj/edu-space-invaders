@@ -33,17 +33,16 @@ func (h *handler) monitor() {
 		if elapsed := now.Sub(lastFrameTime).Seconds(); elapsed >= precision {
 			switch fps := float64(frameCount) / elapsed; {
 			case fps <= config.Config.Control.CriticalFramesPerSecondRate:
-				// Notify the user about the performance drop
-				if config.Config.Control.Debug.Get() {
-					config.SendMessage(config.Execute(config.Config.Messages.Templates.PerformanceDropped, config.Template{
-						"FPS": fps,
-					}))
-				}
+				if running.Get(h.ctx) { // If the game is running
+					// Notify the user about the performance drop
+					if config.Config.Control.Debug.Get() {
+						config.SendMessage(config.Execute(config.Config.Messages.Templates.PerformanceDropped, config.Template{
+							"FPS": fps,
+						}))
+					}
 
-				// Pause the game
-				if running.Get(h.ctx) {
-					running.Set(&h.ctx, false)
-					suspended.Set(&h.ctx, true)
+					running.Set(&h.ctx, false)  // Pause the game
+					suspended.Set(&h.ctx, true) // Set the suspended state
 				}
 
 			case fps >= (config.Config.Control.CriticalFramesPerSecondRate+config.Config.Control.DesiredFramesPerSecondRate)/2 && !running.Get(h.ctx):
@@ -55,16 +54,17 @@ func (h *handler) monitor() {
 					// Reset the suspended frame count
 					suspendedFrameCount = 0
 
-					if config.Config.Control.Debug.Get() {
-						// Notify the user about the performance boost
-						config.SendMessage(config.Execute(config.Config.Messages.Templates.PerformanceImproved, config.Template{
-							"FPS": fps,
-						}))
-					}
+					if !paused.Get(h.ctx) { // Do not resume the game if it is paused
+						if config.Config.Control.Debug.Get() {
+							// Notify the user about the performance boost
+							config.SendMessage(config.Execute(config.Config.Messages.Templates.PerformanceImproved, config.Template{
+								"FPS": fps,
+							}))
+						}
 
-					// Resume the game
-					running.Set(&h.ctx, true)
-					suspended.Set(&h.ctx, false)
+						running.Set(&h.ctx, true)    // Resume the game
+						suspended.Set(&h.ctx, false) // Reset the suspended state
+					}
 
 				}
 
@@ -124,20 +124,22 @@ func (h *handler) registerEventHandlers() {
 		touchstart = js.FuncOf(func(_ js.Value, p []js.Value) any {
 			p[0].Call("preventDefault")
 			changedTouches := p[0].Get("changedTouches")
-			globalEvent.Clear()
-			globalEvent.StartPosition = objects.Position{
-				X: objects.Number(changedTouches.Index(0).Get("clientX").Float()),
-				Y: objects.Number(changedTouches.Index(0).Get("clientY").Float()),
+			globalEvent = touchEvent{
+				StartPosition: objects.Position{
+					X: objects.Number(changedTouches.Index(0).Get("clientX").Float()),
+					Y: objects.Number(changedTouches.Index(0).Get("clientY").Float()),
+				},
+				StartTime:    time.Now(),
+				Correlations: make([]touchEvent, changedTouches.Length()-1),
 			}
-			globalEvent.StartTime = time.Now()
-			for i := 1; i < changedTouches.Length(); i++ {
-				globalEvent.Correlations = append(globalEvent.Correlations, touchEvent{
+			for i := 1; i < changedTouches.Length() && i < len(globalEvent.Correlations); i++ {
+				globalEvent.Correlations[i-1] = touchEvent{
 					StartPosition: objects.Position{
 						X: objects.Number(changedTouches.Index(i).Get("clientX").Float()),
 						Y: objects.Number(changedTouches.Index(i).Get("clientY").Float()),
 					},
 					StartTime: globalEvent.StartTime,
-				})
+				}
 			}
 			return nil
 		})
@@ -148,11 +150,7 @@ func (h *handler) registerEventHandlers() {
 				X: objects.Number(changedTouches.Index(0).Get("clientX").Float()),
 				Y: objects.Number(changedTouches.Index(0).Get("clientY").Float()),
 			}
-			for i := 1; i < changedTouches.Length(); i++ {
-				if i >= len(globalEvent.Correlations) {
-					break
-				}
-
+			for i := 1; i < changedTouches.Length() && i < len(globalEvent.Correlations); i++ {
 				globalEvent.Correlations[i-1].CurrentPosition = objects.Position{
 					X: objects.Number(changedTouches.Index(i).Get("clientX").Float()),
 					Y: objects.Number(changedTouches.Index(i).Get("clientY").Float()),
@@ -169,11 +167,7 @@ func (h *handler) registerEventHandlers() {
 				Y: objects.Number(changedTouches.Index(0).Get("clientY").Float()),
 			}
 			globalEvent.EndTime = time.Now()
-			for i := 1; i < changedTouches.Length(); i++ {
-				if i >= len(globalEvent.Correlations) {
-					break
-				}
-
+			for i := 1; i < changedTouches.Length() && i < len(globalEvent.Correlations); i++ {
 				globalEvent.Correlations[i-1].EndPosition = objects.Position{
 					X: objects.Number(changedTouches.Index(i).Get("clientX").Float()),
 					Y: objects.Number(changedTouches.Index(i).Get("clientY").Float()),
@@ -184,8 +178,8 @@ func (h *handler) registerEventHandlers() {
 			return nil
 		})
 
-		config.AddEventListener("touchstart", touchstart)
-		config.AddEventListener("touchmove", touchmove)
-		config.AddEventListener("touchend", touchend)
+		config.AddEventListenerToCanvas("touchstart", touchstart)
+		config.AddEventListenerToCanvas("touchmove", touchmove)
+		config.AddEventListenerToCanvas("touchend", touchend)
 	})
 }

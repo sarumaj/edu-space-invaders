@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/gin-gonic/gin"
 	rkboot "github.com/rookie-ninja/rk-boot/v2"
 	rkgin "github.com/rookie-ninja/rk-gin/v2/boot"
 	zapcore "go.uber.org/zap/zapcore"
@@ -45,9 +46,11 @@ func main() {
 
 	entry.LoggerEntry.Info("Booting up", zapcore.Field{Key: "environ", Interface: envData, Type: zapcore.ReflectType})
 
-	entry.Router.Use(cacheControlMiddleware())
-	entry.Router.POST("/.env", handleEnv())
-	entry.Router.Match([]string{http.MethodHead, http.MethodGet}, "/*filepath", serverFileSystem())
+	entry.Router.Use(CacheControlMiddleware())
+	entry.Router.POST("/.env", HandleEnv())
+	entry.Router.Match([]string{http.MethodHead, http.MethodGet}, "/*filepath", ServerFileSystem(map[string]gin.HandlerFunc{
+		"/health/?": HandleHealth(),
+	}))
 
 	boot.Bootstrap(context.Background())
 

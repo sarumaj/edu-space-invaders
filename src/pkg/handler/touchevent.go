@@ -14,16 +14,6 @@ type touchEvent struct {
 	Correlations                                []touchEvent
 }
 
-// Clear clears the touch event.
-func (t *touchEvent) Clear() {
-	t.StartPosition = objects.Position{}
-	t.CurrentPosition = objects.Position{}
-	t.EndPosition = objects.Position{}
-	t.StartTime = time.Time{}
-	t.EndTime = time.Time{}
-	t.Correlations = nil
-}
-
 // TapDuration returns the duration of the tap.
 func (t touchEvent) TapDuration() time.Duration {
 	duration := t.EndTime.Sub(t.StartTime)

@@ -127,6 +127,7 @@ func (h *handler) checkCollisions() {
 					h.spaceship.UpdateHighScore()
 					config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipUpgradedByEnemyKill, config.Template{
 						"EnemyName":      e.Name,
+						"EnemyType":      e.Type,
 						"SpaceshipLevel": h.spaceship.Level.Progress,
 					}))
 				}
@@ -239,7 +240,9 @@ func (h *handler) handleTouch(event touchEvent) {
 
 // pause pauses the game.
 func (h *handler) pause() {
-	running.Set(&h.ctx, false)
+	paused.Set(&h.ctx, true)     // signal that the game is paused
+	running.Set(&h.ctx, false)   // signal that the game is not running
+	suspended.Set(&h.ctx, false) // signal that the game is not suspended
 
 	if config.IsTouchDevice() {
 		config.SendMessage(config.Config.Messages.GamePausedTouchDevice)
@@ -263,8 +266,8 @@ func (h *handler) pause() {
 func (h *handler) render() {
 	switch {
 	case
-		!running.Get(h.ctx) && !isFirstTime.Get(h.ctx),
-		suspended.Get(h.ctx):
+		!running.Get(h.ctx) && !isFirstTime.Get(h.ctx), // If the game is not running and not the first time, do nothing.
+		suspended.Get(h.ctx):                           // If the game is suspended, do nothing.
 
 		return
 	}
@@ -300,7 +303,7 @@ func (h *handler) render() {
 // It updates the state of the spaceship.
 // It checks the collisions.
 func (h *handler) refresh() {
-	if !running.Get(h.ctx) {
+	if !running.Get(h.ctx) { // If the game is not running, do nothing.
 		return
 	}
 
@@ -312,12 +315,13 @@ func (h *handler) refresh() {
 
 // start starts the game if not already started.
 func (h *handler) start() bool {
-	if suspended.Get(h.ctx) {
+	if suspended.Get(h.ctx) { // If the game is suspended, do nothing.
 		return true
 	}
 
-	if !running.Get(h.ctx) {
-		running.Set(&h.ctx, true)
+	if !running.Get(h.ctx) { // If the game is not running, start the game.
+		running.Set(&h.ctx, true) // signal that the game is running
+		paused.Set(&h.ctx, false) // signal that the game is not paused
 
 		if isFirstTime.Get(h.ctx) {
 			if config.IsTouchDevice() {

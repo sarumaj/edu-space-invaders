@@ -23,22 +23,22 @@ type Bullet struct {
 func (bullet Bullet) Draw() {
 	switch {
 	case bullet.Damage > 1_000_000:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "purple", 0)
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "Red", 0)
 
 	case bullet.Damage > 100_000:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "blue", 0)
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "MediumVioletRed", 0)
 
 	case bullet.Damage > 10_000:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "violet", 0)
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "Goldenrod", 0)
 
 	case bullet.Damage > 1_000:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "red", 0)
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "Coral", 0)
 
 	case bullet.Damage > 100:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "orange", 0)
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "Aquamarine", 0)
 
 	default:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "yellow", 0)
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "Bisque", 0)
 
 	}
 }

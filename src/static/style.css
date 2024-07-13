@@ -29,7 +29,7 @@ canvas {
   border: none;
   cursor: pointer;
   color: white;
-  touch-action: manipulation; /* Allow touch interactions specifically for this button */
+  touch-action: manipulation; /* Allow touch interactions specifically for these buttons */
   flex-shrink: 0; /* Prevent the button from shrinking */
   transition: transform 0.6s; /* Add transition for the click animation */
 }

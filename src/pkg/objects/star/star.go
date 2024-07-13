@@ -37,7 +37,7 @@ func Twinkle(position objects.Position) *Star {
 		Radius:   rand.Float64()*config.Config.Star.MinimumRadius + (config.Config.Star.MaximumRadius - config.Config.Star.MinimumRadius),
 		Spikes:   rand.Float64()*config.Config.Star.MinimumSpikes + (config.Config.Star.MaximumSpikes - config.Config.Star.MinimumSpikes),
 		color: [...]string{
-			"white",
+			"White",
 			"LightYellow",
 			"PaleGoldenrod",
 			"LightCyan",

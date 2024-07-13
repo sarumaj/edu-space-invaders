@@ -7,6 +7,7 @@ import (
 const (
 	isFirstTime contextAccess[bool] = "isFirstTime" // isFirstTime is a context key that indicates whether the game is played for the first time.
 	running     contextAccess[bool] = "running"     // running is a context key that indicates whether the game is running.
+	paused      contextAccess[bool] = "paused"      // paused is a context key that indicates whether the game is paused.
 	suspended   contextAccess[bool] = "suspended"   // suspended is a context key that indicates whether the game is suspended.
 )
 

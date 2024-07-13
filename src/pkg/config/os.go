@@ -10,11 +10,17 @@ import (
 // AddEventListener is a function that adds an event listener to the document.
 func AddEventListener(event string, listener any) {}
 
-// CanvasWidth returns the width of the canvas (in px).
-func CanvasWidth() float64 { return 800 }
+// AddEventListenerToCanvas is a function that adds an event listener to the canvas.
+func AddEventListenerToCanvas(event string, listener any) {}
+
+// CanvasBoundingBox returns the bounding box of the canvas.
+func CanvasBoundingBox() [6]float64 { return [6]float64{} }
 
 // CanvasHeight returns the height of the canvas (in px).
 func CanvasHeight() float64 { return 600 }
+
+// CanvasWidth returns the width of the canvas (in px).
+func CanvasWidth() float64 { return 800 }
 
 // ClearBackground is a function that clears the invisible canvas.
 func ClearBackground() {}

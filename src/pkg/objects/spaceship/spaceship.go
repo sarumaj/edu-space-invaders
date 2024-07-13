@@ -73,10 +73,10 @@ func (spaceship Spaceship) Draw() {
 		spaceship.Size.Pack(),
 		true,
 		map[SpaceshipState]string{
-			Neutral: "white",
-			Damaged: "darkred",
-			Boosted: "yellow",
-			Frozen:  "blue",
+			Neutral: "Lavender",
+			Damaged: "Crimson",
+			Boosted: "Chartreuse",
+			Frozen:  "DeepSkyBlue",
 		}[spaceship.State],
 	)
 }

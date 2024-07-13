@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -11,9 +12,9 @@ import (
 	dist "github.com/sarumaj/edu-space-invaders/dist"
 )
 
-// cacheControlMiddleware is a middleware that sets the cache control headers.
+// CacheControlMiddleware is a middleware that sets the cache control headers.
 // It also handles the ETag header.
-func cacheControlMiddleware() gin.HandlerFunc {
+func CacheControlMiddleware() gin.HandlerFunc {
 	defaultEntrypoint := "index.html"
 
 	return func(ctx *gin.Context) {
@@ -36,10 +37,10 @@ func cacheControlMiddleware() gin.HandlerFunc {
 	}
 }
 
-// handleEnv handles the environment variables.
+// HandleEnv handles the environment variables.
 // It sets the environment variables based on the request body.
 // It returns the environment variables as a response.
-func handleEnv() gin.HandlerFunc {
+func HandleEnv() gin.HandlerFunc {
 	environ := os.Environ()
 
 	return func(ctx *gin.Context) {
@@ -67,30 +68,49 @@ func handleEnv() gin.HandlerFunc {
 	}
 }
 
-// serverFileSystem serves the files from the embedded file system.
-// It also serves the health endpoint.
-func serverFileSystem() gin.HandlerFunc {
+func HandleHealth() gin.HandlerFunc {
 	bootTime := time.Now()
 
 	return func(ctx *gin.Context) {
-		switch path := strings.TrimLeft(ctx.Param("filepath"), "/"); path {
-		case "health", "health/":
-			if ctx.Request.Method == http.MethodHead {
-				ctx.Status(http.StatusOK)
+		if ctx.Request.Method == http.MethodHead {
+			ctx.Status(http.StatusOK)
+			return
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{
+			"BootTime":  bootTime.Format(time.RFC3339),
+			"BuildTime": dist.BuildTime(),
+			"Current":   time.Now().Format(time.RFC3339),
+			"Status":    "ok",
+			"UpTime":    time.Since(bootTime).String(),
+		})
+	}
+}
+
+// Redirect redirects the client to the specified location.
+func Redirect[L interface {
+	string | func(*gin.Context) string
+}](location L) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		switch location := any(location).(type) {
+		case string:
+			ctx.Redirect(http.StatusMovedPermanently, location)
+		case func(*gin.Context) string:
+			ctx.Redirect(http.StatusMovedPermanently, location(ctx))
+		}
+	}
+}
+
+// ServerFileSystem serves the files from the embedded file system.
+func ServerFileSystem(conflicting map[string]gin.HandlerFunc) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		path := ctx.Param("filepath")
+		for pattern, handler := range conflicting {
+			if regexp.MustCompile(pattern).MatchString(path) {
+				handler(ctx)
 				return
 			}
-
-			ctx.JSON(http.StatusOK, gin.H{
-				"BootTime":  bootTime.Format(time.RFC3339),
-				"BuildTime": dist.BuildTime(),
-				"Current":   time.Now().Format(time.RFC3339),
-				"Status":    "ok",
-				"UpTime":    time.Since(bootTime).String(),
-			})
-
-		default:
-			ctx.FileFromFS("/"+path, dist.HttpFS)
-
 		}
+		ctx.FileFromFS("/"+strings.TrimLeft(path, "/"), dist.HttpFS)
 	}
 }

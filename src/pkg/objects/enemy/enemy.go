@@ -107,6 +107,7 @@ func (enemy *Enemy) BerserkGivenAncestor(oldType EnemyType) {
 func (enemy *Enemy) Destroy() {
 	config.SendMessage(config.Execute(config.Config.Messages.Templates.EnemyDestroyed, config.Template{
 		"EnemyName": enemy.Name,
+		"EnemyType": enemy.Type,
 	}))
 	enemy.Level.HitPoints = 0
 	go config.PlayAudio("enemy_destroyed.wav", false)
@@ -121,11 +122,11 @@ func (enemy Enemy) Draw() {
 		enemy.Size.Pack(),
 		false,
 		map[EnemyType]string{
-			Goodie:      "green",
-			Freezer:     "lightblue",
-			Normal:      "gray",
-			Berserker:   "red",
-			Annihilator: "darkred",
+			Goodie:      "Chartreuse",
+			Freezer:     "DeepSkyBlue",
+			Normal:      "DarkseaGreen",
+			Berserker:   "Firebrick",
+			Annihilator: "MidnightBlue",
 		}[enemy.Type],
 	)
 }
@@ -143,6 +144,7 @@ func (enemy *Enemy) Hit(damage int) {
 
 	config.SendMessage(config.Execute(config.Config.Messages.Templates.EnemyHit, config.Template{
 		"EnemyName": enemy.Name,
+		"EnemyType": enemy.Type,
 		"Damage":    damage,
 	}))
 

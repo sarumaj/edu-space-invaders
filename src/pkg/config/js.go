@@ -73,11 +73,29 @@ func AddEventListener(event string, listener any) {
 	doc.Call("addEventListener", event, listener)
 }
 
-// CanvasWidth returns the width of the canvas (in px).
-func CanvasWidth() float64 { return canvas.Get("width").Float() }
+// AddEventListenerToCanvas is a function that adds an event listener to the canvas.
+func AddEventListenerToCanvas(event string, listener any) {
+	canvas.Call("addEventListener", event, listener)
+}
+
+// CanvasBoundingBox returns the bounding box of the canvas.
+func CanvasBoundingBox() [6]float64 {
+	box := canvas.Call("getBoundingClientRect")
+	return [6]float64{
+		box.Get("left").Float(),
+		box.Get("top").Float(),
+		box.Get("right").Float(),
+		box.Get("bottom").Float(),
+		box.Get("width").Float(),
+		box.Get("height").Float(),
+	}
+}
 
 // CanvasHeight returns the height of the canvas (in px).
-func CanvasHeight() float64 { return canvas.Get("height").Float() }
+func CanvasHeight() float64 { return CanvasBoundingBox()[5] }
+
+// CanvasWidth returns the width of the canvas (in px).
+func CanvasWidth() float64 { return CanvasBoundingBox()[4] }
 
 // ClearBackground is a function that clears the invisible canvas.
 func ClearBackground() {
@@ -325,7 +343,9 @@ func PlayAudio(name string, loop bool) {
 	audioPlayersMutex.RUnlock()
 
 	if playerOk && player.source.Truthy() {
-		Log(fmt.Sprintf("Audio source already playing: %s", name))
+		if Config.Control.Debug.Get() {
+			Log(fmt.Sprintf("Audio source already playing: %s", name))
+		}
 		return
 	}
 
@@ -373,7 +393,9 @@ func PlayAudio(name string, loop bool) {
 		audioPlayers[name] = player
 		audioPlayersMutex.Unlock()
 
-		Log(fmt.Sprintf("Playing audio source: %s", name))
+		if Config.Control.Debug.Get() {
+			Log(fmt.Sprintf("Playing audio source: %s", name))
+		}
 		source.Call("start", js.ValueOf(0), js.ValueOf(player.startTime))
 		return nil
 	})
@@ -415,7 +437,10 @@ func StopAudio(name string) {
 	audioPlayersMutex.RUnlock()
 
 	if playerOk && player.source.Truthy() {
-		Log(fmt.Sprintf("Stopping audio source: %s", name))
+		if Config.Control.Debug.Get() {
+			Log(fmt.Sprintf("Stopping audio source: %s", name))
+		}
+
 		player.startTime = audioCtx.Get("currentTime").Float()
 		player.source.Call("stop")
 		player.source = js.Null()
@@ -441,7 +466,10 @@ func StopAudioSources(selector func(name string) bool) {
 		}
 	}
 
-	Log(fmt.Sprintf("Stopped audio sources: %v", stopped))
+	if Config.Control.Debug.Get() {
+		Log(fmt.Sprintf("Stopped audio sources: %v", stopped))
+	}
+
 	audioPlayersMutex.Unlock()
 }
 

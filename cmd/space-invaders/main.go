@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"slices"
 	"strconv"
 
@@ -48,8 +49,8 @@ func main() {
 
 	entry.Router.Use(CacheControlMiddleware())
 	entry.Router.POST("/.env", HandleEnv())
-	entry.Router.Match([]string{http.MethodHead, http.MethodGet}, "/*filepath", ServerFileSystem(map[string]gin.HandlerFunc{
-		"/health/?": HandleHealth(),
+	entry.Router.Match([]string{http.MethodHead, http.MethodGet}, "/*filepath", ServerFileSystem(map[*regexp.Regexp]gin.HandlerFunc{
+		regexp.MustCompile(`^/?health/?$`): HandleHealth(),
 	}))
 
 	boot.Bootstrap(context.Background())

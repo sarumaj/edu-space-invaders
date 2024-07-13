@@ -89,7 +89,7 @@ func HandleHealth() gin.HandlerFunc {
 
 // Redirect redirects the client to the specified location.
 func Redirect[L interface {
-	string | func(*gin.Context) string
+	~string | func(*gin.Context) string
 }](location L) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		switch location := any(location).(type) {
@@ -102,15 +102,16 @@ func Redirect[L interface {
 }
 
 // ServerFileSystem serves the files from the embedded file system.
-func ServerFileSystem(conflicting map[string]gin.HandlerFunc) gin.HandlerFunc {
+func ServerFileSystem(conflicting map[*regexp.Regexp]gin.HandlerFunc) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		path := ctx.Param("filepath")
 		for pattern, handler := range conflicting {
-			if regexp.MustCompile(pattern).MatchString(path) {
+			if pattern.MatchString(path) {
 				handler(ctx)
 				return
 			}
 		}
+
 		ctx.FileFromFS("/"+strings.TrimLeft(path, "/"), dist.HttpFS)
 	}
 }

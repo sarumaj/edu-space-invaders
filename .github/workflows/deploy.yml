@@ -59,6 +59,7 @@ jobs:
           healthcheck: "${{ steps.export_app_url.outputs.HEROKU_APP_URL }}/health"
           rollbackonhealthcheckfailed: true
           usedocker: true
+          delay: 5
         env:
           HD_SPACE_INVADERS_DEBUG: "false"
 

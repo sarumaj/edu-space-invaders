@@ -14,10 +14,11 @@ type Stars []Star
 // The number of stars is determined by the input parameter.
 func Explode(num int) Stars {
 	// Define the grid size
-	gridSize := objects.Number((config.CanvasWidth() * config.CanvasHeight()) / float64(num)).Root()
+	canvasDimensions := config.CanvasBoundingBox()
+	gridSize := objects.Number((canvasDimensions.Width * canvasDimensions.Height) / float64(num)).Root()
 	newBox := objects.Position{
-		X: objects.Number(config.CanvasWidth()),
-		Y: objects.Number(config.CanvasHeight()),
+		X: objects.Number(canvasDimensions.Width),
+		Y: objects.Number(canvasDimensions.Height),
 	}.Div(gridSize).ToBox()
 
 	// Create a grid of cells and place stars in random positions within these cells

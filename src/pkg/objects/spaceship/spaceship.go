@@ -15,6 +15,7 @@ import (
 type Spaceship struct {
 	Position            objects.Position // Position of the spaceship
 	Speed               objects.Position // Speed of the spaceship in both directions
+	Directions          Directions       // Directions the spaceship can move
 	Size                objects.Size     // Size of the spaceship
 	Bullets             bullet.Bullets   // Bullets fired by the spaceship
 	Cooldown            time.Duration    // Time between shots
@@ -91,7 +92,7 @@ func (spaceship *Spaceship) Fire() {
 	if spaceship.State == Frozen {
 		now := time.Now()
 		if now.Sub(spaceship.lastThrottledLog) >= config.Config.Spaceship.LogThrottling {
-			config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+			config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipStillFrozen, config.Template{
 				"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).
 					Round(config.Config.Spaceship.LogThrottling),
 			}))
@@ -117,6 +118,8 @@ func (spaceship *Spaceship) Fire() {
 			// Skew of the bullet
 			// Skew is the skew of the bullet based on the position of the cannon.
 			float64(i)/float64(spaceship.Level.Cannons+1),
+			// Speed boost of the bullet
+			spaceship.Level.AccelerateRate.Float(),
 		)
 	}
 
@@ -127,8 +130,11 @@ func (spaceship *Spaceship) Fire() {
 
 // GetBulletDamage returns the damage of the bullets fired by the spaceship.
 func (spaceship Spaceship) GetBulletDamage() int {
+	// Calculate the base damage
 	base := config.Config.Bullet.InitialDamage + spaceship.Level.Progress
+	// Calculate the modifier
 	modifier := (spaceship.Level.Progress/config.Config.Bullet.ModifierProgressStep + 1) * spaceship.Level.Cannons
+	// Return the damage
 	return base*modifier + rand.Intn(base*modifier)
 }
 
@@ -145,7 +151,7 @@ func (spaceship *Spaceship) MoveDown() {
 	if spaceship.State == Frozen {
 		now := time.Now()
 		if now.Sub(spaceship.lastThrottledLog) >= config.Config.Spaceship.LogThrottling {
-			config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+			config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipStillFrozen, config.Template{
 				"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).
 					Round(config.Config.Spaceship.LogThrottling),
 			}))
@@ -154,14 +160,28 @@ func (spaceship *Spaceship) MoveDown() {
 		return
 	}
 
-	if spaceship.Speed.Y.Float() < config.Config.Spaceship.MaximumSpeed {
-		spaceship.Speed.Y += objects.Number(spaceship.Level.AccelerateRate)
+	// Brake the spaceship if it is moving in the opposite direction
+	if spaceship.Directions.IsHeadedTo(Up) {
+		spaceship.Speed.Y = 0
 	}
 
-	if spaceship.Position.Y+spaceship.Size.Height+spaceship.Speed.Y < objects.Number(config.CanvasHeight()) {
+	// Set the vertical direction
+	spaceship.Directions.SetVertical(Down)
+
+	// Accelerate the spaceship vertically
+	spaceship.Speed.Y += objects.Number(spaceship.Level.AccelerateRate)
+
+	// Limit the speed of the spaceship
+	if spaceship.Speed.Magnitude().Float() > config.Config.Spaceship.MaximumSpeed {
+		spaceship.Speed = spaceship.Speed.Normalize().Mul(objects.Number(config.Config.Spaceship.MaximumSpeed))
+	}
+
+	// Check the vertical boundaries and update the spaceship position
+	canvasDimensions := config.CanvasBoundingBox()
+	if spaceship.Position.Y+spaceship.Size.Height+spaceship.Speed.Y < objects.Number(canvasDimensions.Height) {
 		spaceship.Position.Y += spaceship.Speed.Y
 	} else {
-		spaceship.Position.Y = objects.Number(config.CanvasHeight() - spaceship.Size.Height.Float())
+		spaceship.Position.Y = objects.Number(canvasDimensions.Height - spaceship.Size.Height.Float())
 		spaceship.Speed.Y = 0
 	}
 
@@ -175,7 +195,7 @@ func (spaceship *Spaceship) MoveLeft() {
 	if spaceship.State == Frozen {
 		now := time.Now()
 		if now.Sub(spaceship.lastThrottledLog) >= config.Config.Spaceship.LogThrottling {
-			config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+			config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipStillFrozen, config.Template{
 				"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).
 					Round(config.Config.Spaceship.LogThrottling),
 			}))
@@ -184,10 +204,23 @@ func (spaceship *Spaceship) MoveLeft() {
 		return
 	}
 
-	if spaceship.Speed.X.Float() < config.Config.Spaceship.MaximumSpeed {
-		spaceship.Speed.X += objects.Number(spaceship.Level.AccelerateRate)
+	// Brake the spaceship if it is moving in the opposite direction
+	if spaceship.Directions.IsHeadedTo(Right) {
+		spaceship.Speed.X = 0
 	}
 
+	// Set the horizontal direction
+	spaceship.Directions.SetHorizontal(Left)
+
+	// Accelerate the spaceship horizontally
+	spaceship.Speed.X += objects.Number(spaceship.Level.AccelerateRate)
+
+	// Limit the speed of the spaceship
+	if spaceship.Speed.Magnitude().Float() > config.Config.Spaceship.MaximumSpeed {
+		spaceship.Speed = spaceship.Speed.Normalize().Mul(objects.Number(config.Config.Spaceship.MaximumSpeed))
+	}
+
+	// Check the horizontal boundaries and update the spaceship position
 	if spaceship.Position.X-spaceship.Speed.X > 0 {
 		spaceship.Position.X -= spaceship.Speed.X
 	} else {
@@ -206,7 +239,7 @@ func (spaceship *Spaceship) MoveRight() {
 	if spaceship.State == Frozen {
 		now := time.Now()
 		if now.Sub(spaceship.lastThrottledLog) >= config.Config.Spaceship.LogThrottling {
-			config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+			config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipStillFrozen, config.Template{
 				"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).
 					Round(config.Config.Spaceship.LogThrottling),
 			}))
@@ -215,14 +248,28 @@ func (spaceship *Spaceship) MoveRight() {
 		return
 	}
 
-	if spaceship.Speed.X.Float() < config.Config.Spaceship.MaximumSpeed {
-		spaceship.Speed.X += objects.Number(spaceship.Level.AccelerateRate)
+	// Brake the spaceship if it is moving in the opposite direction
+	if spaceship.Directions.IsHeadedTo(Left) {
+		spaceship.Speed.X = 0
 	}
 
-	if spaceship.Position.X+spaceship.Size.Width+spaceship.Speed.X < objects.Number(config.CanvasWidth()) {
+	// Set the horizontal direction
+	spaceship.Directions.SetHorizontal(Right)
+
+	// Accelerate the spaceship horizontally
+	spaceship.Speed.X += objects.Number(spaceship.Level.AccelerateRate)
+
+	// Limit the speed of the spaceship
+	if spaceship.Speed.Magnitude().Float() > config.Config.Spaceship.MaximumSpeed {
+		spaceship.Speed = spaceship.Speed.Normalize().Mul(objects.Number(config.Config.Spaceship.MaximumSpeed))
+	}
+
+	// Check the horizontal boundaries and update the spaceship position
+	canvasDimensions := config.CanvasBoundingBox()
+	if spaceship.Position.X+spaceship.Size.Width+spaceship.Speed.X < objects.Number(canvasDimensions.Width) {
 		spaceship.Position.X += spaceship.Speed.X
 	} else {
-		spaceship.Position.X = objects.Number(config.CanvasWidth() - spaceship.Size.Width.Float())
+		spaceship.Position.X = objects.Number(canvasDimensions.Width - spaceship.Size.Width.Float())
 		spaceship.Speed.X = 0
 	}
 
@@ -236,7 +283,7 @@ func (spaceship *Spaceship) MoveUp() {
 	if spaceship.State == Frozen {
 		now := time.Now()
 		if now.Sub(spaceship.lastThrottledLog) >= config.Config.Spaceship.LogThrottling {
-			config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+			config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipStillFrozen, config.Template{
 				"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).
 					Round(config.Config.Spaceship.LogThrottling),
 			}))
@@ -245,10 +292,23 @@ func (spaceship *Spaceship) MoveUp() {
 		return
 	}
 
-	if spaceship.Speed.Y.Float() < config.Config.Spaceship.MaximumSpeed {
-		spaceship.Speed.Y += objects.Number(spaceship.Level.AccelerateRate)
+	// Brake the spaceship if it is moving in the opposite direction
+	if spaceship.Directions.IsHeadedTo(Down) {
+		spaceship.Speed.Y = 0
 	}
 
+	// Set the vertical direction
+	spaceship.Directions.SetVertical(Up)
+
+	// Accelerate the spaceship vertically
+	spaceship.Speed.Y += objects.Number(spaceship.Level.AccelerateRate)
+
+	// Limit the speed of the spaceship
+	if spaceship.Speed.Magnitude().Float() > config.Config.Spaceship.MaximumSpeed {
+		spaceship.Speed = spaceship.Speed.Normalize().Mul(objects.Number(config.Config.Spaceship.MaximumSpeed))
+	}
+
+	// Check the vertical boundaries and update the spaceship position
 	if spaceship.Position.Y-spaceship.Speed.Y > 0 {
 		spaceship.Position.Y -= spaceship.Speed.Y
 	} else {
@@ -271,7 +331,7 @@ func (spaceship *Spaceship) MoveTo(target objects.Position) {
 	if spaceship.State == Frozen {
 		now := time.Now()
 		if now.Sub(spaceship.lastThrottledLog) >= config.Config.Spaceship.LogThrottling {
-			config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipStillFrozen, config.Template{
+			config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipStillFrozen, config.Template{
 				"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).
 					Round(config.Config.Spaceship.LogThrottling),
 			}))
@@ -280,35 +340,54 @@ func (spaceship *Spaceship) MoveTo(target objects.Position) {
 		return
 	}
 
-	if spaceship.Speed.Y.Float() < config.Config.Spaceship.MaximumSpeed {
-		spaceship.Speed.Y += objects.Number(spaceship.Level.AccelerateRate)
+	// Accelerate the spaceship
+	spaceship.Speed.Y += objects.Number(spaceship.Level.AccelerateRate)
+	spaceship.Speed.X += objects.Number(spaceship.Level.AccelerateRate)
+
+	// Limit the speed of the spaceship
+	if spaceship.Speed.Magnitude().Float() > config.Config.Spaceship.MaximumSpeed {
+		spaceship.Speed = spaceship.Speed.Normalize().Mul(objects.Number(config.Config.Spaceship.MaximumSpeed))
 	}
 
-	if spaceship.Speed.X.Float() < config.Config.Spaceship.MaximumSpeed {
-		spaceship.Speed.X += objects.Number(spaceship.Level.AccelerateRate)
-	}
-
+	// Calculate the delta
 	delta := spaceship.Position.Sub(target).Normalize()
+
+	// Brake the spaceship if it is moving in an opposite direction
+	spaceship.Speed = spaceship.Speed.MulX(spaceship.Directions.Brake(delta))
+
+	// Multiply the delta by the speed
 	delta = delta.Mul(spaceship.Speed.Magnitude())
+
+	// Set the new directions based on the delta
+	spaceship.Directions.SetFromDelta(delta)
+
+	// Update the target position
 	target = spaceship.Position.Sub(delta)
 
-	if target.X < 0 {
+	// Check the horizontal boundaries
+	canvasDimensions := config.CanvasBoundingBox()
+	switch {
+	case target.X < 0:
 		target.X = 0
+	case target.X > objects.Number(canvasDimensions.Width)-spaceship.Size.Width:
+		target.X = objects.Number(canvasDimensions.Width) - spaceship.Size.Width
 	}
 
-	if target.X > objects.Number(config.CanvasWidth())-spaceship.Size.Width {
-		target.X = objects.Number(config.CanvasWidth()) - spaceship.Size.Width
-	}
-
-	if target.Y < 0 {
+	// Check the vertical boundaries
+	switch {
+	case target.Y < 0:
 		target.Y = 0
+	case target.Y > objects.Number(canvasDimensions.Height)-spaceship.Size.Height:
+		target.Y = objects.Number(canvasDimensions.Height) - spaceship.Size.Height
 	}
 
-	if target.Y > objects.Number(config.CanvasHeight())-spaceship.Size.Height {
-		target.Y = objects.Number(config.CanvasHeight()) - spaceship.Size.Height
-	}
-
+	// Update the spaceship position
 	spaceship.Position = target
+
+	go config.PlayAudio([...]string{
+		"spaceship_acceleration.wav",
+		"spaceship_whoosh.wav",
+	}[rand.Intn(2)], false)
 }
 
 // Penalize penalizes the spaceship by downgrading its level.
@@ -316,7 +395,9 @@ func (spaceship *Spaceship) MoveTo(target objects.Position) {
 // If the spaceship's level is less than 1, it is set to 1.
 func (spaceship *Spaceship) Penalize(levels int) {
 	for i := 0; i < levels && spaceship.Level.Progress > 0; i++ {
-		spaceship.Level.Down()
+		if !spaceship.Level.Down() {
+			return
+		}
 	}
 }
 
@@ -367,10 +448,11 @@ func (spaceship *Spaceship) UpdateState() {
 // The spaceship is created at the bottom of the canvas.
 // The spaceship's position, size, cooldown, level, and state are set.
 func Embark() *Spaceship {
+	canvasDimensions := config.CanvasBoundingBox()
 	return &Spaceship{
 		Position: objects.Position{
-			X: objects.Number(config.CanvasWidth()/2 - config.Config.Spaceship.Width/2),
-			Y: objects.Number(config.CanvasHeight() - config.Config.Spaceship.Height),
+			X: objects.Number(canvasDimensions.Width/2 - config.Config.Spaceship.Width/2),
+			Y: objects.Number(canvasDimensions.Height - config.Config.Spaceship.Height),
 		},
 		Size: objects.Size{
 			Width:  objects.Number(config.Config.Spaceship.Width),

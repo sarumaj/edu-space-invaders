@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"sync"
 	"syscall/js"
 	"time"
 
@@ -36,7 +37,7 @@ func (h *handler) monitor() {
 				if running.Get(h.ctx) { // If the game is running
 					// Notify the user about the performance drop
 					if config.Config.Control.Debug.Get() {
-						config.SendMessage(config.Execute(config.Config.Messages.Templates.PerformanceDropped, config.Template{
+						config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.PerformanceDropped, config.Template{
 							"FPS": fps,
 						}))
 					}
@@ -57,7 +58,7 @@ func (h *handler) monitor() {
 					if !paused.Get(h.ctx) { // Do not resume the game if it is paused
 						if config.Config.Control.Debug.Get() {
 							// Notify the user about the performance boost
-							config.SendMessage(config.Execute(config.Config.Messages.Templates.PerformanceImproved, config.Template{
+							config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.PerformanceImproved, config.Template{
 								"FPS": fps,
 							}))
 						}
@@ -83,103 +84,198 @@ func (h *handler) monitor() {
 
 // registerEventHandlers is a method that registers the event listeners.
 func (h *handler) registerEventHandlers() {
-	var keydown js.Func
-	var keyup js.Func
-	var touchstart js.Func
-	var touchmove js.Func
-	var touchend js.Func
-
 	h.once.Do(func() {
-		registeredKeys := map[keyBinding]bool{
-			ArrowDown:  true,
-			ArrowLeft:  true,
-			ArrowRight: true,
-			ArrowUp:    true,
-			Pause:      true,
-			Space:      true,
+		if config.IsTouchDevice() {
+			globalTouchEvent := &touchEvent{mutex: &sync.Mutex{}}
+			touchstart := globalTouchEvent.touchStart()
+			touchmove := globalTouchEvent.touchMove(h.touchEvent)
+			touchend := globalTouchEvent.touchEnd(h.touchEvent)
+			config.AddEventListenerToCanvas("touchstart", touchstart)
+			config.AddEventListenerToCanvas("touchmove", touchmove)
+			config.AddEventListenerToCanvas("touchend", touchend)
+
+		} else {
+			globalKeyMap := registeredKeys{
+				ArrowDown:  true,
+				ArrowLeft:  true,
+				ArrowRight: true,
+				ArrowUp:    true,
+				Pause:      true,
+				Space:      true,
+			}
+			keydown := globalKeyMap.keyDown(h.keyEvent)
+			keyup := globalKeyMap.keyUp(h.keyEvent)
+			config.AddEventListener("keydown", keydown)
+			config.AddEventListener("keyup", keyup)
+
+			globalMouseEvent := &mouseEvent{mutex: &sync.Mutex{}}
+			mousedown := globalMouseEvent.mouseDown()
+			mousemove := globalMouseEvent.mouseMove(h.mouseEvent)
+			mouseup := globalMouseEvent.mouseUp(h.mouseEvent)
+			config.AddEventListenerToCanvas("contextmenu", mousedown)
+			config.AddEventListenerToCanvas("mousedown", mousedown)
+			config.AddEventListenerToCanvas("mousemove", mousemove)
+			config.AddEventListenerToCanvas("mouseup", mouseup)
 		}
-		keydown = js.FuncOf(func(_ js.Value, p []js.Value) any {
-			key := keyBinding(p[0].Get("code").String())
-			if !registeredKeys[key] {
-				return nil
-			}
-			p[0].Call("preventDefault")
-			h.keydownEvent <- key
-			return nil
-		})
-		keyup = js.FuncOf(func(_ js.Value, p []js.Value) any {
-			key := keyBinding(p[0].Get("code").String())
-			if !registeredKeys[key] {
-				return nil
-			}
-			p[0].Call("preventDefault")
-			h.keyupEvent <- key
-			return nil
-		})
+	})
+}
 
-		config.AddEventListener("keydown", keydown)
-		config.AddEventListener("keyup", keyup)
+// registeredKeys represents a map of registered keys which are meant to be listened to.
+type registeredKeys map[keyBinding]bool
 
-		var globalEvent touchEvent
-		touchstart = js.FuncOf(func(_ js.Value, p []js.Value) any {
-			p[0].Call("preventDefault")
-			changedTouches := p[0].Get("changedTouches")
-			globalEvent = touchEvent{
-				StartPosition: objects.Position{
-					X: objects.Number(changedTouches.Index(0).Get("clientX").Float()),
-					Y: objects.Number(changedTouches.Index(0).Get("clientY").Float()),
-				},
-				StartTime:    time.Now(),
-				Correlations: make([]touchEvent, changedTouches.Length()-1),
-			}
-			for i := 1; i < changedTouches.Length() && i < len(globalEvent.Correlations); i++ {
-				globalEvent.Correlations[i-1] = touchEvent{
-					StartPosition: objects.Position{
-						X: objects.Number(changedTouches.Index(i).Get("clientX").Float()),
-						Y: objects.Number(changedTouches.Index(i).Get("clientY").Float()),
-					},
-					StartTime: globalEvent.StartTime,
-				}
-			}
+// keyDown is a method that listens to the keydown event.
+func (known registeredKeys) keyDown(rcv chan<- keyEvent) js.Func {
+	return js.FuncOf(func(_ js.Value, p []js.Value) any {
+		key := keyBinding(p[0].Get("code").String())
+		if !known[key] {
 			return nil
-		})
-		touchmove = js.FuncOf(func(_ js.Value, p []js.Value) any {
-			p[0].Call("preventDefault")
-			changedTouches := p[0].Get("changedTouches")
-			globalEvent.CurrentPosition = objects.Position{
-				X: objects.Number(changedTouches.Index(0).Get("clientX").Float()),
-				Y: objects.Number(changedTouches.Index(0).Get("clientY").Float()),
-			}
-			for i := 1; i < changedTouches.Length() && i < len(globalEvent.Correlations); i++ {
-				globalEvent.Correlations[i-1].CurrentPosition = objects.Position{
-					X: objects.Number(changedTouches.Index(i).Get("clientX").Float()),
-					Y: objects.Number(changedTouches.Index(i).Get("clientY").Float()),
-				}
-			}
-			h.touchEvent <- globalEvent
-			return nil
-		})
-		touchend = js.FuncOf(func(_ js.Value, p []js.Value) any {
-			p[0].Call("preventDefault")
-			changedTouches := p[0].Get("changedTouches")
-			globalEvent.EndPosition = objects.Position{
-				X: objects.Number(changedTouches.Index(0).Get("clientX").Float()),
-				Y: objects.Number(changedTouches.Index(0).Get("clientY").Float()),
-			}
-			globalEvent.EndTime = time.Now()
-			for i := 1; i < changedTouches.Length() && i < len(globalEvent.Correlations); i++ {
-				globalEvent.Correlations[i-1].EndPosition = objects.Position{
-					X: objects.Number(changedTouches.Index(i).Get("clientX").Float()),
-					Y: objects.Number(changedTouches.Index(i).Get("clientY").Float()),
-				}
-				globalEvent.Correlations[i-1].EndTime = globalEvent.EndTime
-			}
-			h.touchEvent <- globalEvent
-			return nil
-		})
+		}
 
-		config.AddEventListenerToCanvas("touchstart", touchstart)
-		config.AddEventListenerToCanvas("touchmove", touchmove)
-		config.AddEventListenerToCanvas("touchend", touchend)
+		p[0].Call("preventDefault")
+		rcv <- keyEvent{
+			Key:     key,
+			Pressed: true,
+		}
+
+		return nil
+	})
+}
+
+// keyUp is a method that listens to the keyup event.
+func (known registeredKeys) keyUp(rcv chan<- keyEvent) js.Func {
+	return js.FuncOf(func(_ js.Value, p []js.Value) any {
+		key := keyBinding(p[0].Get("code").String())
+		if !known[key] {
+			return nil
+		}
+
+		p[0].Call("preventDefault")
+		rcv <- keyEvent{
+			Key:     key,
+			Pressed: false,
+		}
+
+		return nil
+	})
+}
+
+// mouseDown is a method that listens to the mousedown or contextmenu event.
+func (event *mouseEvent) mouseDown() js.Func {
+	return js.FuncOf(func(_ js.Value, p []js.Value) any {
+		p[0].Call("preventDefault")
+		canvasDimensions := config.CanvasBoundingBox()
+		_ = event.
+			Reset().
+			SetStartPosition(objects.Position{
+				X: objects.Number(p[0].Get("clientX").Float() - canvasDimensions.Left),
+				Y: objects.Number(p[0].Get("clientY").Float() - canvasDimensions.Top),
+			}).
+			SetButton(mouseButton(p[0].Get("button").Int())).
+			SetStartTime(time.Now()).
+			SetType(MouseEventTypeDown).
+			SetPressed(true)
+
+		return nil
+	})
+}
+
+// mouseMove is a method that listens to the mousemove event.
+func (event *mouseEvent) mouseMove(rcv chan<- mouseEvent) js.Func {
+	return js.FuncOf(func(_ js.Value, p []js.Value) any {
+		if !event.Pressed {
+			return nil
+		}
+
+		p[0].Call("preventDefault")
+		canvasDimensions := config.CanvasBoundingBox()
+		event.
+			SetCurrentPosition(objects.Position{
+				X: objects.Number(p[0].Get("clientX").Float() - canvasDimensions.Left),
+				Y: objects.Number(p[0].Get("clientY").Float() - canvasDimensions.Top),
+			}).
+			SetButton(mouseButton(p[0].Get("button").Int())).
+			SetType(MouseEventTypeMove).
+			Send(rcv)
+
+		return nil
+	})
+}
+
+// mouseUp is a method that listens to the mouseup event.
+func (event *mouseEvent) mouseUp(rcv chan<- mouseEvent) js.Func {
+	return js.FuncOf(func(_ js.Value, p []js.Value) any {
+		p[0].Call("preventDefault")
+		canvasDimensions := config.CanvasBoundingBox()
+		event.
+			SetEndPosition(objects.Position{
+				X: objects.Number(p[0].Get("clientX").Float() - canvasDimensions.Left),
+				Y: objects.Number(p[0].Get("clientY").Float() - canvasDimensions.Top),
+			}).
+			SetButton(mouseButton(p[0].Get("button").Int())).
+			SetEndTime(time.Now()).
+			SetPressed(false).
+			SetType(MouseEventTypeUp).
+			Send(rcv)
+
+		return nil
+	})
+}
+
+// touchEnd is a method that listens to the touchend event.
+func (event *touchEvent) touchEnd(rcv chan<- touchEvent) js.Func {
+	return js.FuncOf(func(_ js.Value, p []js.Value) any {
+		p[0].Call("preventDefault")
+		changedTouches := p[0].Get("changedTouches")
+		canvasDimensions := config.CanvasBoundingBox()
+		event.
+			SetEndPosition(objects.Position{
+				X: objects.Number(changedTouches.Index(0).Get("clientX").Float() - canvasDimensions.Left),
+				Y: objects.Number(changedTouches.Index(0).Get("clientY").Float() - canvasDimensions.Top),
+			}).
+			SetEndTime(time.Now()).
+			SetMultiTap(changedTouches.Length() > 1).
+			SetType(TouchTypeEnd).
+			Send(rcv)
+
+		return nil
+	})
+}
+
+// touchMove is a method that listens to the touchmove event.
+func (event *touchEvent) touchMove(rcv chan<- touchEvent) js.Func {
+	return js.FuncOf(func(_ js.Value, p []js.Value) any {
+		p[0].Call("preventDefault")
+		changedTouches := p[0].Get("changedTouches")
+		canvasDimensions := config.CanvasBoundingBox()
+		event.
+			SetCurrentPosition(objects.Position{
+				X: objects.Number(changedTouches.Index(0).Get("clientX").Float() - canvasDimensions.Left),
+				Y: objects.Number(changedTouches.Index(0).Get("clientY").Float() - canvasDimensions.Top),
+			}).
+			SetMultiTap(changedTouches.Length() > 1).
+			SetType(TouchTypeMove).
+			Send(rcv)
+
+		return nil
+	})
+}
+
+// touchStart is a method that listens to the touchstart event.
+func (event *touchEvent) touchStart() js.Func {
+	return js.FuncOf(func(_ js.Value, p []js.Value) any {
+		p[0].Call("preventDefault")
+		changedTouches := p[0].Get("changedTouches")
+		canvasDimensions := config.CanvasBoundingBox()
+		_ = event.
+			Reset().
+			SetStartPosition(objects.Position{
+				X: objects.Number(changedTouches.Index(0).Get("clientX").Float() - canvasDimensions.Left),
+				Y: objects.Number(changedTouches.Index(0).Get("clientY").Float() - canvasDimensions.Top),
+			}).
+			SetStartTime(time.Now()).
+			SetMultiTap(changedTouches.Length() > 1).
+			SetType(TouchTypeStart)
+
+		return nil
 	})
 }

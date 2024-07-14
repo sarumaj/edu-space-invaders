@@ -36,6 +36,16 @@ type config struct {
 		Width                float64
 	}
 
+	Control struct {
+		AudioEnabled                *bool
+		BackgroundAnimationEnabled  *bool
+		Debug                       envVariable[bool]
+		CriticalFramesPerSecondRate float64
+		DesiredFramesPerSecondRate  float64
+		GodMode                     envVariable[bool]
+		SuspensionFrames            int
+	}
+
 	Enemy struct {
 		Count                     int
 		CountProgressStep         int
@@ -72,6 +82,30 @@ type config struct {
 
 	MessageBox struct {
 		BufferSize int
+
+		Messages struct {
+			GamePausedNoTouchDevice   string
+			GamePausedTouchDevice     string
+			GameStartedNoTouchDevice  string
+			GameStartedTouchDevice    string
+			HowToRestartNoTouchDevice string
+			HowToRestartTouchDevice   string
+			HowToStartNoTouchDevice   string
+			HowToStartTouchDevice     string
+
+			Templates struct {
+				EnemyDestroyed               templateString
+				EnemyHit                     templateString
+				GameOver                     templateString
+				PerformanceDropped           templateString
+				PerformanceImproved          templateString
+				SpaceshipDowngradedByEnemy   templateString
+				SpaceshipFrozen              templateString
+				SpaceshipStillFrozen         templateString
+				SpaceshipUpgradedByEnemyKill templateString
+				SpaceshipUpgradedByGoodie    templateString
+			} `ini:"MessageBox.Messages.Templates"`
+		} `ini:"MessageBox.Messages"`
 	}
 
 	Spaceship struct {
@@ -83,6 +117,7 @@ type config struct {
 		Cooldown           time.Duration
 		DamageDuration     time.Duration
 		DefaultPenalty     int
+		ExperienceFactor   float64
 		FreezeDuration     time.Duration
 		FreezerPenalty     int
 		Height             float64
@@ -100,38 +135,5 @@ type config struct {
 		MaximumRadius float64
 		MaximumSpikes float64
 		SpeedRatio    float64
-	}
-
-	Control struct {
-		AudioEnabled                *bool
-		Debug                       envVariable[bool]
-		CriticalFramesPerSecondRate float64
-		DesiredFramesPerSecondRate  float64
-		SuspensionFrames            int
-		SwipeProximityRange         float64
-	}
-
-	Messages struct {
-		GamePausedNoTouchDevice   string
-		GamePausedTouchDevice     string
-		GameStartedNoTouchDevice  string
-		GameStartedTouchDevice    string
-		HowToRestartNoTouchDevice string
-		HowToRestartTouchDevice   string
-		HowToStartNoTouchDevice   string
-		HowToStartTouchDevice     string
-
-		Templates struct {
-			EnemyDestroyed               templateString
-			EnemyHit                     templateString
-			GameOver                     templateString
-			PerformanceDropped           templateString
-			PerformanceImproved          templateString
-			SpaceshipDowngradedByEnemy   templateString
-			SpaceshipFrozen              templateString
-			SpaceshipStillFrozen         templateString
-			SpaceshipUpgradedByEnemyKill templateString
-			SpaceshipUpgradedByGoodie    templateString
-		} `ini:"Messages.Templates"`
 	}
 }

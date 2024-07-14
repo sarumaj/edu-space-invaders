@@ -48,6 +48,11 @@ type audioPlayer struct {
 	startTime     float64
 }
 
+type dimensions struct {
+	Width, Height            float64
+	Left, Top, Right, Bottom float64
+}
+
 func init() {
 	invisibleCanvas.Set("width", canvas.Get("width"))
 	invisibleCanvas.Set("height", canvas.Get("height"))
@@ -81,23 +86,17 @@ func AddEventListenerToCanvas(event string, listener any) {
 }
 
 // CanvasBoundingBox returns the bounding box of the canvas.
-func CanvasBoundingBox() [6]float64 {
+func CanvasBoundingBox() dimensions {
 	box := canvas.Call("getBoundingClientRect")
-	return [6]float64{
-		box.Get("left").Float(),
-		box.Get("top").Float(),
-		box.Get("right").Float(),
-		box.Get("bottom").Float(),
-		box.Get("width").Float(),
-		box.Get("height").Float(),
+	return dimensions{
+		Left:   box.Get("left").Float(),
+		Top:    box.Get("top").Float(),
+		Right:  box.Get("right").Float(),
+		Bottom: box.Get("bottom").Float(),
+		Width:  box.Get("width").Float(),
+		Height: box.Get("height").Float(),
 	}
 }
-
-// CanvasHeight returns the height of the canvas (in px).
-func CanvasHeight() float64 { return CanvasBoundingBox()[5] }
-
-// CanvasWidth returns the width of the canvas (in px).
-func CanvasWidth() float64 { return CanvasBoundingBox()[4] }
 
 // ClearBackground is a function that clears the invisible canvas.
 func ClearBackground() {
@@ -112,13 +111,20 @@ func ClearCanvas() {
 // DrawBackground is a function that draws the background of the canvas.
 // The background is drawn with the specified speed.
 func DrawBackground(speed float64) {
+	canvasDimensions := CanvasBoundingBox()
+
+	// Apply the speed
 	invisibleCanvasScrollY += speed
-	if invisibleCanvasScrollY >= CanvasHeight() {
+	if invisibleCanvasScrollY >= canvasDimensions.Height {
 		invisibleCanvasScrollY = 0
 	}
 
-	ctx.Call("drawImage", invisibleCanvas, 0, invisibleCanvasScrollY)
-	ctx.Call("drawImage", invisibleCanvas, 0, invisibleCanvasScrollY-CanvasHeight())
+	if *Config.Control.BackgroundAnimationEnabled {
+		ctx.Call("drawImage", invisibleCanvas, 0, invisibleCanvasScrollY)
+		ctx.Call("drawImage", invisibleCanvas, 0, invisibleCanvasScrollY-canvasDimensions.Height)
+	} else {
+		ctx.Call("drawImage", invisibleCanvas, 0, 0)
+	}
 }
 
 // DrawLine is a function that draws a line on the canvas.

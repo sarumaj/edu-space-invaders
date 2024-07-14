@@ -43,6 +43,24 @@ func (pos Position) Div(other Number) Position {
 	}
 }
 
+// DivX divides a position by another position element-wise.
+func (pos Position) DivX(other Position) Position {
+	result := Position{}
+	if other.X == 0 {
+		result.X = 0
+	} else {
+		result.X = pos.X / other.X
+	}
+
+	if other.Y == 0 {
+		result.Y = 0
+	} else {
+		result.Y = pos.Y / other.Y
+	}
+
+	return result
+}
+
 // Equal checks if two positions are equal.
 func (pos Position) Equal(other Position) bool {
 	return pos.X == other.X && pos.Y == other.Y
@@ -86,6 +104,14 @@ func (pos Position) Mul(other Number) Position {
 	}
 }
 
+// MulX multiplies a position with another position element-wise.
+func (pos Position) MulX(other Position) Position {
+	return Position{
+		X: pos.X * other.X,
+		Y: pos.Y * other.Y,
+	}
+}
+
 // Normalize returns the normalized position.
 func (pos Position) Normalize() Position {
 	mag := pos.Magnitude()
@@ -122,6 +148,7 @@ func (pos Position) Sub(other Position) Position {
 	}
 }
 
+// SubN subtracts a number from a position.
 func (pos Position) SubN(n Number) Position {
 	return Position{
 		X: pos.X - n,

@@ -11,6 +11,8 @@ func TestConfigLoaded(t *testing.T) {
 
 	var checkFields func(tb testing.TB, v reflect.Value, parents ...reflect.StructField)
 	checkFields = func(tb testing.TB, v reflect.Value, parents ...reflect.StructField) {
+		tb.Helper()
+
 		if v.Kind() != reflect.Struct {
 			t.Fatal("Config is not a struct")
 		}

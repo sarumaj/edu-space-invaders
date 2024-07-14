@@ -13,16 +13,16 @@ import (
 
 // handler is the game handler.
 type handler struct {
-	ctx          context.Context      // ctx is an abortable context of the handler
-	cancel       context.CancelFunc   // cancel is the cancel function of the handler
-	enemies      enemy.Enemies        // enemies is the list of enemies
-	keydownEvent chan keyBinding      // keydownEvent is the channel for keydown events
-	keyupEvent   chan keyBinding      // keyupEvent is the channel for keyup events
-	keysHeld     map[keyBinding]bool  // keysHeld is the map of keys held
-	once         sync.Once            // once is meant to register the keydown event only once
-	spaceship    *spaceship.Spaceship // spaceship is the player's spaceship
-	stars        star.Stars           // stars is the list of stars
-	touchEvent   chan touchEvent      // touchEvent is the channel for touch events
+	ctx        context.Context      // ctx is an abortable context of the handler
+	cancel     context.CancelFunc   // cancel is the cancel function of the handler
+	enemies    enemy.Enemies        // enemies is the list of enemies
+	keyEvent   chan keyEvent        // keyupEvent is the channel for key events
+	keysHeld   map[keyBinding]bool  // keysHeld is the map of keys held
+	mouseEvent chan mouseEvent      // mouseEvent is the channel for mouse events
+	once       sync.Once            // once is meant to register the keydown event only once
+	spaceship  *spaceship.Spaceship // spaceship is the player's spaceship
+	stars      star.Stars           // stars is the list of stars
+	touchEvent chan touchEvent      // touchEvent is the channel for touch events
 }
 
 // checkCollisions checks if the spaceship has collided with an enemy.
@@ -43,6 +43,14 @@ func (h *handler) checkCollisions() {
 			// If the spaceship is boosted, destroy the enemy.
 			if h.spaceship.State == spaceship.Boosted {
 				h.enemies[j].Destroy()
+				if h.spaceship.Level.GainExperience(e) {
+					h.spaceship.UpdateHighScore()
+					config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipUpgradedByEnemyKill, config.Template{
+						"EnemyName":      e.Name,
+						"EnemyType":      e.Type,
+						"SpaceshipLevel": h.spaceship.Level.Progress,
+					}))
+				}
 				return
 			}
 
@@ -54,16 +62,20 @@ func (h *handler) checkCollisions() {
 
 			case enemy.Annihilator:
 				penalty = config.Config.Spaceship.AnnihilatorPenalty
+
+			case enemy.Freezer:
+				penalty = config.Config.Spaceship.FreezerPenalty
+
 			}
 
 			if h.spaceship.State == spaceship.Frozen {
 				h.enemies[j].Destroy()
 				h.spaceship.Penalize(penalty)
-				config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipDowngradedByEnemy, config.Template{
+				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipDowngradedByEnemy, config.Template{
 					"SpaceshipLevel": h.spaceship.Level.Progress,
 				}))
 				if h.spaceship.IsDestroyed() {
-					config.SendMessage(config.Execute(config.Config.Messages.Templates.GameOver, config.Template{
+					config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.GameOver, config.Template{
 						"HighScore": h.spaceship.HighScore,
 					}))
 					h.cancel()
@@ -76,7 +88,7 @@ func (h *handler) checkCollisions() {
 				h.enemies[j].Destroy()
 				h.spaceship.Level.Up()
 				h.spaceship.ChangeState(spaceship.Boosted)
-				config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipUpgradedByGoodie, config.Template{
+				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipUpgradedByGoodie, config.Template{
 					"SpaceshipLevel": h.spaceship.Level.Progress,
 					"BoostDuration":  config.Config.Spaceship.BoostDuration,
 				}))
@@ -86,7 +98,7 @@ func (h *handler) checkCollisions() {
 				h.enemies[j].Destroy()
 				h.spaceship.ChangeState(spaceship.Frozen)
 				h.spaceship.Penalize(config.Config.Spaceship.FreezerPenalty)
-				config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipFrozen, config.Template{
+				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipFrozen, config.Template{
 					"SpaceshipLevel": h.spaceship.Level.Progress,
 					"FreezeDuration": config.Config.Spaceship.FreezeDuration,
 				}))
@@ -97,11 +109,11 @@ func (h *handler) checkCollisions() {
 			h.enemies[j].Destroy()
 			h.spaceship.Penalize(penalty)
 			h.spaceship.ChangeState(spaceship.Damaged)
-			config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipDowngradedByEnemy, config.Template{
+			config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipDowngradedByEnemy, config.Template{
 				"SpaceshipLevel": h.spaceship.Level.Progress,
 			}))
 			if h.spaceship.IsDestroyed() {
-				config.SendMessage(config.Execute(config.Config.Messages.Templates.GameOver, config.Template{
+				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.GameOver, config.Template{
 					"HighScore": h.spaceship.HighScore,
 				}))
 				h.cancel()
@@ -122,10 +134,9 @@ func (h *handler) checkCollisions() {
 				h.enemies[j].Hit(b.Damage)
 
 				// If the enemy has no health points, upgrade the spaceship.
-				if h.enemies[j].IsDestroyed() {
-					h.spaceship.Level.Up()
+				if h.enemies[j].IsDestroyed() && h.spaceship.Level.GainExperience(e) {
 					h.spaceship.UpdateHighScore()
-					config.SendMessage(config.Execute(config.Config.Messages.Templates.SpaceshipUpgradedByEnemyKill, config.Template{
+					config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipUpgradedByEnemyKill, config.Template{
 						"EnemyName":      e.Name,
 						"EnemyType":      e.Type,
 						"SpaceshipLevel": h.spaceship.Level.Progress,
@@ -145,20 +156,33 @@ func (h *handler) checkCollisions() {
 	}
 }
 
-// handlerKeydown handles the keydown event.
-// It sets the running state to true when any key is pressed.
-// It handles the keydown event based on the key.
-// It moves the spaceship to the left when the left arrow key is pressed.
-// It moves the spaceship to the right when the right arrow key is pressed.
-// If space key is pressed, it is observed in the keysHeld map.
-func (h *handler) handleKeydown(key keyBinding) {
+// handleKeyEvent handles the key event.
+// It sets the running state to true when the key event is triggered.
+// It moves the spaceship to the left when the arrow left key is pressed.
+// It moves the spaceship to the right when the arrow right key is pressed.
+// It moves the spaceship up when the arrow up key is pressed.
+// It moves the spaceship down when the arrow down key is pressed.
+// It fires bullets when the space key is pressed.
+// It pauses the game when the pause key is pressed.
+// It removes the key from the keysHeld map when the key is released.
+func (h *handler) handleKeyEvent(key keyEvent) {
+	if !key.Pressed {
+		switch key.Key {
+		case ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Space:
+			delete(h.keysHeld, key.Key)
+
+		}
+
+		return
+	}
+
 	if h.start() {
 		return
 	}
 
-	switch key {
+	switch key.Key {
 	case ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Space:
-		h.keysHeld[key] = true
+		h.keysHeld[key.Key] = true
 
 	case Pause:
 		h.pause()
@@ -169,8 +193,8 @@ func (h *handler) handleKeydown(key keyBinding) {
 // handleKeyHold handles the key hold event.
 // It fires bullets when the space key is held.
 func (h *handler) handleKeyhold() {
-	for key := range h.keysHeld {
-		if !h.keysHeld[key] {
+	for key, ok := range h.keysHeld {
+		if !ok {
 			continue
 		}
 
@@ -194,10 +218,49 @@ func (h *handler) handleKeyhold() {
 	}
 }
 
-// handleKeyup handles the keyup event.
-// It removes the key from the keysHeld map.
-func (h *handler) handleKeyup(key keyBinding) {
-	delete(h.keysHeld, key)
+// handleMouse handles the mouse event.
+// It sets the running state to true when the mouse event is triggered.
+// It moves the spaceship to the left when the delta X is negative.
+// It moves the spaceship to the right when the delta X is positive.
+// It fires bullets when the mouse event is triggered.
+// It pauses the game when the auxiliary or secondary button is pressed.
+func (h *handler) handleMouse(event mouseEvent) {
+	switch event.Type {
+	case MouseEventTypeDown: // Ignore the mouse down event.
+		return
+
+	}
+
+	switch event.Button {
+	case MouseButtonPrimary: // pass through
+
+	case MouseButtonAuxiliary, MouseButtonSecondary: // If the auxiliary or secondary button is pressed, pause the game.
+		h.pause()
+		return
+
+	default: // Do nothing for any other button.
+		return
+
+	}
+
+	if !event.Pressed { // If the mouse button is released, do nothing.
+		return
+	}
+
+	if h.start() { // If the game is just started, do nothing.
+		return
+	}
+
+	switch sizeCorrection := h.spaceship.Size.ToVector().Div(2); {
+	case !event.CurrentPosition.IsZero():
+		h.spaceship.MoveTo(event.CurrentPosition.Sub(sizeCorrection))
+
+	case !event.StartPosition.IsZero():
+		h.spaceship.MoveTo(event.StartPosition.Sub(sizeCorrection))
+
+	}
+
+	h.spaceship.Fire()
 }
 
 // handleTouch handles the touch event.
@@ -205,34 +268,31 @@ func (h *handler) handleKeyup(key keyBinding) {
 // It moves the spaceship to the left when the delta X is negative.
 // It moves the spaceship to the right when the delta X is positive.
 // It fires bullets when the touch event is triggered.
+// It pauses the game when the multi-tap event is triggered.
 func (h *handler) handleTouch(event touchEvent) {
-	if h.start() {
+	switch event.Type {
+	case TouchTypeStart: // Ignore the touch start event.
+		return
+
+	}
+
+	if h.start() { // If the game is just started, do nothing.
 		return
 	}
 
 	// If there are correlated touch events, pause the game.
-	if len(event.Correlations) > 0 {
+	if event.MultiTap {
 		h.pause()
 		return
 	}
 
-	sizeCorrection := h.spaceship.Size.ToVector().Div(2)
-	spaceshipPosition := h.spaceship.Position.Add(h.spaceship.Size.ToVector().Div(2))
+	switch sizeCorrection := h.spaceship.Size.ToVector().Div(2); {
+	case !event.CurrentPosition.IsZero():
+		h.spaceship.MoveTo(event.CurrentPosition.Sub(sizeCorrection))
 
-	// Check if the spaceship is in the swipe proximity range.
-	switch {
-	case
-		event.StartPosition.Distance(spaceshipPosition).Float() <= config.Config.Control.SwipeProximityRange,
-		event.CurrentPosition.Distance(spaceshipPosition).Float() <= config.Config.Control.SwipeProximityRange:
+	case !event.StartPosition.IsZero():
+		h.spaceship.MoveTo(event.StartPosition.Sub(sizeCorrection))
 
-		switch {
-		case !event.CurrentPosition.IsZero():
-			h.spaceship.MoveTo(event.CurrentPosition.Sub(sizeCorrection))
-
-		case !event.StartPosition.IsZero():
-			h.spaceship.MoveTo(event.StartPosition.Sub(sizeCorrection))
-
-		}
 	}
 
 	h.spaceship.Fire()
@@ -240,14 +300,18 @@ func (h *handler) handleTouch(event touchEvent) {
 
 // pause pauses the game.
 func (h *handler) pause() {
+	if !running.Get(h.ctx) { // If the game is not running, do nothing.
+		return
+	}
+
 	paused.Set(&h.ctx, true)     // signal that the game is paused
 	running.Set(&h.ctx, false)   // signal that the game is not running
 	suspended.Set(&h.ctx, false) // signal that the game is not suspended
 
 	if config.IsTouchDevice() {
-		config.SendMessage(config.Config.Messages.GamePausedTouchDevice)
+		config.SendMessage(config.Config.MessageBox.Messages.GamePausedTouchDevice)
 	} else {
-		config.SendMessage(config.Config.Messages.GamePausedNoTouchDevice)
+		config.SendMessage(config.Config.MessageBox.Messages.GamePausedNoTouchDevice)
 	}
 }
 
@@ -281,7 +345,7 @@ func (h *handler) render() {
 	}
 
 	// Draw background
-	config.DrawBackground(h.spaceship.Speed.Magnitude().Float() * config.Config.Star.SpeedRatio)
+	config.DrawBackground(h.spaceship.Level.AccelerateRate.Float() * config.Config.Star.SpeedRatio)
 
 	// Draw spaceship
 	h.spaceship.Draw()
@@ -325,9 +389,9 @@ func (h *handler) start() bool {
 
 		if isFirstTime.Get(h.ctx) {
 			if config.IsTouchDevice() {
-				config.SendMessage(config.Config.Messages.GameStartedTouchDevice)
+				config.SendMessage(config.Config.MessageBox.Messages.GameStartedTouchDevice)
 			} else {
-				config.SendMessage(config.Config.Messages.GameStartedNoTouchDevice)
+				config.SendMessage(config.Config.MessageBox.Messages.GameStartedNoTouchDevice)
 			}
 		}
 
@@ -363,15 +427,15 @@ func (h *handler) Loop() {
 	if !running.Get(h.ctx) {
 		if isFirstTime.Get(h.ctx) {
 			if config.IsTouchDevice() {
-				config.SendMessage(config.Config.Messages.HowToStartTouchDevice)
+				config.SendMessage(config.Config.MessageBox.Messages.HowToStartTouchDevice)
 			} else {
-				config.SendMessage(config.Config.Messages.HowToStartNoTouchDevice)
+				config.SendMessage(config.Config.MessageBox.Messages.HowToStartNoTouchDevice)
 			}
 		} else {
 			if config.IsTouchDevice() {
-				config.SendMessage(config.Config.Messages.HowToRestartTouchDevice)
+				config.SendMessage(config.Config.MessageBox.Messages.HowToRestartTouchDevice)
 			} else {
-				config.SendMessage(config.Config.Messages.HowToRestartNoTouchDevice)
+				config.SendMessage(config.Config.MessageBox.Messages.HowToRestartNoTouchDevice)
 			}
 		}
 	}
@@ -383,11 +447,11 @@ func (h *handler) Loop() {
 		case <-h.ctx.Done():
 			return
 
-		case key := <-h.keydownEvent:
-			h.handleKeydown(key)
+		case key := <-h.keyEvent:
+			h.handleKeyEvent(key)
 
-		case key := <-h.keyupEvent:
-			h.handleKeyup(key)
+		case event := <-h.mouseEvent:
+			h.handleMouse(event)
 
 		case event := <-h.touchEvent:
 			h.handleTouch(event)
@@ -409,11 +473,11 @@ func (h *handler) Loop() {
 			h.render()
 			h.handleKeyhold()
 
-		case key := <-h.keydownEvent:
-			h.handleKeydown(key)
+		case key := <-h.keyEvent:
+			h.handleKeyEvent(key)
 
-		case key := <-h.keyupEvent:
-			h.handleKeyup(key)
+		case event := <-h.mouseEvent:
+			h.handleMouse(event)
 
 		case event := <-h.touchEvent:
 			h.handleTouch(event)
@@ -436,12 +500,12 @@ func (h *handler) Restart() {
 // It creates a new spaceship and registers the keydown event.
 func New() *handler {
 	h := &handler{
-		keydownEvent: make(chan keyBinding),
-		keyupEvent:   make(chan keyBinding),
-		keysHeld:     make(map[keyBinding]bool),
-		touchEvent:   make(chan touchEvent),
-		spaceship:    spaceship.Embark(),
-		stars:        star.Explode(config.Config.Star.Count),
+		keyEvent:   make(chan keyEvent),
+		keysHeld:   make(map[keyBinding]bool),
+		mouseEvent: make(chan mouseEvent),
+		touchEvent: make(chan touchEvent),
+		spaceship:  spaceship.Embark(),
+		stars:      star.Explode(config.Config.Star.Count),
 	}
 
 	h.ctx, h.cancel = context.WithCancel(context.Background())

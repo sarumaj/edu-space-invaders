@@ -96,7 +96,8 @@ func (enemies *Enemies) Update(spaceshipPosition objects.Position) {
 		}
 
 		enemy.Move(spaceshipPosition)
-		if (enemy.Position.Y + enemy.Size.Height).Float() >= config.CanvasHeight() {
+		canvasDimensions := config.CanvasBoundingBox()
+		if (enemy.Position.Y + enemy.Size.Height).Float() >= canvasDimensions.Height {
 			newEnemy := Challenge(enemy.Name, false)
 			newEnemy.ToProgressLevel(enemy.Level.Progress + 1)
 			newEnemy.Surprise(stats)

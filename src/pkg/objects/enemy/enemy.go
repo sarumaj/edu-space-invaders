@@ -68,9 +68,10 @@ func (enemy *Enemy) Berserk() {
 	enemy.Level.Defense += boost.healthPoints
 	enemy.Level.Speed *= boost.speedFactor
 
+	canvasDimensions := config.CanvasBoundingBox()
 	canvasSize, newSize := objects.Size{
-		Width:  objects.Number(config.CanvasWidth()),
-		Height: objects.Number(config.CanvasHeight()),
+		Width:  objects.Number(canvasDimensions.Width),
+		Height: objects.Number(canvasDimensions.Height),
 	}, objects.Position{
 		X: objects.Number(config.Config.Enemy.Width),
 		Y: objects.Number(config.Config.Enemy.Height),
@@ -105,7 +106,7 @@ func (enemy *Enemy) BerserkGivenAncestor(oldType EnemyType) {
 // Destroy destroys the enemy.
 // The health points of the enemy are set to 0.
 func (enemy *Enemy) Destroy() {
-	config.SendMessage(config.Execute(config.Config.Messages.Templates.EnemyDestroyed, config.Template{
+	config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.EnemyDestroyed, config.Template{
 		"EnemyName": enemy.Name,
 		"EnemyType": enemy.Type,
 	}))
@@ -142,7 +143,7 @@ func (enemy *Enemy) Hit(damage int) {
 
 	enemy.Level.HitPoints -= damage
 
-	config.SendMessage(config.Execute(config.Config.Messages.Templates.EnemyHit, config.Template{
+	config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.EnemyHit, config.Template{
 		"EnemyName": enemy.Name,
 		"EnemyType": enemy.Type,
 		"Damage":    damage,
@@ -182,6 +183,11 @@ func (enemy *Enemy) Move(spaceshipPosition objects.Position) {
 		X: objects.Number(rand.Float64() - 0.5), // Random number between -0.5 and 0.5
 		Y: objects.Number(rand.Float64() - 1),   // Random number between -1 and 0
 	}).Mul(strength)
+
+	// Limit the speed of the enemy
+	if delta.Magnitude().Float() > config.Config.Enemy.MaximumSpeed {
+		delta = delta.Normalize().Mul(objects.Number(config.Config.Enemy.MaximumSpeed))
+	}
 
 	// Move down using the speed
 	enemy.Position.Y += objects.Number(enemy.Level.Speed)
@@ -253,14 +259,15 @@ func Challenge(name string, randomY bool) *Enemy {
 		name = randomdata.SillyName()
 	}
 
+	canvasDimensions := config.CanvasBoundingBox()
 	y := 0.0
 	if randomY {
-		y = rand.Float64() * (config.CanvasHeight()/2 - config.Config.Enemy.Height)
+		y = rand.Float64() * (canvasDimensions.Height/2 - config.Config.Enemy.Height)
 	}
 
 	return &Enemy{
 		Position: objects.Position{
-			X: objects.Number(rand.Float64() * (config.CanvasWidth() - config.Config.Enemy.Width)),
+			X: objects.Number(rand.Float64() * (canvasDimensions.Width - config.Config.Enemy.Width)),
 			Y: objects.Number(y),
 		},
 		Size: objects.Size{

@@ -1,166 +1,53 @@
 package objects
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
+
+func testPosition[
+	O interface{ Number | Position | any },
+	W interface{ Number | Position | bool },
+](t *testing.T, method string, pos Position, other O, want W) {
+	t.Run(method, func(t *testing.T) {
+		callable := reflect.ValueOf(&pos).Elem().MethodByName(method)
+		if !callable.IsValid() {
+			t.Fatalf("Position.%s() not found", method)
+		}
+
+		var args []reflect.Value
+		switch reflect.ValueOf(other).Kind() {
+		case reflect.Struct, reflect.Float64:
+			args = append(args, reflect.ValueOf(other))
+		}
+
+		got := callable.Call(args)[0].Interface().(W)
+		if got != want {
+			t.Errorf("Position.%s() = %v, want %v", method, got, want)
+		}
+	})
+}
 
 func TestPosition(t *testing.T) {
-	t.Run("Add", func(t *testing.T) {
-		pos := Position{X: 1, Y: 2}
-		other := Position{X: 3, Y: 4}
-		want := Position{X: 4, Y: 6}
-
-		got := pos.Add(other)
-		if got != want {
-			t.Errorf("Position.Add() = %v, want %v", got, want)
-		}
-	})
-
-	t.Run("AddN", func(t *testing.T) {
-		pos := Position{X: 1, Y: 2}
-		n := Number(3)
-		want := Position{X: 4, Y: 5}
-
-		got := pos.AddN(n)
-		if got != want {
-			t.Errorf("Position.AddN() = %v, want %v", got, want)
-		}
-	})
-
-	t.Run("Distance", func(t *testing.T) {
-		pos := Position{X: 1, Y: 2}
-		other := Position{X: 4, Y: 6}
-		want := Number(5)
-
-		got := pos.Distance(other)
-		if got != want {
-			t.Errorf("Position.Distance() = %v, want %v", got, want)
-		}
-	})
-
-	t.Run("Div", func(t *testing.T) {
-		pos := Position{X: 4, Y: 6}
-		other := Number(2)
-		want := Position{X: 2, Y: 3}
-
-		got := pos.Div(other)
-		if got != want {
-			t.Errorf("Position.Div() = %v, want %v", got, want)
-		}
-	})
-
-	t.Run("Equal", func(t *testing.T) {
-		pos := Position{X: 1, Y: 2}
-		other := Position{X: 1, Y: 2}
-
-		if !pos.Equal(other) {
-			t.Errorf("Position.Equal() failed, got: false, want: true")
-		}
-	})
-
-	t.Run("Greater", func(t *testing.T) {
-		pos := Position{X: 4, Y: 6}
-		other := Position{X: 1, Y: 2}
-
-		if !pos.Greater(other) {
-			t.Errorf("Position.Greater() failed, got: false, want: true")
-		}
-	})
-
-	t.Run("GreaterOrEqual", func(t *testing.T) {
-		pos := Position{X: 4, Y: 6}
-		other := Position{X: 4, Y: 6}
-
-		if !pos.GreaterOrEqual(other) {
-			t.Errorf("Position.GreaterOrEqual() failed, got: false, want: true")
-		}
-	})
-
-	t.Run("IsZero", func(t *testing.T) {
-		pos := Position{X: 0, Y: 0}
-
-		if !pos.IsZero() {
-			t.Errorf("Position.IsZero() failed, got: false, want: true")
-		}
-	})
-
-	t.Run("Less", func(t *testing.T) {
-		pos := Position{X: 1, Y: 2}
-		other := Position{X: 4, Y: 6}
-
-		if !pos.Less(other) {
-			t.Errorf("Position.Less() failed, got: false, want: true")
-		}
-	})
-
-	t.Run("LessOrEqual", func(t *testing.T) {
-		pos := Position{X: 1, Y: 2}
-		other := Position{X: 4, Y: 6}
-
-		if !pos.LessOrEqual(other) {
-			t.Errorf("Position.LessOrEqual() failed, got: false, want: true")
-		}
-	})
-
-	t.Run("Magnitude", func(t *testing.T) {
-		pos := Position{X: 3, Y: 4}
-		want := Number(5)
-
-		got := pos.Magnitude()
-		if got != want {
-			t.Errorf("Position.Magnitude() = %v, want %v", got, want)
-		}
-	})
-
-	t.Run("Mul", func(t *testing.T) {
-		pos := Position{X: 1, Y: 2}
-		other := Number(3)
-		want := Position{X: 3, Y: 6}
-
-		got := pos.Mul(other)
-		if got != want {
-			t.Errorf("Position.Mul() = %v, want %v", got, want)
-		}
-	})
-
-	t.Run("Normalize", func(t *testing.T) {
-		pos := Position{X: 3, Y: 4}
-		want := Position{X: 0.6, Y: 0.8}
-
-		got := pos.Normalize()
-		if got != want {
-			t.Errorf("Position.Normalize() = %v, want %v", got, want)
-		}
-	})
-
-	t.Run("Root", func(t *testing.T) {
-		pos := Position{X: 4, Y: 4}
-		want := Number(4)
-
-		got := pos.Root()
-		if got != want {
-			t.Errorf("Position.Root() = %v, want %v", got, want)
-		}
-	})
-
-	t.Run("Sub", func(t *testing.T) {
-		pos := Position{X: 4, Y: 6}
-		other := Position{X: 1, Y: 2}
-		want := Position{X: 3, Y: 4}
-
-		got := pos.Sub(other)
-		if got != want {
-			t.Errorf("Position.Sub() = %v, want %v", got, want)
-		}
-	})
-
-	t.Run("SubN", func(t *testing.T) {
-		pos := Position{X: 4, Y: 6}
-		n := Number(2)
-		want := Position{X: 2, Y: 4}
-
-		got := pos.SubN(n)
-		if got != want {
-			t.Errorf("Position.SubN() = %v, want %v", got, want)
-		}
-	})
-
+	testPosition(t, "Add", Position{X: 1, Y: 2}, Position{X: 3, Y: 4}, Position{X: 4, Y: 6})
+	testPosition(t, "AddN", Position{X: 1, Y: 2}, Number(3), Position{X: 4, Y: 5})
+	testPosition(t, "Distance", Position{X: 1, Y: 2}, Position{X: 4, Y: 6}, Number(5))
+	testPosition(t, "Div", Position{X: 4, Y: 6}, Number(2), Position{X: 2, Y: 3})
+	testPosition(t, "DivX", Position{X: 4, Y: 6}, Position{X: 2, Y: 3}, Position{X: 2, Y: 2})
+	testPosition(t, "DivX", Position{X: 4, Y: 6}, Position{X: 0, Y: 3}, Position{X: 0, Y: 2})
+	testPosition(t, "Equal", Position{X: 1, Y: 2}, Position{X: 1, Y: 2}, true)
+	testPosition(t, "Greater", Position{X: 4, Y: 6}, Position{X: 1, Y: 2}, true)
+	testPosition(t, "GreaterOrEqual", Position{X: 4, Y: 6}, Position{X: 4, Y: 6}, true)
+	testPosition(t, "IsZero", Position{X: 0, Y: 0}, any(nil), true)
+	testPosition(t, "IsZero", Position{X: 1, Y: 0}, any(nil), false)
+	testPosition(t, "Less", Position{X: 1, Y: 2}, Position{X: 4, Y: 6}, true)
+	testPosition(t, "LessOrEqual", Position{X: 1, Y: 2}, Position{X: 4, Y: 6}, true)
+	testPosition(t, "Magnitude", Position{X: 3, Y: 4}, any(nil), Number(5))
+	testPosition(t, "Mul", Position{X: 1, Y: 2}, Number(3), Position{X: 3, Y: 6})
+	testPosition(t, "MulX", Position{X: 1, Y: 2}, Position{X: 3, Y: 4}, Position{X: 3, Y: 8})
+	testPosition(t, "MulX", Position{X: 1, Y: 2}, Position{X: 0, Y: 4}, Position{X: 0, Y: 8})
+	testPosition(t, "Normalize", Position{X: 3, Y: 4}, any(nil), Position{X: 0.6, Y: 0.8})
+	testPosition(t, "Root", Position{X: 4, Y: 4}, any(nil), Number(4))
+	testPosition(t, "Sub", Position{X: 4, Y: 6}, Position{X: 1, Y: 2}, Position{X: 3, Y: 4})
+	testPosition(t, "SubN", Position{X: 4, Y: 6}, Number(2), Position{X: 2, Y: 4})
 }

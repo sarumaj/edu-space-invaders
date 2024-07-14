@@ -27,6 +27,11 @@ func (n Number) Float() float64 {
 	return float64(n)
 }
 
+// Log returns the natural logarithm of the number.
+func (n Number) Log() Number {
+	return Number(math.Log(float64(n)))
+}
+
 // Root returns the square root of the number.
 func (n Number) Root() Number {
 	return Number(math.Sqrt(float64(n)))

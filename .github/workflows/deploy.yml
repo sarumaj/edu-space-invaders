@@ -62,6 +62,7 @@ jobs:
           delay: 5
         env:
           HD_SPACE_INVADERS_DEBUG: "false"
+          HD_SPACE_INVADERS_GOD_MODE: "false"
 
       - name: Update code documentation
         run: curl -fsSL https://proxy.golang.org/${{ steps.export_module_name.outputs.MODULE_NAME }}/@v/${{ github.ref_name }}.info

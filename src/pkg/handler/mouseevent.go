@@ -169,5 +169,5 @@ func (t mouseEventType) String() string {
 		return "Unknown"
 	}
 
-	return [...]string{"Start", "Move", "End"}[t]
+	return [...]string{"Down", "Move", "Up"}[t]
 }

@@ -16,11 +16,8 @@ body {
 
 canvas {
   width: 100%;
-  height: auto;
-  aspect-ratio: 4 / 3; /* Maintain a 4:3 aspect ratio */
-  border: 5px solid white;
-  padding: 5px;
-  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+  max-width: 800px;
+  aspect-ratio: 800.0 / 600.0; /* Maintain a 4:3 aspect ratio */
 }
 
 #audioToggle,
@@ -46,6 +43,18 @@ canvas {
 
 .animated-click-end {
   transform: rotate(360deg); /* Keep the button rotated after the click */
+}
+
+#canvasContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 800px;
+  aspect-ratio: 800.0 / 600.0;
+  border: 5px solid white;
+  padding: 5px;
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
 }
 
 #gameContainer {

@@ -85,14 +85,16 @@ func (h *handler) monitor() {
 // registerEventHandlers is a method that registers the event listeners.
 func (h *handler) registerEventHandlers() {
 	h.once.Do(func() {
+		config.RenderFunc = h.render
+
 		if config.IsTouchDevice() {
 			globalTouchEvent := &touchEvent{mutex: &sync.Mutex{}}
-			touchstart := globalTouchEvent.touchStart()
-			touchmove := globalTouchEvent.touchMove(h.touchEvent)
-			touchend := globalTouchEvent.touchEnd(h.touchEvent)
-			config.AddEventListenerToCanvas("touchstart", touchstart)
-			config.AddEventListenerToCanvas("touchmove", touchmove)
-			config.AddEventListenerToCanvas("touchend", touchend)
+			js.Global().Set("touchstart", globalTouchEvent.touchStart())
+			js.Global().Set("touchmove", globalTouchEvent.touchMove(h.touchEvent))
+			js.Global().Set("touchend", globalTouchEvent.touchEnd(h.touchEvent))
+			config.AddEventListenerToCanvas("touchstart", js.Global().Get("touchstart"))
+			config.AddEventListenerToCanvas("touchmove", js.Global().Get("touchmove"))
+			config.AddEventListenerToCanvas("touchend", js.Global().Get("touchend"))
 
 		} else {
 			globalKeyMap := registeredKeys{
@@ -103,19 +105,19 @@ func (h *handler) registerEventHandlers() {
 				Pause:      true,
 				Space:      true,
 			}
-			keydown := globalKeyMap.keyDown(h.keyEvent)
-			keyup := globalKeyMap.keyUp(h.keyEvent)
-			config.AddEventListener("keydown", keydown)
-			config.AddEventListener("keyup", keyup)
+			js.Global().Set("keydown", globalKeyMap.keyDown(h.keyEvent))
+			js.Global().Set("keyup", globalKeyMap.keyUp(h.keyEvent))
+			config.AddEventListener("keydown", js.Global().Get("keydown"))
+			config.AddEventListener("keyup", js.Global().Get("keyup"))
 
 			globalMouseEvent := &mouseEvent{mutex: &sync.Mutex{}}
-			mousedown := globalMouseEvent.mouseDown()
-			mousemove := globalMouseEvent.mouseMove(h.mouseEvent)
-			mouseup := globalMouseEvent.mouseUp(h.mouseEvent)
-			config.AddEventListenerToCanvas("contextmenu", mousedown)
-			config.AddEventListenerToCanvas("mousedown", mousedown)
-			config.AddEventListenerToCanvas("mousemove", mousemove)
-			config.AddEventListenerToCanvas("mouseup", mouseup)
+			js.Global().Set("mousedown", globalMouseEvent.mouseDown())
+			js.Global().Set("mousemove", globalMouseEvent.mouseMove(h.mouseEvent))
+			js.Global().Set("mouseup", globalMouseEvent.mouseUp(h.mouseEvent))
+			config.AddEventListenerToCanvas("contextmenu", js.Global().Get("mousedown"))
+			config.AddEventListenerToCanvas("mousedown", js.Global().Get("mousedown"))
+			config.AddEventListenerToCanvas("mousemove", js.Global().Get("mousemove"))
+			config.AddEventListenerToCanvas("mouseup", js.Global().Get("mouseup"))
 		}
 	})
 }

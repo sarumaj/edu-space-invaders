@@ -1,29 +1,58 @@
-document.addEventListener("DOMContentLoaded", async function () {
-  const go = new Go(); // Defined in wasm_exec.js
+async function envCallback() {
+  try {
+    const response = await fetch(".env", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const data = await response.json();
 
-  async function envCallback() {
-    try {
-      const response = await fetch(".env", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await response.json();
+    // Filter out only the environment variables that start with "SPACE_INVADERS_"
+    const env = Object.keys(data)
+      .filter((key) => key.startsWith("SPACE_INVADERS_"))
+      .reduce((obj, key) => {
+        obj[key] = data[key];
+        return obj;
+      }, {});
 
-      // Filter out only the environment variables that start with "SPACE_INVADERS_"
-      const env = Object.keys(data)
-        .filter((key) => key.startsWith("SPACE_INVADERS_"))
-        .reduce((obj, key) => {
-          obj[key] = data[key];
-          return obj;
-        }, {});
-
-      return env;
-    } catch (err) {
-      console.error("Error getting env:", err);
-      return {};
-    }
+    return env;
+  } catch (err) {
+    console.error("Error getting env:", err);
+    return {};
   }
+}
+
+async function onResize(redrawFunc) {
+  const document = window.document;
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+
+  // Get current canvas width and height
+  const width = canvas.width;
+  const height = canvas.height;
+
+  // Get image data from canvas
+  const data = ctx.getImageData(0, 0, width, height);
+
+  // Get the dimensions of the container
+  const innerWidth = canvas.clientWidth;
+  const innerHeight = canvas.clientHeight;
+
+  // Set new canvas width and height
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+
+  // Put the image data back to the canvas
+  ctx.putImageData(data, 0, 0);
+
+  if (redrawFunc) {
+    console.log("Redrawing...");
+    redrawFunc();
+  }
+}
+
+async function loadWasm() {
+  const go = new Go(); // Defined in wasm_exec.js
 
   globalThis.go_env = await envCallback();
 
@@ -92,4 +121,13 @@ document.addEventListener("DOMContentLoaded", async function () {
       location.reload(); // Reload after the animation completes
     });
   });
-});
+
+  const redrawFunc = window.redrawContent;
+  window.addEventListener("resize", () => {
+    requestAnimationFrame(onResize, redrawFunc);
+  });
+
+  await onResize(redrawFunc);
+}
+
+window.addEventListener("load", loadWasm());

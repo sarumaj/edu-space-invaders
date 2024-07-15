@@ -42,6 +42,8 @@ var (
 	windowLocation         = window.Get("location")
 )
 
+var RenderFunc func()
+
 type audioPlayer struct {
 	endedCallback js.Func
 	source        js.Value
@@ -54,13 +56,8 @@ type dimensions struct {
 }
 
 func init() {
-	invisibleCanvas.Set("width", canvas.Get("width"))
-	invisibleCanvas.Set("height", canvas.Get("height"))
-	window.Call("addEventListener", "resize", js.FuncOf(func(_ js.Value, _ []js.Value) any {
-		invisibleCanvas.Set("width", canvas.Get("width"))
-		invisibleCanvas.Set("height", canvas.Get("height"))
-		return nil
-	}))
+	invisibleCanvas.Set("width", canvas.Get("width").Float())
+	invisibleCanvas.Set("height", canvas.Get("height").Float())
 	js.Global().Set("toggleAudio", js.FuncOf(func(_ js.Value, _ []js.Value) any {
 		if *Config.Control.AudioEnabled {
 			go StopAudioSources(func(string) bool { return true })
@@ -68,6 +65,14 @@ func init() {
 			go PlayAudio("theme_heroic.wav", true)
 		}
 		*Config.Control.AudioEnabled = !*Config.Control.AudioEnabled
+		return nil
+	}))
+	js.Global().Set("redrawContent", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		if RenderFunc != nil {
+			RenderFunc()
+			return nil
+		}
+		Log("RenderFunc is not set")
 		return nil
 	}))
 	js.Global().Set("isAudioEnabled", js.FuncOf(func(_ js.Value, _ []js.Value) any {

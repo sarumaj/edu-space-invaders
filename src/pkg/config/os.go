@@ -7,6 +7,8 @@ import (
 	"os"
 )
 
+var RenderFunc func()
+
 type dimensions struct {
 	Width, Height            float64
 	Left, Top, Right, Bottom float64

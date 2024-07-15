@@ -401,6 +401,16 @@ func (spaceship *Spaceship) Penalize(levels int) {
 	}
 }
 
+// Scale scales the spaceship.
+// The spaceship's position is scaled based on the scales.
+func (spaceship *Spaceship) Scale(scales objects.Position) {
+	_ = objects.
+		Measure(spaceship.Position, spaceship.Size).
+		Scale(scales).
+		ApplyPosition(&spaceship.Position).
+		ApplySize(&spaceship.Size)
+}
+
 // String returns a string representation of the spaceship.
 func (spaceship Spaceship) String() string {
 	return fmt.Sprintf("Spaceship (Lvl: %d, Pos: %s, State: %s)", spaceship.Level.Progress, spaceship.Position, spaceship.State)
@@ -449,7 +459,7 @@ func (spaceship *Spaceship) UpdateState() {
 // The spaceship's position, size, cooldown, level, and state are set.
 func Embark() *Spaceship {
 	canvasDimensions := config.CanvasBoundingBox()
-	return &Spaceship{
+	spaceship := Spaceship{
 		Position: objects.Position{
 			X: objects.Number(canvasDimensions.Width/2 - config.Config.Spaceship.Width/2),
 			Y: objects.Number(canvasDimensions.Height - config.Config.Spaceship.Height),
@@ -465,4 +475,11 @@ func Embark() *Spaceship {
 			Cannons:        1,
 		},
 	}
+
+	spaceship.Scale(objects.Position{
+		X: objects.Number(canvasDimensions.ScaleX),
+		Y: objects.Number(canvasDimensions.ScaleY),
+	})
+
+	return &spaceship
 }

@@ -64,6 +64,15 @@ func (b *Bullet) Move() {
 	})
 }
 
+// Scale scales the bullet.
+func (bullet *Bullet) Scale(scales objects.Position) {
+	_ = objects.
+		Measure(bullet.Position, bullet.Size).
+		Scale(scales).
+		ApplyPosition(&bullet.Position).
+		ApplySize(&bullet.Size)
+}
+
 // String returns the string representation of the bullet.
 func (bullet Bullet) String() string {
 	return fmt.Sprintf("Bullet (Pos: %s, Speed: %g, Damage: %d)", bullet.Position, bullet.Speed, bullet.Damage)

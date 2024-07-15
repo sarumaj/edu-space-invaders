@@ -26,6 +26,11 @@ func (pos Position) AddN(n Number) Position {
 	}
 }
 
+// Average returns the average of the position.
+func (pos Position) Average() Number {
+	return (pos.X + pos.Y) / 2
+}
+
 // Distance returns the Euclidean distance between two position.
 func (pos Position) Distance(other Position) Number {
 	return pos.Sub(other).Magnitude()

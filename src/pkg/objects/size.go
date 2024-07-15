@@ -16,6 +16,10 @@ func (size Size) AspectRatio() Number {
 	return size.Width / size.Height
 }
 
+func (size Size) Equal(other Size) bool {
+	return size.Width == other.Width && size.Height == other.Height
+}
+
 // Pack returns the packed representation of the size.
 func (size Size) Pack() [2]float64 {
 	return [2]float64{size.Width.Float(), size.Height.Float()}

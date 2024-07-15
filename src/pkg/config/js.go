@@ -12,37 +12,40 @@ import (
 	"syscall/js"
 )
 
-var (
-	audioCtx = func() js.Value {
-		ctx := js.Global().Get("AudioContext").New()
-		if !ctx.Truthy() {
-			ctx = js.Global().Get("webkitAudioContext").New()
-		}
-		return ctx
-	}()
-	audioPlayers      = make(map[string]audioPlayer)
-	audioPlayersMutex = sync.RWMutex{}
-	audioTracks       = make(map[string][]byte)
-	audioTracksMutex  = sync.RWMutex{}
-	canvas            = doc.Call("getElementById", "gameCanvas")
-	console           = js.Global().Get("console")
-	ctx               = func() js.Value {
-		contextOpts := js.Global().Get("Object").New()
-		contextOpts.Set("willReadFrequently", true)
-		return canvas.Call("getContext", "2d", contextOpts)
-	}()
-	doc                    = js.Global().Get("document")
-	env                    = js.Global().Get("go_env")
-	invisibleCanvas        = doc.Call("createElement", "canvas")
-	invisibleCtx           = invisibleCanvas.Call("getContext", "2d")
-	invisibleCanvasScrollY = 0.0
-	messageBox             = doc.Call("getElementById", "message")
-	navigator              = js.Global().Get("navigator")
-	window                 = js.Global().Get("window")
-	windowLocation         = window.Get("location")
+const (
+	originalWidth  = 760
+	originalHeight = 570
 )
 
-var RenderFunc func()
+const (
+	audioIconId      = "audioIcon"
+	audioIconMuted   = "fa-volume-mute"
+	audioIconUnmuted = "fa-volume-up"
+	audioToggleBtnId = "audioToggle"
+	canvasId         = "gameCanvas"
+	goEnv            = "go_env"
+	messageBoxId     = "message"
+	refreshButtonId  = "refreshButton"
+)
+
+var (
+	audioCtx               = getAudioContext()
+	audioPlayers           = make(map[string]audioPlayer)
+	audioPlayersMutex      = sync.RWMutex{}
+	audioTracks            = make(map[string][]byte)
+	audioTracksMutex       = sync.RWMutex{}
+	canvasObject           = document.Call("getElementById", canvasId)
+	canvasObjectContext    = canvasObject.Call("getContext", "2d", MakeObject(map[string]any{"willReadFrequently": true}))
+	console                = GlobalGet("console")
+	document               = GlobalGet("document")
+	environ                = GlobalGet(goEnv)
+	invisibleCanvas        = document.Call("createElement", "canvas")
+	invisibleCtx           = invisibleCanvas.Call("getContext", "2d")
+	invisibleCanvasScrollY = 0.0
+	messageBox             = document.Call("getElementById", messageBoxId)
+	window                 = GlobalGet("window")
+	windowLocation         = window.Get("location")
+)
 
 type audioPlayer struct {
 	endedCallback js.Func
@@ -53,47 +56,166 @@ type audioPlayer struct {
 type dimensions struct {
 	Width, Height            float64
 	Left, Top, Right, Bottom float64
+	ScaleX, ScaleY           float64
 }
 
 func init() {
-	invisibleCanvas.Set("width", canvas.Get("width").Float())
-	invisibleCanvas.Set("height", canvas.Get("height").Float())
-	js.Global().Set("toggleAudio", js.FuncOf(func(_ js.Value, _ []js.Value) any {
-		if *Config.Control.AudioEnabled {
-			go StopAudioSources(func(string) bool { return true })
-		} else {
-			go PlayAudio("theme_heroic.wav", true)
-		}
+	setupAudioInterface()
+	setupRefreshInterface()
+	setupCanvasInterface()
+}
+
+// getAudioContext is a function that returns the audio context.
+func getAudioContext() js.Value {
+	ctx := NewInstance("AudioContext")
+	if !ctx.Truthy() {
+		ctx = NewInstance("webkitAudioContext")
+	}
+	return ctx
+}
+
+// setupAudioInterface is a function that sets up the audio interface.
+// The audio interface includes the audio icon and the audio toggle button.
+// The audio icon is updated based on the audio state.
+// The audio toggle button toggles the audio state.
+// The audio toggle button is updated based on the audio state.
+func setupAudioInterface() {
+	audioIcon := document.Call("getElementById", audioIconId)
+
+	if *Config.Control.AudioEnabled {
+		audioIcon.Get("classList").Call("remove", audioIconMuted)
+		audioIcon.Get("classList").Call("add", audioIconUnmuted)
+	} else {
+		audioIcon.Get("classList").Call("remove", audioIconUnmuted)
+		audioIcon.Get("classList").Call("add", audioIconMuted)
+	}
+
+	audioToggle := func() {
 		*Config.Control.AudioEnabled = !*Config.Control.AudioEnabled
-		return nil
-	}))
-	js.Global().Set("redrawContent", js.FuncOf(func(_ js.Value, _ []js.Value) any {
-		if RenderFunc != nil {
-			RenderFunc()
-			return nil
+
+		if *Config.Control.AudioEnabled {
+			audioIcon.Get("classList").Call("remove", audioIconMuted)
+			audioIcon.Get("classList").Call("add", audioIconUnmuted)
+
+			go PlayAudio("theme_heroic.wav", true)
+		} else {
+			audioIcon.Get("classList").Call("remove", audioIconUnmuted)
+			audioIcon.Get("classList").Call("add", audioIconMuted)
+
+			go StopAudioSources(func(string) bool { return true })
 		}
-		Log("RenderFunc is not set")
+	}
+
+	GlobalSet("toggleAudioClick", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		audioToggle()
 		return nil
 	}))
-	js.Global().Set("isAudioEnabled", js.FuncOf(func(_ js.Value, _ []js.Value) any {
-		return js.ValueOf(*Config.Control.AudioEnabled)
+
+	GlobalSet("toggleAudioTouchEnd", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		p[0].Call("preventDefault")
+		audioToggle()
+		return nil
 	}))
+
+	audioToggleBtn := document.Call("getElementById", audioToggleBtnId)
+	audioToggleBtn.Call("addEventListener", "click", GlobalGet("toggleAudioClick"))
+	audioToggleBtn.Call("addEventListener", "touchend", GlobalGet("toggleAudioTouchEnd"))
+}
+
+// setupCanvasInterface is a function that sets up the canvas interface.
+// The canvas interface includes the invisible canvas and the resize event listener.
+// The invisible canvas is used to draw the background of the visible canvas.
+// The resize event listener is used to redraw the document when the window is resized.
+// The draw function is called when the document is resized.
+func setupCanvasInterface() {
+	invisibleCanvas.Set("width", canvasObject.Get("width").Float())
+	invisibleCanvas.Set("height", canvasObject.Get("height").Float())
+
+	GlobalSet("resize", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		canvasWidth := canvasObject.Get("width")
+		canvasHeight := canvasObject.Get("height")
+
+		data := canvasObjectContext.Call("getImageData", 0, 0, canvasWidth, canvasHeight)
+
+		innerWidth := canvasObject.Get("clientWidth")
+		innerHeight := canvasObject.Get("clientHeight")
+
+		canvasObject.Set("width", innerWidth)
+		canvasObject.Set("height", innerHeight)
+
+		invisibleCanvas.Set("width", canvasObject.Get("width"))
+		invisibleCanvas.Set("height", canvasObject.Get("height"))
+
+		canvasObjectContext.Call("putImageData", data, 0, 0)
+
+		if GlobalGet("drawFunc").Truthy() {
+			GlobalGet("drawFunc").Invoke()
+		}
+
+		return nil
+	}))
+
+	window.Call("addEventListener", "resize", GlobalGet("resize"))
+}
+
+// setupRefreshInterface is a function that sets up the refresh interface.
+// The refresh interface includes the refresh button.
+// The refresh button is animated when clicked or touched.
+// The document is reloaded when the refresh button is clicked or touched.
+func setupRefreshInterface() {
+	refreshButton := document.Call("getElementById", refreshButtonId)
+	GlobalSet("animateRefreshButton", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		return NewInstance("Promise", js.FuncOf(func(_ js.Value, p []js.Value) any {
+			refreshButton.Get("classList").Call("add", "animated-click")
+			resolve := p[0]
+
+			transitionEndCallback := js.FuncOf(func(_ js.Value, _ []js.Value) any {
+				refreshButton.Get("classList").Call("remove", "animated-click")
+				refreshButton.Get("classList").Call("add", "animated-click-end")
+				resolve.Invoke()
+
+				return nil
+			})
+
+			refreshButton.Call("addEventListener", "transitionend", transitionEndCallback, MakeObject(map[string]any{"once": true}))
+			return nil
+		}))
+	}))
+
+	then := js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		windowLocation.Call("reload")
+		return nil
+	})
+
+	GlobalSet("refreshButtonClick", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		GlobalGet("animateRefreshButton").Invoke().Call("then", then)
+		return nil
+	}))
+
+	GlobalSet("refreshButtonTouchEnd", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		p[0].Call("preventDefault")
+		GlobalGet("animateRefreshButton").Invoke().Call("then", then)
+		return nil
+	}))
+
+	refreshButton.Call("addEventListener", "click", GlobalGet("refreshButtonClick"))
+	refreshButton.Call("addEventListener", "touchend", GlobalGet("refreshButtonTouchEnd"))
 }
 
 // AddEventListener is a function that adds an event listener to the document.
 func AddEventListener(event string, listener any) {
-	doc.Call("addEventListener", event, listener)
+	document.Call("addEventListener", event, listener)
 }
 
-// AddEventListenerToCanvas is a function that adds an event listener to the canvas.
+// AddEventListenerToCanvas is a function that adds an event listener to the document.
 func AddEventListenerToCanvas(event string, listener any) {
-	canvas.Call("addEventListener", event, listener)
+	canvasObject.Call("addEventListener", event, listener)
 }
 
-// CanvasBoundingBox returns the bounding box of the canvas.
+// CanvasBoundingBox returns the bounding box of the document.
 func CanvasBoundingBox() dimensions {
-	box := canvas.Call("getBoundingClientRect")
-	return dimensions{
+	box := canvasObject.Call("getBoundingClientRect")
+	dim := dimensions{
 		Left:   box.Get("left").Float(),
 		Top:    box.Get("top").Float(),
 		Right:  box.Get("right").Float(),
@@ -101,19 +223,24 @@ func CanvasBoundingBox() dimensions {
 		Width:  box.Get("width").Float(),
 		Height: box.Get("height").Float(),
 	}
+
+	dim.ScaleX = dim.Width / originalWidth
+	dim.ScaleY = dim.Height / originalHeight
+
+	return dim
 }
 
-// ClearBackground is a function that clears the invisible canvas.
+// ClearBackground is a function that clears the invisible document.
 func ClearBackground() {
 	invisibleCtx.Call("clearRect", 0, 0, invisibleCanvas.Get("width").Float(), invisibleCanvas.Get("height").Float())
 }
 
-// ClearCanvas is a function that clears the canvas.
+// ClearCanvas is a function that clears the document.
 func ClearCanvas() {
-	ctx.Call("clearRect", 0, 0, canvas.Get("width").Float(), canvas.Get("height").Float())
+	canvasObjectContext.Call("clearRect", 0, 0, canvasObject.Get("width").Float(), canvasObject.Get("height").Float())
 }
 
-// DrawBackground is a function that draws the background of the canvas.
+// DrawBackground is a function that draws the background of the document.
 // The background is drawn with the specified speed.
 func DrawBackground(speed float64) {
 	canvasDimensions := CanvasBoundingBox()
@@ -125,104 +252,104 @@ func DrawBackground(speed float64) {
 	}
 
 	if *Config.Control.BackgroundAnimationEnabled {
-		ctx.Call("drawImage", invisibleCanvas, 0, invisibleCanvasScrollY)
-		ctx.Call("drawImage", invisibleCanvas, 0, invisibleCanvasScrollY-canvasDimensions.Height)
+		canvasObjectContext.Call("drawImage", invisibleCanvas, 0, invisibleCanvasScrollY)
+		canvasObjectContext.Call("drawImage", invisibleCanvas, 0, invisibleCanvasScrollY-canvasDimensions.Height)
 	} else {
-		ctx.Call("drawImage", invisibleCanvas, 0, 0)
+		canvasObjectContext.Call("drawImage", invisibleCanvas, 0, 0)
 	}
 }
 
-// DrawLine is a function that draws a line on the canvas.
+// DrawLine is a function that draws a line on the document.
 func DrawLine(start, end [2]float64, color string, thickness float64) {
-	defaultLineWidth := ctx.Get("lineWidth")
-	defer ctx.Set("lineWidth", defaultLineWidth)
+	defaultLineWidth := canvasObjectContext.Get("lineWidth")
+	defer canvasObjectContext.Set("lineWidth", defaultLineWidth)
 
-	ctx.Set("strokeStyle", color)
-	ctx.Set("lineWidth", thickness)
-	ctx.Call("beginPath")
-	ctx.Call("moveTo", start[0], start[1])
-	ctx.Call("lineTo", end[0], end[1])
-	ctx.Call("stroke")
+	canvasObjectContext.Set("strokeStyle", color)
+	canvasObjectContext.Set("lineWidth", thickness)
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("moveTo", start[0], start[1])
+	canvasObjectContext.Call("lineTo", end[0], end[1])
+	canvasObjectContext.Call("stroke")
 }
 
-// DrawRect is a function that draws a rectangle on the canvas.
+// DrawRect is a function that draws a rectangle on the document.
 func DrawRect(coords [2]float64, size [2]float64, color string, cornerRadius float64) {
 	x, y := coords[0], coords[1]
 	width, height := size[0], size[1]
 
 	if cornerRadius == 0 {
-		ctx.Set("fillStyle", color)
-		ctx.Call("fillRect", x, y, width, height)
+		canvasObjectContext.Set("fillStyle", color)
+		canvasObjectContext.Call("fillRect", x, y, width, height)
 		return
 	}
 
-	ctx.Set("fillStyle", color)
-	ctx.Call("beginPath")
-	ctx.Call("moveTo", x+cornerRadius, y)
-	ctx.Call("lineTo", x+width-cornerRadius, y)
-	ctx.Call("quadraticCurveTo", x+width, y, x+width, y+cornerRadius)
-	ctx.Call("lineTo", x+width, y+height-cornerRadius)
-	ctx.Call("quadraticCurveTo", x+width, y+height, x+width-cornerRadius, y+height)
-	ctx.Call("lineTo", x+cornerRadius, y+height)
-	ctx.Call("quadraticCurveTo", x, y+height, x, y+height-cornerRadius)
-	ctx.Call("lineTo", x, y+cornerRadius)
-	ctx.Call("quadraticCurveTo", x, y, x+cornerRadius, y)
-	ctx.Call("fill")
+	canvasObjectContext.Set("fillStyle", color)
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("moveTo", x+cornerRadius, y)
+	canvasObjectContext.Call("lineTo", x+width-cornerRadius, y)
+	canvasObjectContext.Call("quadraticCurveTo", x+width, y, x+width, y+cornerRadius)
+	canvasObjectContext.Call("lineTo", x+width, y+height-cornerRadius)
+	canvasObjectContext.Call("quadraticCurveTo", x+width, y+height, x+width-cornerRadius, y+height)
+	canvasObjectContext.Call("lineTo", x+cornerRadius, y+height)
+	canvasObjectContext.Call("quadraticCurveTo", x, y+height, x, y+height-cornerRadius)
+	canvasObjectContext.Call("lineTo", x, y+cornerRadius)
+	canvasObjectContext.Call("quadraticCurveTo", x, y, x+cornerRadius, y)
+	canvasObjectContext.Call("fill")
 }
 
-// DrawSpaceship is a function that draws a spaceship on the canvas.
+// DrawSpaceship is a function that draws a spaceship on the document.
 // The spaceship is drawn at the specified position (x, y) with the specified width and height.
 // The spaceship is drawn facing the specified direction.
 func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color string) {
 	x, y := coors[0], coors[1]
 	width, height := size[0], size[1]
 
-	ctx.Set("fillStyle", color)
-	ctx.Set("strokeStyle", "black")
+	canvasObjectContext.Set("fillStyle", color)
+	canvasObjectContext.Set("strokeStyle", "black")
 
 	// Draw the body of the spaceship
-	ctx.Call("fillRect", x+width*0.4, y+height*0.2, width*0.2, height*0.6)
-	ctx.Call("strokeRect", x+width*0.4, y+height*0.2, width*0.2, height*0.6)
+	canvasObjectContext.Call("fillRect", x+width*0.4, y+height*0.2, width*0.2, height*0.6)
+	canvasObjectContext.Call("strokeRect", x+width*0.4, y+height*0.2, width*0.2, height*0.6)
 
 	// Draw the wings
-	ctx.Call("beginPath")
-	ctx.Call("moveTo", x+width*0.4, y+height*0.2) // Left point of left wing
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("moveTo", x+width*0.4, y+height*0.2) // Left point of left wing
 	if faceUp {
-		ctx.Call("lineTo", x, y+height*0.75) // Bottom point of left wing
+		canvasObjectContext.Call("lineTo", x, y+height*0.75) // Bottom point of left wing
 	} else {
-		ctx.Call("lineTo", x, y+height*0.25) // Bottom point of left wing
+		canvasObjectContext.Call("lineTo", x, y+height*0.25) // Bottom point of left wing
 	}
-	ctx.Call("lineTo", x+width*0.4, y+height*0.8) // Right point of left wing
-	ctx.Call("closePath")
-	ctx.Call("fill")
-	ctx.Call("stroke")
+	canvasObjectContext.Call("lineTo", x+width*0.4, y+height*0.8) // Right point of left wing
+	canvasObjectContext.Call("closePath")
+	canvasObjectContext.Call("fill")
+	canvasObjectContext.Call("stroke")
 
-	ctx.Call("beginPath")
-	ctx.Call("moveTo", x+width*0.6, y+height*0.2) // Right point of right wing
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("moveTo", x+width*0.6, y+height*0.2) // Right point of right wing
 	if faceUp {
-		ctx.Call("lineTo", x+width, y+height*0.75) // Bottom point of right wing
+		canvasObjectContext.Call("lineTo", x+width, y+height*0.75) // Bottom point of right wing
 	} else {
-		ctx.Call("lineTo", x+width, y+height*0.25) // Bottom point of right wing
+		canvasObjectContext.Call("lineTo", x+width, y+height*0.25) // Bottom point of right wing
 	}
-	ctx.Call("lineTo", x+width*0.6, y+height*0.8) // Left point of right wing
-	ctx.Call("closePath")
-	ctx.Call("fill")
-	ctx.Call("stroke")
+	canvasObjectContext.Call("lineTo", x+width*0.6, y+height*0.8) // Left point of right wing
+	canvasObjectContext.Call("closePath")
+	canvasObjectContext.Call("fill")
+	canvasObjectContext.Call("stroke")
 
 	// Draw the tip of the spaceship
-	ctx.Call("beginPath")
+	canvasObjectContext.Call("beginPath")
 	if faceUp {
-		ctx.Call("moveTo", x+width*0.4, y+height*0.2) // Left point of the tip
-		ctx.Call("lineTo", x+width*0.5, y)            // Top point of the tip
-		ctx.Call("lineTo", x+width*0.6, y+height*0.2) // Right point of the tip
+		canvasObjectContext.Call("moveTo", x+width*0.4, y+height*0.2) // Left point of the tip
+		canvasObjectContext.Call("lineTo", x+width*0.5, y)            // Top point of the tip
+		canvasObjectContext.Call("lineTo", x+width*0.6, y+height*0.2) // Right point of the tip
 	} else {
-		ctx.Call("moveTo", x+width*0.4, y+height*0.8) // Left point of the tip
-		ctx.Call("lineTo", x+width*0.5, y+height)     // Bottom point of the tip
-		ctx.Call("lineTo", x+width*0.6, y+height*0.8) // Right point of the tip
+		canvasObjectContext.Call("moveTo", x+width*0.4, y+height*0.8) // Left point of the tip
+		canvasObjectContext.Call("lineTo", x+width*0.5, y+height)     // Bottom point of the tip
+		canvasObjectContext.Call("lineTo", x+width*0.6, y+height*0.8) // Right point of the tip
 	}
-	ctx.Call("closePath")
-	ctx.Call("fill")
-	ctx.Call("stroke")
+	canvasObjectContext.Call("closePath")
+	canvasObjectContext.Call("fill")
+	canvasObjectContext.Call("stroke")
 }
 
 // DrawStar draws a star on the invisible canvas to be used as a background on the visible one.
@@ -267,7 +394,7 @@ func DrawStar(coords [2]float64, spikes, radius float64, color string, brightnes
 
 // Getenv is a function that returns the value of the environment variable key.
 func Getenv(key string) string {
-	got := env.Get(key)
+	got := environ.Get(key)
 	if !got.Truthy() {
 		return ""
 	}
@@ -275,14 +402,29 @@ func Getenv(key string) string {
 	return got.String()
 }
 
+// GlobalCall is a function that calls the global function name with the specified arguments.
+func GlobalCall(name string, args ...any) any {
+	return js.Global().Call(name, args...)
+}
+
+// GlobalGet is a function that returns the global value of key.
+func GlobalGet(key string) js.Value {
+	return js.Global().Get(key)
+}
+
+// GlobalSet is a function that sets the global value of key to value.
+func GlobalSet(key string, value any) {
+	js.Global().Set(key, value)
+}
+
 // IsPlaying is a function that returns true if the audio track is playing.
 func IsPlaying(name string) bool {
 	audioPlayersMutex.RLock()
-	player, ok := audioPlayers[name]
+	player, playerOk := audioPlayers[name]
 	audioPlayersMutex.RUnlock()
 
-	if ok {
-		return player.source.Truthy()
+	if playerOk && player.source.Truthy() {
+		return true
 	}
 
 	return false
@@ -290,6 +432,7 @@ func IsPlaying(name string) bool {
 
 // IsTouchDevice is a function that returns true if the device is a touch device.
 func IsTouchDevice() bool {
+	navigator := GlobalGet("navigator")
 	switch {
 	case window.Call("hasOwnProperty", "ontouchstart").Bool():
 		return true
@@ -345,6 +488,20 @@ func LogError(err error) {
 	}
 }
 
+// MakeObject is a function that returns a new object with the specified key-value pairs.
+func MakeObject(m map[string]any) js.Value {
+	obj := NewInstance("Object")
+	for key, value := range m {
+		obj.Set(key, value)
+	}
+	return obj
+}
+
+// NewInstance is a function that returns a new instance of the type with the specified arguments.
+func NewInstance(typ string, args ...any) js.Value {
+	return GlobalGet(typ).New(args...)
+}
+
 // PlayAudio is a function that plays an audio track.
 func PlayAudio(name string, loop bool) {
 	if !*Config.Control.AudioEnabled {
@@ -377,7 +534,7 @@ func PlayAudio(name string, loop bool) {
 		audioTracksMutex.Unlock()
 	}
 
-	buffer := js.Global().Get("Uint8Array").New(len(track))
+	buffer := NewInstance("Uint8Array", len(track))
 	js.CopyBytesToJS(buffer, track)
 
 	audioBufferPromise := audioCtx.Call("decodeAudioData", buffer.Get("buffer"))
@@ -423,9 +580,13 @@ func PlayAudio(name string, loop bool) {
 	audioBufferPromise.Call("then", then).Call("catch", catch)
 }
 
-// RemoveEventListener is a function that removes an event listener from the document.
-func RemoveEventListener(event string, listener any) {
-	doc.Call("removeEventListener", event, listener)
+// RegisterDrawFunc is a function that registers a draw function.
+// The draw function is called when the document is resized.
+func RegisterDrawFunc(f func()) {
+	GlobalSet("drawFunc", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		f()
+		return nil
+	}))
 }
 
 // SendMessage sends a message to the message box.
@@ -442,7 +603,7 @@ func SendMessage(msg string) {
 
 // Setenv is a function that sets the environment variable key to value.
 func Setenv(key, value string) {
-	env.Set(key, value)
+	environ.Set(key, value)
 }
 
 // StopAudio is a function that stops an audio track.
@@ -451,42 +612,56 @@ func StopAudio(name string) {
 	player, playerOk := audioPlayers[name]
 	audioPlayersMutex.RUnlock()
 
-	if playerOk && player.source.Truthy() {
-		if Config.Control.Debug.Get() {
-			Log(fmt.Sprintf("Stopping audio source: %s", name))
-		}
+	// Recursive function to stop the audio source.
+	// Recursion might be necessary if the audio source is still playing
+	// when the stop function is called
+	// and the event listener is at end of the audio source
+	// fires after the audio source has been stopped
+	var stop func(recursive int)
+	stop = func(recursive int) {
+		if playerOk && player.source.Truthy() {
+			if Config.Control.Debug.Get() {
+				Log(fmt.Sprintf("Stopping audio source: %s", name))
+			}
 
-		player.startTime = audioCtx.Get("currentTime").Float()
-
-		player.source.Call("removeEventListener", "ended", player.endedCallback)
-		player.source.Call("stop")
-		player.source = js.Null()
-
-		audioPlayersMutex.Lock()
-		audioPlayers[name] = player
-		audioPlayersMutex.Unlock()
-	}
-}
-
-// StopAudioSources is a function that stops all audio sources that match the selector.
-func StopAudioSources(selector func(name string) bool) {
-	audioPlayersMutex.Lock()
-
-	var stopped []string
-	for name, player := range audioPlayers {
-		if selector(name) && player.source.Truthy() {
 			player.startTime = audioCtx.Get("currentTime").Float()
 
 			player.source.Call("removeEventListener", "ended", player.endedCallback)
 			player.source.Call("stop")
 			player.source = js.Null()
 
+			audioPlayersMutex.Lock()
 			audioPlayers[name] = player
+			audioPlayersMutex.Unlock()
+		}
+
+		// Stop the audio source if it is still playing
+		// and the recursive limit has not been reached
+		if IsPlaying(name) && recursive > 0 {
+			stop(recursive - 1)
+		}
+	}
+
+	// Stop the audio source (recursive limit: 10)
+	stop(10)
+}
+
+// StopAudioSources is a function that stops all audio sources that match the selector.
+func StopAudioSources(selector func(name string) bool) {
+	audioPlayersMutex.RLock()
+
+	var stopped []string
+	for name, player := range audioPlayers {
+		if selector(name) && player.source.Truthy() {
 			stopped = append(stopped, name)
 		}
 	}
 
-	audioPlayersMutex.Unlock()
+	audioPlayersMutex.RUnlock()
+
+	for _, name := range stopped {
+		StopAudio(name)
+	}
 
 	if Config.Control.Debug.Get() {
 		Log(fmt.Sprintf("Stopped audio sources: %v", stopped))
@@ -502,5 +677,5 @@ func ThrowError(err error) {
 
 // Unsetenv is a function that unsets the environment variable key.
 func Unsetenv(key string) {
-	env.Delete(key)
+	environ.Delete(key)
 }

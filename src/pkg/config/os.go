@@ -12,6 +12,7 @@ var RenderFunc func()
 type dimensions struct {
 	Width, Height            float64
 	Left, Top, Right, Bottom float64
+	ScaleX, ScaleY           float64
 }
 
 // AddEventListener is a function that adds an event listener to the document.
@@ -55,6 +56,15 @@ func DrawStar(coords [2]float64, spikes, radius float64, color string, brightnes
 // Getenv is a function that returns the value of the environment variable key.
 func Getenv(key string) string { return os.Getenv(key) }
 
+// GlobalCall is a function that calls the global function name with the specified arguments.
+func GlobalCall(name string, args ...any) any { return nil }
+
+// GlobalGet is a function that returns the global value of key.
+func GlobalGet(key string) any { return nil }
+
+// GlobalSet is a function that sets the global value of key to value.
+func GlobalSet(key string, value any) {}
+
 // IsPlaying is a function that returns true if the audio track is playing.
 func IsPlaying(name string) bool { return false }
 
@@ -74,11 +84,14 @@ func LogError(err error) {
 	}
 }
 
+// MakeObject is a function that returns a new object with the specified key-value pairs.
+func MakeObject(m map[string]any) any { return m }
+
+// NewInstance is a function that returns a new instance of the type with the specified arguments.
+func NewInstance(typ string, args ...any) any { return nil }
+
 // PlayAudio is a function that plays an audio track.
 func PlayAudio(name string, loop bool) {}
-
-// RemoveEventListener is a function that removes an event listener from the document.
-func RemoveEventListener(event string, listener any) {}
 
 // SendMessage sends a message to the message box.
 func SendMessage(msg string) { log.Println(msg) }

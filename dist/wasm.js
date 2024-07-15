@@ -62,66 +62,6 @@ async function loadWasm() {
   );
   go.run(wasmModule.instance);
 
-  // Initialize audioEnabled from Go
-  const isAudioEnabledFunc = window.isAudioEnabled; // Ensure we have a reference to the function
-  const toggleAudioFunc = window.toggleAudio; // Ensure we have a reference to the function
-
-  let audioEnabled = await isAudioEnabledFunc(); // Ensure that isAudioEnabled is awaited and set
-  const audioIcon = document.getElementById("audioIcon");
-  if (audioEnabled) {
-    audioIcon.classList.remove("fa-volume-mute");
-    audioIcon.classList.add("fa-volume-up");
-  } else {
-    audioIcon.classList.remove("fa-volume-up");
-    audioIcon.classList.add("fa-volume-mute");
-  }
-
-  window.toggleAudio = async function () {
-    await toggleAudioFunc(); // Call the Go function to toggle audio
-    audioEnabled = await isAudioEnabledFunc(); // Get the updated audio state
-    if (audioEnabled) {
-      audioIcon.classList.remove("fa-volume-mute");
-      audioIcon.classList.add("fa-volume-up");
-    } else {
-      audioIcon.classList.remove("fa-volume-up");
-      audioIcon.classList.add("fa-volume-mute");
-    }
-  };
-
-  const audioToggleBtn = document.getElementById("audioToggle");
-  audioToggleBtn.addEventListener("click", window.toggleAudio);
-  audioToggleBtn.addEventListener("touchend", function (event) {
-    event.preventDefault(); // Prevent mouse event from also being triggered
-    toggleAudio();
-  });
-
-  const refreshBtn = document.getElementById("refreshButton");
-  function animateButton() {
-    return new Promise((resolve) => {
-      refreshBtn.classList.add("animated-click");
-      refreshBtn.addEventListener(
-        "transitionend",
-        () => {
-          refreshBtn.classList.remove("animated-click");
-          refreshBtn.classList.add("animated-click-end");
-          resolve();
-        },
-        { once: true }
-      );
-    });
-  }
-  refreshBtn.addEventListener("click", () => {
-    animateButton().then(() => {
-      location.reload(); // Reload after the animation completes
-    });
-  });
-  refreshBtn.addEventListener("touchend", function (event) {
-    event.preventDefault(); // Prevent mouse event from also being triggered
-    animateButton().then(() => {
-      location.reload(); // Reload after the animation completes
-    });
-  });
-
   const redrawFunc = window.redrawContent;
   window.addEventListener("resize", () => {
     requestAnimationFrame(onResize, redrawFunc);

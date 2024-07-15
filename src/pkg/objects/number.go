@@ -5,6 +5,8 @@ import (
 	"math"
 )
 
+const PI Number = math.Pi
+
 // Number represents a number.
 type Number float64
 

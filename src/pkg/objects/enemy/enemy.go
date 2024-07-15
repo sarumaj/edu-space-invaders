@@ -80,6 +80,10 @@ func (enemy *Enemy) Berserk() {
 		enemy.Size = newSize
 		enemy.Position = enemy.Position.Sub(newSize.ToVector().Div(objects.Number(boost.sizeFactor)))
 	}
+	enemy.Scale(objects.Position{
+		X: objects.Number(canvasDimensions.ScaleX),
+		Y: objects.Number(canvasDimensions.ScaleY),
+	})
 }
 
 // BerserkGivenAncestor increases the chance of the enemy to become a berserker or an annihilator
@@ -196,6 +200,15 @@ func (enemy *Enemy) Move(spaceshipPosition objects.Position) {
 	enemy.Position = enemy.Position.Add(delta)
 }
 
+// Scale scales the enemy.
+func (enemy *Enemy) Scale(scales objects.Position) {
+	_ = objects.
+		Measure(enemy.Position, enemy.Size).
+		Scale(scales).
+		ApplyPosition(&enemy.Position).
+		ApplySize(&enemy.Size)
+}
+
 // String returns the string representation of the enemy.
 func (enemy Enemy) String() string {
 	return fmt.Sprintf("%s (Lvl: %d, Pos: %s, HP: %d, Type: %s)", enemy.Name, enemy.Level.Progress, enemy.Position, enemy.Level.HitPoints, enemy.Type)
@@ -265,7 +278,7 @@ func Challenge(name string, randomY bool) *Enemy {
 		y = rand.Float64() * (canvasDimensions.Height/2 - config.Config.Enemy.Height)
 	}
 
-	return &Enemy{
+	enemy := Enemy{
 		Position: objects.Position{
 			X: objects.Number(rand.Float64() * (canvasDimensions.Width - config.Config.Enemy.Width)),
 			Y: objects.Number(y),
@@ -285,4 +298,11 @@ func Challenge(name string, randomY bool) *Enemy {
 		Type: Normal,
 		Name: name,
 	}
+
+	enemy.Scale(objects.Position{
+		X: objects.Number(canvasDimensions.ScaleX),
+		Y: objects.Number(canvasDimensions.ScaleY),
+	})
+
+	return &enemy
 }

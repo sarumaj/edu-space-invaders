@@ -10,12 +10,13 @@ import (
 
 // Bullet represents a bullet shot by the spaceship.
 type Bullet struct {
-	Position  objects.Position // Position of the bullet
-	Size      objects.Size     // Size of the bullet
-	Speed     float64          // Speed and damage of the bullet
-	Damage    int              // Damage is the amount of health points the bullet takes from the enemy
-	skew      float64          // Skew of the bullet
-	Exhausted bool             // Exhausted is true if the bullet is out of the screen or has hit an enemy
+	Position     objects.Position // Position of the bullet
+	Size         objects.Size     // Size of the bullet
+	CurrentScale objects.Position // Scale of the bullet
+	Speed        float64          // Speed and damage of the bullet
+	Damage       int              // Damage is the amount of health points the bullet takes from the enemy
+	skew         float64          // Skew of the bullet
+	Exhausted    bool             // Exhausted is true if the bullet is out of the screen or has hit an enemy
 }
 
 // Draw draws the bullet.
@@ -65,15 +66,41 @@ func (b *Bullet) Move() {
 }
 
 // Scale scales the bullet.
-func (bullet *Bullet) Scale(scales objects.Position) {
+func (bullet *Bullet) Scale() {
+	canvasDimensions := config.CanvasBoundingBox()
+	scale := objects.Position{
+		X: objects.Number(canvasDimensions.ScaleX),
+		Y: objects.Number(canvasDimensions.ScaleY),
+	}
 	_ = objects.
 		Measure(bullet.Position, bullet.Size).
-		Scale(scales).
+		Scale(objects.Ones().DivX(bullet.CurrentScale)).
+		Scale(scale).
 		ApplyPosition(&bullet.Position).
 		ApplySize(&bullet.Size)
+
+	bullet.CurrentScale = scale
 }
 
 // String returns the string representation of the bullet.
 func (bullet Bullet) String() string {
 	return fmt.Sprintf("Bullet (Pos: %s, Speed: %g, Damage: %d)", bullet.Position, bullet.Speed, bullet.Damage)
+}
+
+// Craft creates a new bullet at the specified position.
+func Craft(position objects.Position, damage int, ratio, speedBoost float64) *Bullet {
+	bullet := Bullet{
+		Position: position,
+		Size: objects.Size{
+			Width:  objects.Number(config.Config.Bullet.Width),
+			Height: objects.Number(config.Config.Bullet.Height),
+		},
+		CurrentScale: objects.Ones(),
+		Speed:        config.Config.Bullet.Speed + speedBoost,
+		Damage:       damage,
+		skew:         ratio - 0.5,
+	}
+
+	bullet.Scale()
+	return &bullet
 }

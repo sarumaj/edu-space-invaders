@@ -16,7 +16,8 @@ type Spaceship struct {
 	Position            objects.Position // Position of the spaceship
 	Speed               objects.Position // Speed of the spaceship in both directions
 	Directions          Directions       // Directions the spaceship can move
-	Size                objects.Size     // Size of the spaceship
+	Size                objects.Size     // Size of the
+	CurrentScale        objects.Position // Scale of the spaceship
 	Bullets             bullet.Bullets   // Bullets fired by the spaceship
 	Cooldown            time.Duration    // Time between shots
 	Level               *SpaceshipLevel  // Spaceship level
@@ -402,13 +403,22 @@ func (spaceship *Spaceship) Penalize(levels int) {
 }
 
 // Scale scales the spaceship.
-// The spaceship's position is scaled based on the scales.
-func (spaceship *Spaceship) Scale(scales objects.Position) {
+// The spaceship's position is scaled based on the scale of the canvas.
+func (spaceship *Spaceship) Scale() {
+	canvasDimensions := config.CanvasBoundingBox()
+	scale := objects.Position{
+		X: objects.Number(canvasDimensions.ScaleX),
+		Y: objects.Number(canvasDimensions.ScaleY),
+	}
+
 	_ = objects.
 		Measure(spaceship.Position, spaceship.Size).
-		Scale(scales).
+		Scale(objects.Ones().DivX(spaceship.CurrentScale)).
+		Scale(scale).
 		ApplyPosition(&spaceship.Position).
 		ApplySize(&spaceship.Size)
+
+	spaceship.CurrentScale = scale
 }
 
 // String returns a string representation of the spaceship.
@@ -468,7 +478,8 @@ func Embark() *Spaceship {
 			Width:  objects.Number(config.Config.Spaceship.Width),
 			Height: objects.Number(config.Config.Spaceship.Height),
 		},
-		Cooldown: config.Config.Spaceship.Cooldown,
+		CurrentScale: objects.Ones(),
+		Cooldown:     config.Config.Spaceship.Cooldown,
 		Level: &SpaceshipLevel{
 			AccelerateRate: objects.Number(config.Config.Spaceship.Acceleration),
 			Progress:       1,
@@ -476,10 +487,6 @@ func Embark() *Spaceship {
 		},
 	}
 
-	spaceship.Scale(objects.Position{
-		X: objects.Number(canvasDimensions.ScaleX),
-		Y: objects.Number(canvasDimensions.ScaleY),
-	})
-
+	spaceship.Scale()
 	return &spaceship
 }

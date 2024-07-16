@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	originalWidth  = 760
-	originalHeight = 570
+	originalWidth  = 760 // Original width of the drawable canvas area (px, after considering the padding and border of the surrounding containers)
+	originalHeight = 570 // Original height of the drawable canvas area (px, after considering the padding and border of the surrounding containers)
 )
 
 const (
@@ -47,12 +47,14 @@ var (
 	windowLocation         = window.Get("location")
 )
 
+// audioPlayer represents an audio player.
 type audioPlayer struct {
 	endedCallback js.Func
 	source        js.Value
 	startTime     float64
 }
 
+// dimensions represents the dimensions of the document.
 type dimensions struct {
 	Width, Height            float64
 	Left, Top, Right, Bottom float64
@@ -155,7 +157,10 @@ func setupCanvasInterface() {
 		return nil
 	}))
 
-	window.Call("addEventListener", "resize", GlobalGet("resize"))
+	window.Call("addEventListener", "resize", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		GlobalCall("requestAnimationFrame", GlobalGet("resize"))
+		return nil
+	}))
 }
 
 // setupRefreshInterface is a function that sets up the refresh interface.
@@ -232,22 +237,22 @@ func CanvasBoundingBox() dimensions {
 
 // ClearBackground is a function that clears the invisible document.
 func ClearBackground() {
-	invisibleCtx.Call("clearRect", 0, 0, invisibleCanvas.Get("width").Float(), invisibleCanvas.Get("height").Float())
+	invisibleCtx.Call("clearRect", 0, 0, invisibleCanvas.Get("width"), invisibleCanvas.Get("height"))
 }
 
 // ClearCanvas is a function that clears the document.
 func ClearCanvas() {
-	canvasObjectContext.Call("clearRect", 0, 0, canvasObject.Get("width").Float(), canvasObject.Get("height").Float())
+	canvasObjectContext.Call("clearRect", 0, 0, canvasObject.Get("width"), canvasObject.Get("height"))
 }
 
 // DrawBackground is a function that draws the background of the document.
 // The background is drawn with the specified speed.
-func DrawBackground(speed float64) {
+func DrawBackground(speed float64, reset bool) {
 	canvasDimensions := CanvasBoundingBox()
 
 	// Apply the speed
 	invisibleCanvasScrollY += speed
-	if invisibleCanvasScrollY >= canvasDimensions.Height {
+	if reset || invisibleCanvasScrollY >= canvasDimensions.Height {
 		invisibleCanvasScrollY = 0
 	}
 
@@ -578,15 +583,6 @@ func PlayAudio(name string, loop bool) {
 		return nil
 	})
 	audioBufferPromise.Call("then", then).Call("catch", catch)
-}
-
-// RegisterDrawFunc is a function that registers a draw function.
-// The draw function is called when the document is resized.
-func RegisterDrawFunc(f func()) {
-	GlobalSet("drawFunc", js.FuncOf(func(_ js.Value, _ []js.Value) any {
-		f()
-		return nil
-	}))
 }
 
 // SendMessage sends a message to the message box.

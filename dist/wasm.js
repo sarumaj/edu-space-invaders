@@ -22,35 +22,6 @@ async function envCallback() {
   }
 }
 
-async function onResize(redrawFunc) {
-  const document = window.document;
-  const canvas = document.getElementById("gameCanvas");
-  const ctx = canvas.getContext("2d");
-
-  // Get current canvas width and height
-  const width = canvas.width;
-  const height = canvas.height;
-
-  // Get image data from canvas
-  const data = ctx.getImageData(0, 0, width, height);
-
-  // Get the dimensions of the container
-  const innerWidth = canvas.clientWidth;
-  const innerHeight = canvas.clientHeight;
-
-  // Set new canvas width and height
-  canvas.width = innerWidth;
-  canvas.height = innerHeight;
-
-  // Put the image data back to the canvas
-  ctx.putImageData(data, 0, 0);
-
-  if (redrawFunc) {
-    console.log("Redrawing...");
-    redrawFunc();
-  }
-}
-
 async function loadWasm() {
   const go = new Go(); // Defined in wasm_exec.js
 
@@ -61,13 +32,6 @@ async function loadWasm() {
     go.importObject
   );
   go.run(wasmModule.instance);
-
-  const redrawFunc = window.redrawContent;
-  window.addEventListener("resize", () => {
-    requestAnimationFrame(onResize, redrawFunc);
-  });
-
-  await onResize(redrawFunc);
 }
 
 window.addEventListener("load", loadWasm());

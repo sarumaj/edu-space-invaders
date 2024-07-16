@@ -163,29 +163,41 @@ func (h *handler) checkCollisions() {
 // It draws the spaceship.
 // It draws the enemies.
 // It draws the bullets.
-func (h *handler) draw() {
+func (h *handler) draw(resize bool) {
 	config.ClearCanvas()
 	config.ClearBackground()
 
 	// Draw stars on the background
 	for _, s := range h.stars {
+		if resize {
+			s.Scale()
+		}
 		s.Draw()
 		s.Exhaust()
 	}
 
 	// Draw background
-	config.DrawBackground(h.spaceship.Level.AccelerateRate.Float() * config.Config.Star.SpeedRatio)
+	config.DrawBackground(h.spaceship.Level.AccelerateRate.Float()*config.Config.Star.SpeedRatio, resize)
 
 	// Draw spaceship
+	if resize {
+		h.spaceship.Scale()
+	}
 	h.spaceship.Draw()
 
 	// Draw enemies
 	for _, e := range h.enemies {
+		if resize {
+			e.Scale()
+		}
 		e.Draw()
 	}
 
 	// Draw bullets
 	for _, b := range h.spaceship.Bullets {
+		if resize {
+			b.Scale()
+		}
 		b.Draw()
 	}
 }
@@ -376,7 +388,7 @@ func (h *handler) render() {
 		return
 	}
 
-	h.draw()
+	h.draw(false)
 }
 
 // refresh refreshes the game state.

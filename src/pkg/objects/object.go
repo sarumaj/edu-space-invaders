@@ -31,21 +31,22 @@ func (object *Object[P]) Scale(scales Position) *Object[P] {
 	switch size := any(object.Size).(type) {
 	case Size:
 		newSize := size.ToVector().MulX(scales).ToBox()
-		object.Position = object.Position.Add(Position{
-			X: (size.Width - newSize.Width) / 2,
-			Y: (size.Height - newSize.Height) / 2,
-		})
+		if newSize.ToVector().Equal(Zeroes()) {
+			return object
+		}
+
 		object.Size = any(newSize).(P)
 
 	case Number:
 		newSize := size * scales.Average()
-		object.Position = object.Position.Add(Position{
-			X: (size - newSize) / 2,
-			Y: (size - newSize) / 2,
-		})
+		if newSize.Equal(0) {
+			return object
+		}
+
 		object.Size = any(newSize).(P)
 	}
 
+	object.Position = object.Position.MulX(scales)
 	return object
 }
 
@@ -61,7 +62,7 @@ func Equal[P interface{ Number | Position | Size }](a, b P, tolerance Number) bo
 
 	case Size:
 		b := any(b).(Size)
-		return (a.Width-b.Width).Abs() <= tolerance && (a.Height-b.Height).Abs() <= tolerance
+		return Equal(a.ToVector(), b.ToVector(), tolerance)
 
 	}
 

@@ -85,7 +85,11 @@ func (h *handler) monitor() {
 // registerEventHandlers is a method that registers the event listeners.
 func (h *handler) registerEventHandlers() {
 	h.once.Do(func() {
-		config.RegisterDrawFunc(h.draw)
+		config.GlobalSet("drawFunc", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+			h.draw(true)
+			return nil
+		}))
+
 		if config.IsTouchDevice() {
 			globalTouchEvent := &touchEvent{mutex: &sync.Mutex{}}
 			config.GlobalSet("touchstart", globalTouchEvent.touchStart())

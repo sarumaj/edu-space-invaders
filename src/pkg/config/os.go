@@ -7,8 +7,6 @@ import (
 	"os"
 )
 
-var RenderFunc func()
-
 type dimensions struct {
 	Width, Height            float64
 	Left, Top, Right, Bottom float64
@@ -34,7 +32,7 @@ func ClearCanvas() {}
 
 // DrawBackground is a function that draws the background of the canvas.
 // The background is drawn with the specified speed.
-func DrawBackground(speed float64) {}
+func DrawBackground(speed float64, reset bool) {}
 
 // DrawLine is a function that draws a line on the canvas.
 func DrawLine(start, end [2]float64, color string, thickness float64) {}

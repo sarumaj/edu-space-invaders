@@ -66,9 +66,9 @@ func (pos Position) DivX(other Position) Position {
 	return result
 }
 
-// Equal checks if two positions are equal.
+// Equal checks if two positions are equal within a tolerance (1e-9).
 func (pos Position) Equal(other Position) bool {
-	return pos.X == other.X && pos.Y == other.Y
+	return Equal(pos, other, 1e-9)
 }
 
 // Greater checks if a position is greater than another.
@@ -167,4 +167,19 @@ func (pos Position) ToBox() Size {
 		Width:  pos.X,
 		Height: pos.Y,
 	}
+}
+
+// Ones returns a position with both elements set to 1.
+func Ones() Position {
+	return Position{X: 1, Y: 1}
+}
+
+// Symmetric returns a position with both elements set to n.
+func Symmetric(n Number) Position {
+	return Position{X: n, Y: n}
+}
+
+// Zeroes returns a position with both elements set to 0.
+func Zeroes() Position {
+	return Position{X: 0, Y: 0}
 }

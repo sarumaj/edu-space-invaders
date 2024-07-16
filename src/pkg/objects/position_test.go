@@ -22,8 +22,22 @@ func testPosition[
 		}
 
 		got := callable.Call(args)[0].Interface().(W)
-		if got != want {
-			t.Errorf("Position.%s() = %v, want %v", method, got, want)
+		switch want := any(want).(type) {
+		case Number:
+			if !Equal(any(got).(Number), want, 1e-9) {
+				t.Errorf("Position.%s() = %v, want %v", method, got, want)
+			}
+
+		case Position:
+			if !Equal(any(got).(Position), want, 1e-9) {
+				t.Errorf("Position.%s() = %v, want %v", method, got, want)
+			}
+
+		case bool:
+			if any(got).(bool) != want {
+				t.Errorf("Position.%s() = %v, want %v", method, got, want)
+			}
+
 		}
 	})
 }
@@ -31,6 +45,7 @@ func testPosition[
 func TestPosition(t *testing.T) {
 	testPosition(t, "Add", Position{X: 1, Y: 2}, Position{X: 3, Y: 4}, Position{X: 4, Y: 6})
 	testPosition(t, "AddN", Position{X: 1, Y: 2}, Number(3), Position{X: 4, Y: 5})
+	testPosition(t, "Average", Position{X: 1, Y: 2}, any(nil), Number(1.5))
 	testPosition(t, "Distance", Position{X: 1, Y: 2}, Position{X: 4, Y: 6}, Number(5))
 	testPosition(t, "Div", Position{X: 4, Y: 6}, Number(2), Position{X: 2, Y: 3})
 	testPosition(t, "DivX", Position{X: 4, Y: 6}, Position{X: 2, Y: 3}, Position{X: 2, Y: 2})

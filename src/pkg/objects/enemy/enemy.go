@@ -14,6 +14,7 @@ type Enemy struct {
 	Name                string           // Name is the name of the enemy.
 	Position            objects.Position // Position is the position of the enemy.
 	Size                objects.Size     // Size is the size of the enemy.
+	CurrentScale        objects.Position // CurrentScale is the scale of the enemy.
 	SpecialtyLikeliness float64          // SpecialtyLikeliness is the likelihood of the enemy being a goodie or a freezer (expected to be lower than 1).
 	Level               *EnemyLevel      // Level is the level of the enemy.
 	Type                EnemyType        // Type is the type of the enemy.
@@ -76,9 +77,11 @@ func (enemy *Enemy) Berserk() {
 		X: objects.Number(config.Config.Enemy.Width),
 		Y: objects.Number(config.Config.Enemy.Height),
 	}.Mul(objects.Number(boost.sizeFactor)).ToBox()
+
 	if newSize.ToVector().Less(canvasSize.ToVector()) {
 		enemy.Size = newSize
 		enemy.Position = enemy.Position.Sub(newSize.ToVector().Div(objects.Number(boost.sizeFactor)))
+		enemy.Scale()
 	}
 }
 
@@ -196,6 +199,24 @@ func (enemy *Enemy) Move(spaceshipPosition objects.Position) {
 	enemy.Position = enemy.Position.Add(delta)
 }
 
+// Scale scales the enemy based on the scale of the canvas.
+func (enemy *Enemy) Scale() {
+	canvasDimensions := config.CanvasBoundingBox()
+	scale := objects.Position{
+		X: objects.Number(canvasDimensions.ScaleX),
+		Y: objects.Number(canvasDimensions.ScaleY),
+	}
+
+	_ = objects.
+		Measure(enemy.Position, enemy.Size).
+		Scale(objects.Ones().DivX(enemy.CurrentScale)).
+		Scale(scale).
+		ApplyPosition(&enemy.Position).
+		ApplySize(&enemy.Size)
+
+	enemy.CurrentScale = scale
+}
+
 // String returns the string representation of the enemy.
 func (enemy Enemy) String() string {
 	return fmt.Sprintf("%s (Lvl: %d, Pos: %s, HP: %d, Type: %s)", enemy.Name, enemy.Level.Progress, enemy.Position, enemy.Level.HitPoints, enemy.Type)
@@ -265,7 +286,7 @@ func Challenge(name string, randomY bool) *Enemy {
 		y = rand.Float64() * (canvasDimensions.Height/2 - config.Config.Enemy.Height)
 	}
 
-	return &Enemy{
+	enemy := Enemy{
 		Position: objects.Position{
 			X: objects.Number(rand.Float64() * (canvasDimensions.Width - config.Config.Enemy.Width)),
 			Y: objects.Number(y),
@@ -274,6 +295,7 @@ func Challenge(name string, randomY bool) *Enemy {
 			Width:  objects.Number(config.Config.Enemy.Width),
 			Height: objects.Number(config.Config.Enemy.Height),
 		},
+		CurrentScale:        objects.Ones(),
 		SpecialtyLikeliness: config.Config.Enemy.SpecialtyLikeliness,
 		Level: &EnemyLevel{
 			Progress:          1,
@@ -285,4 +307,7 @@ func Challenge(name string, randomY bool) *Enemy {
 		Type: Normal,
 		Name: name,
 	}
+
+	enemy.Scale()
+	return &enemy
 }

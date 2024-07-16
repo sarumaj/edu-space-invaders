@@ -53,6 +53,8 @@
     "touchevent",
     "touchmove",
     "touchstart",
+    "transitionend",
+    "Unmuted",
     "unsets",
     "usedocker"
   ]

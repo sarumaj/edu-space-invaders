@@ -74,25 +74,30 @@ func (h *handler) monitor() {
 		}
 
 		// Schedule the next frame
-		js.Global().Call("requestAnimationFrame", js.FuncOf(watchdog))
+		config.GlobalCall("requestAnimationFrame", js.FuncOf(watchdog))
 		return nil
 	}
 
 	// Schedule the first frame
-	js.Global().Call("requestAnimationFrame", js.FuncOf(watchdog))
+	config.GlobalCall("requestAnimationFrame", js.FuncOf(watchdog))
 }
 
 // registerEventHandlers is a method that registers the event listeners.
 func (h *handler) registerEventHandlers() {
 	h.once.Do(func() {
+		config.GlobalSet("drawFunc", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+			h.draw(true)
+			return nil
+		}))
+
 		if config.IsTouchDevice() {
 			globalTouchEvent := &touchEvent{mutex: &sync.Mutex{}}
-			touchstart := globalTouchEvent.touchStart()
-			touchmove := globalTouchEvent.touchMove(h.touchEvent)
-			touchend := globalTouchEvent.touchEnd(h.touchEvent)
-			config.AddEventListenerToCanvas("touchstart", touchstart)
-			config.AddEventListenerToCanvas("touchmove", touchmove)
-			config.AddEventListenerToCanvas("touchend", touchend)
+			config.GlobalSet("touchstart", globalTouchEvent.touchStart())
+			config.GlobalSet("touchmove", globalTouchEvent.touchMove(h.touchEvent))
+			config.GlobalSet("touchend", globalTouchEvent.touchEnd(h.touchEvent))
+			config.AddEventListenerToCanvas("touchstart", config.GlobalGet("touchstart"))
+			config.AddEventListenerToCanvas("touchmove", config.GlobalGet("touchmove"))
+			config.AddEventListenerToCanvas("touchend", config.GlobalGet("touchend"))
 
 		} else {
 			globalKeyMap := registeredKeys{
@@ -103,19 +108,19 @@ func (h *handler) registerEventHandlers() {
 				Pause:      true,
 				Space:      true,
 			}
-			keydown := globalKeyMap.keyDown(h.keyEvent)
-			keyup := globalKeyMap.keyUp(h.keyEvent)
-			config.AddEventListener("keydown", keydown)
-			config.AddEventListener("keyup", keyup)
+			config.GlobalSet("keydown", globalKeyMap.keyDown(h.keyEvent))
+			config.GlobalSet("keyup", globalKeyMap.keyUp(h.keyEvent))
+			config.AddEventListener("keydown", config.GlobalGet("keydown"))
+			config.AddEventListener("keyup", config.GlobalGet("keyup"))
 
 			globalMouseEvent := &mouseEvent{mutex: &sync.Mutex{}}
-			mousedown := globalMouseEvent.mouseDown()
-			mousemove := globalMouseEvent.mouseMove(h.mouseEvent)
-			mouseup := globalMouseEvent.mouseUp(h.mouseEvent)
-			config.AddEventListenerToCanvas("contextmenu", mousedown)
-			config.AddEventListenerToCanvas("mousedown", mousedown)
-			config.AddEventListenerToCanvas("mousemove", mousemove)
-			config.AddEventListenerToCanvas("mouseup", mouseup)
+			config.GlobalSet("mousedown", globalMouseEvent.mouseDown())
+			config.GlobalSet("mousemove", globalMouseEvent.mouseMove(h.mouseEvent))
+			config.GlobalSet("mouseup", globalMouseEvent.mouseUp(h.mouseEvent))
+			config.AddEventListenerToCanvas("contextmenu", config.GlobalGet("mousedown"))
+			config.AddEventListenerToCanvas("mousedown", config.GlobalGet("mousedown"))
+			config.AddEventListenerToCanvas("mousemove", config.GlobalGet("mousemove"))
+			config.AddEventListenerToCanvas("mouseup", config.GlobalGet("mouseup"))
 		}
 	})
 }
@@ -188,15 +193,30 @@ func (event *mouseEvent) mouseMove(rcv chan<- mouseEvent) js.Func {
 
 		p[0].Call("preventDefault")
 		canvasDimensions := config.CanvasBoundingBox()
-		event.
+		btnType := mouseButton(p[0].Get("button").Int())
+		_ = event.
 			SetCurrentPosition(objects.Position{
 				X: objects.Number(p[0].Get("clientX").Float() - canvasDimensions.Left),
 				Y: objects.Number(p[0].Get("clientY").Float() - canvasDimensions.Top),
 			}).
-			SetButton(mouseButton(p[0].Get("button").Int())).
-			SetType(MouseEventTypeMove).
-			Send(rcv)
+			SetType(MouseEventTypeMove)
 
+		// Check which buttons are pressed
+		switch buttons := p[0].Get("buttons").Int(); {
+		case buttons&1 != 0 && btnType == MouseButtonPrimary:
+			_ = event.SetPressed(true).SetButton(MouseButtonPrimary)
+
+		case buttons&2 != 0 && btnType == MouseButtonSecondary:
+			_ = event.SetPressed(true).SetButton(MouseButtonSecondary)
+
+		case buttons&4 != 0 && btnType == MouseButtonAuxiliary:
+			_ = event.SetPressed(true).SetButton(MouseButtonAuxiliary)
+
+		default:
+			_ = event.SetPressed(false).SetButton(btnType) // No buttons pressed
+		}
+
+		event.Send(rcv)
 		return nil
 	})
 }

@@ -1,7 +1,6 @@
 package bullet
 
 import (
-	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
 )
 
@@ -11,16 +10,7 @@ type Bullets []Bullet
 // Reload creates a new bullet at the specified position.
 // The bullet has the specified damage and skew ratio.
 func (bullets *Bullets) Reload(position objects.Position, damage int, ratio, speedBoost float64) {
-	*bullets = append(*bullets, Bullet{
-		Position: position,
-		Size: objects.Size{
-			Width:  objects.Number(config.Config.Bullet.Width),
-			Height: objects.Number(config.Config.Bullet.Height),
-		},
-		Speed:  config.Config.Bullet.Speed + speedBoost,
-		Damage: damage,
-		skew:   ratio - 0.5,
-	})
+	*bullets = append(*bullets, *Craft(position, damage, ratio, speedBoost))
 }
 
 // Update updates the bullets.

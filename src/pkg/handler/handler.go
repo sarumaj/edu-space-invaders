@@ -156,6 +156,52 @@ func (h *handler) checkCollisions() {
 	}
 }
 
+// draw draws the game objects on the canvas.
+// It clears the canvas and the background.
+// It draws the stars on the background.
+// It draws the background.
+// It draws the spaceship.
+// It draws the enemies.
+// It draws the bullets.
+func (h *handler) draw(resize bool) {
+	config.ClearCanvas()
+	config.ClearBackground()
+
+	// Draw stars on the background
+	for _, s := range h.stars {
+		if resize {
+			s.Scale()
+		}
+		s.Draw()
+		s.Exhaust()
+	}
+
+	// Draw background
+	config.DrawBackground(h.spaceship.Level.AccelerateRate.Float()*config.Config.Star.SpeedRatio, resize)
+
+	// Draw spaceship
+	if resize {
+		h.spaceship.Scale()
+	}
+	h.spaceship.Draw()
+
+	// Draw enemies
+	for _, e := range h.enemies {
+		if resize {
+			e.Scale()
+		}
+		e.Draw()
+	}
+
+	// Draw bullets
+	for _, b := range h.spaceship.Bullets {
+		if resize {
+			b.Scale()
+		}
+		b.Draw()
+	}
+}
+
 // handleKeyEvent handles the key event.
 // It sets the running state to true when the key event is triggered.
 // It moves the spaceship to the left when the arrow left key is pressed.
@@ -225,42 +271,48 @@ func (h *handler) handleKeyhold() {
 // It fires bullets when the mouse event is triggered.
 // It pauses the game when the auxiliary or secondary button is pressed.
 func (h *handler) handleMouse(event mouseEvent) {
-	switch event.Type {
-	case MouseEventTypeDown: // Ignore the mouse down event.
+	select {
+	case <-h.ctx.Done():
 		return
 
+	default:
+		switch event.Type {
+		case MouseEventTypeDown: // Ignore the mouse down event.
+			return
+
+		}
+
+		switch event.Button {
+		case MouseButtonPrimary: // pass through
+
+		case MouseButtonAuxiliary, MouseButtonSecondary: // If the auxiliary or secondary button is pressed, pause the game.
+			h.pause()
+			return
+
+		default: // Do nothing for any other button.
+			return
+
+		}
+
+		if !event.Pressed { // If the mouse button is released, do nothing.
+			return
+		}
+
+		if h.start() { // If the game is just started, do nothing.
+			return
+		}
+
+		switch sizeCorrection := h.spaceship.Size.ToVector().Div(2); {
+		case !event.CurrentPosition.IsZero():
+			h.spaceship.MoveTo(event.CurrentPosition.Sub(sizeCorrection))
+
+		case !event.StartPosition.IsZero():
+			h.spaceship.MoveTo(event.StartPosition.Sub(sizeCorrection))
+
+		}
+
+		h.spaceship.Fire()
 	}
-
-	switch event.Button {
-	case MouseButtonPrimary: // pass through
-
-	case MouseButtonAuxiliary, MouseButtonSecondary: // If the auxiliary or secondary button is pressed, pause the game.
-		h.pause()
-		return
-
-	default: // Do nothing for any other button.
-		return
-
-	}
-
-	if !event.Pressed { // If the mouse button is released, do nothing.
-		return
-	}
-
-	if h.start() { // If the game is just started, do nothing.
-		return
-	}
-
-	switch sizeCorrection := h.spaceship.Size.ToVector().Div(2); {
-	case !event.CurrentPosition.IsZero():
-		h.spaceship.MoveTo(event.CurrentPosition.Sub(sizeCorrection))
-
-	case !event.StartPosition.IsZero():
-		h.spaceship.MoveTo(event.StartPosition.Sub(sizeCorrection))
-
-	}
-
-	h.spaceship.Fire()
 }
 
 // handleTouch handles the touch event.
@@ -336,29 +388,7 @@ func (h *handler) render() {
 		return
 	}
 
-	config.ClearCanvas()
-	config.ClearBackground()
-
-	// Draw stars on the background
-	for _, s := range h.stars {
-		s.Draw()
-	}
-
-	// Draw background
-	config.DrawBackground(h.spaceship.Level.AccelerateRate.Float() * config.Config.Star.SpeedRatio)
-
-	// Draw spaceship
-	h.spaceship.Draw()
-
-	// Draw enemies
-	for _, e := range h.enemies {
-		e.Draw()
-	}
-
-	// Draw bullets
-	for _, b := range h.spaceship.Bullets {
-		b.Draw()
-	}
+	h.draw(false)
 }
 
 // refresh refreshes the game state.

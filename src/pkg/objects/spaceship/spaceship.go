@@ -16,7 +16,8 @@ type Spaceship struct {
 	Position            objects.Position // Position of the spaceship
 	Speed               objects.Position // Speed of the spaceship in both directions
 	Directions          Directions       // Directions the spaceship can move
-	Size                objects.Size     // Size of the spaceship
+	Size                objects.Size     // Size of the
+	CurrentScale        objects.Position // Scale of the spaceship
 	Bullets             bullet.Bullets   // Bullets fired by the spaceship
 	Cooldown            time.Duration    // Time between shots
 	Level               *SpaceshipLevel  // Spaceship level
@@ -401,6 +402,25 @@ func (spaceship *Spaceship) Penalize(levels int) {
 	}
 }
 
+// Scale scales the spaceship.
+// The spaceship's position is scaled based on the scale of the canvas.
+func (spaceship *Spaceship) Scale() {
+	canvasDimensions := config.CanvasBoundingBox()
+	scale := objects.Position{
+		X: objects.Number(canvasDimensions.ScaleX),
+		Y: objects.Number(canvasDimensions.ScaleY),
+	}
+
+	_ = objects.
+		Measure(spaceship.Position, spaceship.Size).
+		Scale(objects.Ones().DivX(spaceship.CurrentScale)).
+		Scale(scale).
+		ApplyPosition(&spaceship.Position).
+		ApplySize(&spaceship.Size)
+
+	spaceship.CurrentScale = scale
+}
+
 // String returns a string representation of the spaceship.
 func (spaceship Spaceship) String() string {
 	return fmt.Sprintf("Spaceship (Lvl: %d, Pos: %s, State: %s)", spaceship.Level.Progress, spaceship.Position, spaceship.State)
@@ -449,7 +469,7 @@ func (spaceship *Spaceship) UpdateState() {
 // The spaceship's position, size, cooldown, level, and state are set.
 func Embark() *Spaceship {
 	canvasDimensions := config.CanvasBoundingBox()
-	return &Spaceship{
+	spaceship := Spaceship{
 		Position: objects.Position{
 			X: objects.Number(canvasDimensions.Width/2 - config.Config.Spaceship.Width/2),
 			Y: objects.Number(canvasDimensions.Height - config.Config.Spaceship.Height),
@@ -458,11 +478,15 @@ func Embark() *Spaceship {
 			Width:  objects.Number(config.Config.Spaceship.Width),
 			Height: objects.Number(config.Config.Spaceship.Height),
 		},
-		Cooldown: config.Config.Spaceship.Cooldown,
+		CurrentScale: objects.Ones(),
+		Cooldown:     config.Config.Spaceship.Cooldown,
 		Level: &SpaceshipLevel{
 			AccelerateRate: objects.Number(config.Config.Spaceship.Acceleration),
 			Progress:       1,
 			Cannons:        1,
 		},
 	}
+
+	spaceship.Scale()
+	return &spaceship
 }

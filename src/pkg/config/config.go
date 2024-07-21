@@ -128,12 +128,14 @@ type config struct {
 	}
 
 	Star struct {
-		Brightness    float64
-		Count         int
-		MinimumRadius float64
-		MinimumSpikes float64
-		MaximumRadius float64
-		MaximumSpikes float64
-		SpeedRatio    float64
+		Brightness         float64
+		Count              int
+		MinimumInnerRadius float64
+		MinimumRadius      float64
+		MinimumSpikes      float64
+		MaximumInnerRadius float64
+		MaximumRadius      float64
+		MaximumSpikes      float64
+		SpeedRatio         float64
 	}
 }

@@ -5,13 +5,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 )
 
 // touchEvent represents a touch event.
 type touchEvent struct {
 	mutex                                       *sync.Mutex
-	StartPosition, CurrentPosition, EndPosition objects.Position
+	StartPosition, CurrentPosition, EndPosition numeric.Position
 	StartTime, EndTime                          time.Time
 	Type                                        touchType
 	MultiTap                                    bool
@@ -20,9 +20,9 @@ type touchEvent struct {
 // Reset resets the touch event.
 func (t *touchEvent) Reset() *touchEvent {
 	t.mutex.Lock()
-	t.StartPosition = objects.Position{}
-	t.CurrentPosition = objects.Position{}
-	t.EndPosition = objects.Position{}
+	t.StartPosition = numeric.Position{}
+	t.CurrentPosition = numeric.Position{}
+	t.EndPosition = numeric.Position{}
 	t.StartTime = time.Time{}
 	t.EndTime = time.Time{}
 	t.MultiTap = false
@@ -45,7 +45,7 @@ func (t touchEvent) Send(rcv chan<- touchEvent) {
 }
 
 // SetCurrentPosition sets the current position of the touch event.
-func (t *touchEvent) SetCurrentPosition(pos objects.Position) *touchEvent {
+func (t *touchEvent) SetCurrentPosition(pos numeric.Position) *touchEvent {
 	t.mutex.Lock()
 	t.CurrentPosition = pos
 	t.mutex.Unlock()
@@ -54,7 +54,7 @@ func (t *touchEvent) SetCurrentPosition(pos objects.Position) *touchEvent {
 }
 
 // SetEndPosition sets the end position of the touch event.
-func (t *touchEvent) SetEndPosition(p objects.Position) *touchEvent {
+func (t *touchEvent) SetEndPosition(p numeric.Position) *touchEvent {
 	t.mutex.Lock()
 	t.EndPosition = p
 	t.mutex.Unlock()
@@ -81,7 +81,7 @@ func (t *touchEvent) SetMultiTap(m bool) *touchEvent {
 }
 
 // SetStartPosition sets the start position of the touch event.
-func (t *touchEvent) SetStartPosition(pos objects.Position) *touchEvent {
+func (t *touchEvent) SetStartPosition(pos numeric.Position) *touchEvent {
 	t.mutex.Lock()
 	t.StartPosition = pos
 	t.mutex.Unlock()

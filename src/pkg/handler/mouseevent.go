@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 )
 
 const (
@@ -29,7 +29,7 @@ func (b mouseButton) String() string {
 // mouseEvent represents a mouse event.
 type mouseEvent struct {
 	mutex                                       *sync.Mutex
-	StartPosition, CurrentPosition, EndPosition objects.Position
+	StartPosition, CurrentPosition, EndPosition numeric.Position
 	StartTime, EndTime                          time.Time
 	Button                                      mouseButton
 	Pressed                                     bool
@@ -70,7 +70,7 @@ func (m *mouseEvent) SetButton(b mouseButton) *mouseEvent {
 }
 
 // SetCurrentPosition sets the current position of the mouse event.
-func (m *mouseEvent) SetCurrentPosition(pos objects.Position) *mouseEvent {
+func (m *mouseEvent) SetCurrentPosition(pos numeric.Position) *mouseEvent {
 	m.mutex.Lock()
 	m.CurrentPosition = pos
 	m.mutex.Unlock()
@@ -79,7 +79,7 @@ func (m *mouseEvent) SetCurrentPosition(pos objects.Position) *mouseEvent {
 }
 
 // SetEndPosition sets the end position of the mouse event.
-func (m *mouseEvent) SetEndPosition(pos objects.Position) *mouseEvent {
+func (m *mouseEvent) SetEndPosition(pos numeric.Position) *mouseEvent {
 	m.mutex.Lock()
 	m.EndPosition = pos
 	m.mutex.Unlock()
@@ -106,7 +106,7 @@ func (m *mouseEvent) SetPressed(p bool) *mouseEvent {
 }
 
 // SetStartPosition sets the start position of the mouse event.
-func (m *mouseEvent) SetStartPosition(pos objects.Position) *mouseEvent {
+func (m *mouseEvent) SetStartPosition(pos numeric.Position) *mouseEvent {
 	m.mutex.Lock()
 	m.StartPosition = pos
 	m.mutex.Unlock()
@@ -135,9 +135,9 @@ func (m *mouseEvent) SetType(t mouseEventType) *mouseEvent {
 // Reset resets the mouse event.
 func (m *mouseEvent) Reset() *mouseEvent {
 	m.mutex.Lock()
-	m.StartPosition = objects.Position{}
-	m.CurrentPosition = objects.Position{}
-	m.EndPosition = objects.Position{}
+	m.StartPosition = numeric.Position{}
+	m.CurrentPosition = numeric.Position{}
+	m.EndPosition = numeric.Position{}
 	m.StartTime = time.Time{}
 	m.EndTime = time.Time{}
 	m.Button = 0

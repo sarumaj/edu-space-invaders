@@ -31,6 +31,7 @@ async function loadWasm() {
     fetch("main.wasm"),
     go.importObject
   );
+
   go.run(wasmModule.instance);
 }
 

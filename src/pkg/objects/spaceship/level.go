@@ -2,13 +2,13 @@ package spaceship
 
 import (
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
 )
 
 // SpaceshipLevel represents the spaceship level.
 type SpaceshipLevel struct {
-	AccelerateRate objects.Number // AccelerateRate is the rate at which the spaceship accelerates.
+	AccelerateRate numeric.Number // AccelerateRate is the rate at which the spaceship accelerates.
 	Cannons        int            // Cannons is the number of cannons the spaceship has.
 	Experience     int            // Experience is the experience level of the spaceship.
 	Progress       int            // Progress is the progress level of the spaceship.
@@ -30,7 +30,7 @@ func (lvl *SpaceshipLevel) Down() bool {
 
 	lvl.AccelerateRate = -0.5 + (0.25 + lvl.AccelerateRate).Root()
 	if lvl.AccelerateRate.Float() < config.Config.Spaceship.Acceleration {
-		lvl.AccelerateRate = objects.Number(config.Config.Spaceship.Acceleration)
+		lvl.AccelerateRate = numeric.Number(config.Config.Spaceship.Acceleration)
 	}
 
 	if lvl.Cannons > 1 && (lvl.Progress-1)%config.Config.Spaceship.CannonProgress == 0 {
@@ -48,28 +48,28 @@ func (lvl *SpaceshipLevel) Down() bool {
 // It returns true if the spaceship level has increased.
 func (lvl *SpaceshipLevel) GainExperience(e enemy.Enemy) bool {
 	// Calculate the base experience using the penalty values
-	var base objects.Number
+	var base numeric.Number
 	switch e.Type {
 	case enemy.Freezer:
-		base = objects.Number(config.Config.Spaceship.FreezerPenalty)
+		base = numeric.Number(config.Config.Spaceship.FreezerPenalty)
 
 	case enemy.Normal:
-		base = objects.Number(config.Config.Spaceship.DefaultPenalty)
+		base = numeric.Number(config.Config.Spaceship.DefaultPenalty)
 
 	case enemy.Berserker:
-		base = objects.Number(config.Config.Spaceship.BerserkPenalty)
+		base = numeric.Number(config.Config.Spaceship.BerserkPenalty)
 
 	case enemy.Annihilator:
-		base = objects.Number(config.Config.Spaceship.AnnihilatorPenalty)
+		base = numeric.Number(config.Config.Spaceship.AnnihilatorPenalty)
 
 	}
 
 	// Calculate the experience gain
-	gain := (base * objects.Number(e.Level.Progress)).Int()
+	gain := (base * numeric.Number(e.Level.Progress)).Int()
 
 	// Formula for the required experience
 	formula := func() int {
-		return (objects.Number(lvl.Progress+1).Log() * objects.Number(config.Config.Spaceship.ExperienceFactor)).Int()
+		return (numeric.Number(lvl.Progress+1).Log() * numeric.Number(config.Config.Spaceship.ExperienceFactor)).Int()
 	}
 
 	// Increase the experience
@@ -97,9 +97,9 @@ func (lvl *SpaceshipLevel) Up() {
 		lvl.Cannons += 1
 	}
 
-	lvl.AccelerateRate *= 1 + objects.Number(config.Config.Spaceship.Acceleration)
+	lvl.AccelerateRate *= 1 + numeric.Number(config.Config.Spaceship.Acceleration)
 	if lvl.AccelerateRate.Float() > config.Config.Spaceship.MaximumSpeed {
-		lvl.AccelerateRate = objects.Number(config.Config.Spaceship.MaximumSpeed * config.Config.Spaceship.Acceleration)
+		lvl.AccelerateRate = numeric.Number(config.Config.Spaceship.MaximumSpeed * config.Config.Spaceship.Acceleration)
 	}
 
 	lvl.Progress++

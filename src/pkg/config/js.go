@@ -56,9 +56,10 @@ type audioPlayer struct {
 
 // dimensions represents the dimensions of the document.
 type dimensions struct {
-	Width, Height            float64
-	Left, Top, Right, Bottom float64
-	ScaleX, ScaleY           float64
+	BoxWidth, BoxHeight                  float64
+	BoxLeft, BoxTop, BoxRight, BoxBottom float64
+	OriginalWidth, OriginalHeight        float64
+	ScaleWidth, ScaleHeight              float64
 }
 
 func init() {
@@ -133,27 +134,10 @@ func setupCanvasInterface() {
 	invisibleCanvas.Set("width", canvasObject.Get("width").Float())
 	invisibleCanvas.Set("height", canvasObject.Get("height").Float())
 
-	GlobalSet("resize", js.FuncOf(func(_ js.Value, p []js.Value) any {
-		canvasWidth := canvasObject.Get("width")
-		canvasHeight := canvasObject.Get("height")
-
-		data := canvasObjectContext.Call("getImageData", 0, 0, canvasWidth, canvasHeight)
-
-		innerWidth := canvasObject.Get("clientWidth")
-		innerHeight := canvasObject.Get("clientHeight")
-
-		canvasObject.Set("width", innerWidth)
-		canvasObject.Set("height", innerHeight)
-
-		invisibleCanvas.Set("width", canvasObject.Get("width"))
-		invisibleCanvas.Set("height", canvasObject.Get("height"))
-
-		canvasObjectContext.Call("putImageData", data, 0, 0)
-
+	GlobalSet("resize", js.FuncOf(func(_ js.Value, _ []js.Value) any {
 		if GlobalGet("drawFunc").Truthy() {
 			GlobalGet("drawFunc").Invoke()
 		}
-
 		return nil
 	}))
 
@@ -161,6 +145,8 @@ func setupCanvasInterface() {
 		GlobalCall("requestAnimationFrame", GlobalGet("resize"))
 		return nil
 	}))
+
+	GlobalCall("requestAnimationFrame", GlobalGet("resize"))
 }
 
 // setupRefreshInterface is a function that sets up the refresh interface.
@@ -220,17 +206,20 @@ func AddEventListenerToCanvas(event string, listener any) {
 // CanvasBoundingBox returns the bounding box of the document.
 func CanvasBoundingBox() dimensions {
 	box := canvasObject.Call("getBoundingClientRect")
+
 	dim := dimensions{
-		Left:   box.Get("left").Float(),
-		Top:    box.Get("top").Float(),
-		Right:  box.Get("right").Float(),
-		Bottom: box.Get("bottom").Float(),
-		Width:  box.Get("width").Float(),
-		Height: box.Get("height").Float(),
+		BoxLeft:        box.Get("left").Float(),
+		BoxTop:         box.Get("top").Float(),
+		BoxRight:       box.Get("right").Float(),
+		BoxBottom:      box.Get("bottom").Float(),
+		BoxWidth:       box.Get("width").Float(),
+		BoxHeight:      box.Get("height").Float(),
+		OriginalWidth:  originalWidth,
+		OriginalHeight: originalHeight,
 	}
 
-	dim.ScaleX = dim.Width / originalWidth
-	dim.ScaleY = dim.Height / originalHeight
+	dim.ScaleWidth = dim.BoxWidth / dim.OriginalWidth
+	dim.ScaleHeight = dim.BoxHeight / dim.OriginalHeight
 
 	return dim
 }
@@ -247,21 +236,22 @@ func ClearCanvas() {
 
 // DrawBackground is a function that draws the background of the document.
 // The background is drawn with the specified speed.
-func DrawBackground(speed float64, reset bool) {
+func DrawBackground(speed float64) {
+	if !*Config.Control.BackgroundAnimationEnabled {
+		canvasObjectContext.Call("drawImage", invisibleCanvas, 0, 0)
+		return
+	}
+
 	canvasDimensions := CanvasBoundingBox()
 
 	// Apply the speed
 	invisibleCanvasScrollY += speed
-	if reset || invisibleCanvasScrollY >= canvasDimensions.Height {
-		invisibleCanvasScrollY = 0
+	if invisibleCanvasScrollY/canvasDimensions.OriginalHeight > 1 {
+		invisibleCanvasScrollY -= canvasDimensions.OriginalHeight
 	}
 
-	if *Config.Control.BackgroundAnimationEnabled {
-		canvasObjectContext.Call("drawImage", invisibleCanvas, 0, invisibleCanvasScrollY)
-		canvasObjectContext.Call("drawImage", invisibleCanvas, 0, invisibleCanvasScrollY-canvasDimensions.Height)
-	} else {
-		canvasObjectContext.Call("drawImage", invisibleCanvas, 0, 0)
-	}
+	canvasObjectContext.Call("drawImage", invisibleCanvas, 0, invisibleCanvasScrollY)
+	canvasObjectContext.Call("drawImage", invisibleCanvas, 0, invisibleCanvasScrollY-canvasDimensions.OriginalHeight)
 }
 
 // DrawLine is a function that draws a line on the document.
@@ -361,25 +351,22 @@ func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color string)
 // The star is drawn at the specified position (cx, cy) with the specified number of spikes.
 // The outer radius and inner radius of the star are specified.
 // The star is filled with the specified color.
-func DrawStar(coords [2]float64, spikes, radius float64, color string, brightness float64) {
-	rot := math.Pi / 2 * 3         // Starting rotation angle (90 degrees)
+func DrawStar(coords [2]float64, spikes int, radius, innerRadius float64, color string, brightness float64) {
 	cx, cy := coords[0], coords[1] // Center position
-	x, y := cx, cy                 // Starting position
-	step := math.Pi / spikes       // Angle between each spike
 
 	// Calculate the positions of the star
 	var positions [][2]float64
-	for i := 0; i < int(spikes); i++ {
-		x = cx + math.Cos(rot)*radius
-		y = cy + math.Sin(rot)*radius
-		positions = append(positions, [2]float64{x, y})
-		rot += step
+	for i, r := 0, 0.0; i < 2*spikes; i++ {
+		if i%2 == 0 {
+			r = radius
+		} else {
+			r = innerRadius
+		}
 
-		// inner radius
-		x = cx + math.Cos(rot)*radius/2
-		y = cy + math.Sin(rot)*radius/2
+		angle := float64(i) * math.Pi / float64(spikes)
+		x := cx + math.Cos(angle)*r
+		y := cy + math.Sin(angle)*r
 		positions = append(positions, [2]float64{x, y})
-		rot += step
 	}
 
 	// Draw the star
@@ -387,11 +374,11 @@ func DrawStar(coords [2]float64, spikes, radius float64, color string, brightnes
 	for _, c := range []string{color, fmt.Sprintf("rgba(0, 0, 0, %.2f)", 1-brightness)} {
 		invisibleCtx.Call("beginPath")
 		invisibleCtx.Set("fillStyle", c)
-		invisibleCtx.Call("moveTo", cx, cy-radius)
-		for i := 1; i < len(positions)-1; i++ {
+		invisibleCtx.Call("moveTo", positions[0][0], positions[0][1])
+		for i := 1; i < len(positions); i++ {
 			invisibleCtx.Call("lineTo", positions[i][0], positions[i][1])
 		}
-		invisibleCtx.Call("lineTo", cx, cy-radius)
+		invisibleCtx.Call("lineTo", positions[0][0], positions[0][1]) // Close the star
 		invisibleCtx.Call("closePath")
 		invisibleCtx.Call("fill")
 	}

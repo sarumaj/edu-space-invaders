@@ -3,7 +3,7 @@ package spaceship
 import (
 	"fmt"
 
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 )
 
 const (
@@ -29,8 +29,8 @@ type Directions struct {
 }
 
 // Brake stops the spaceship if it is headed to the opposite direction.
-func (d Directions) Brake(delta objects.Position) objects.Position {
-	speedFactor := objects.Position{X: 1, Y: 1}
+func (d Directions) Brake(delta numeric.Position) numeric.Position {
+	speedFactor := numeric.Ones()
 	switch {
 	case
 		delta.Y > 0 && d.Vertical == Up,
@@ -67,7 +67,7 @@ func (d Directions) IsHeadedTo(dir Direction) bool {
 }
 
 // SetFromDelta sets the directions based on the delta.
-func (d *Directions) SetFromDelta(delta objects.Position) {
+func (d *Directions) SetFromDelta(delta numeric.Position) {
 	switch {
 	case delta.X < 0:
 		d.Horizontal = Left

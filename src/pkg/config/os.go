@@ -7,10 +7,12 @@ import (
 	"os"
 )
 
+// dimensions represents the dimensions of the document.
 type dimensions struct {
-	Width, Height            float64
-	Left, Top, Right, Bottom float64
-	ScaleX, ScaleY           float64
+	BoxWidth, BoxHeight                  float64
+	BoxLeft, BoxTop, BoxRight, BoxBottom float64
+	OriginalWidth, OriginalHeight        float64
+	ScaleWidth, ScaleHeight              float64
 }
 
 // AddEventListener is a function that adds an event listener to the document.
@@ -21,7 +23,7 @@ func AddEventListenerToCanvas(event string, listener any) {}
 
 // CanvasBoundingBox returns the bounding box of the canvas.
 func CanvasBoundingBox() dimensions {
-	return dimensions{Width: 800, Height: 600}
+	return dimensions{BoxWidth: 800, BoxHeight: 600, BoxRight: 800, BoxBottom: 600}
 }
 
 // ClearBackground is a function that clears the invisible canvas.
@@ -32,7 +34,7 @@ func ClearCanvas() {}
 
 // DrawBackground is a function that draws the background of the canvas.
 // The background is drawn with the specified speed.
-func DrawBackground(speed float64, reset bool) {}
+func DrawBackground(speed float64) {}
 
 // DrawLine is a function that draws a line on the canvas.
 func DrawLine(start, end [2]float64, color string, thickness float64) {}
@@ -49,7 +51,8 @@ func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color string)
 // The star is drawn at the specified position (cx, cy) with the specified number of spikes.
 // The outer radius and inner radius of the star are specified.
 // The star is filled with the specified color.
-func DrawStar(coords [2]float64, spikes, radius float64, color string, brightness float64) {}
+func DrawStar(coords [2]float64, spikes int, radius, innerRadius float64, color string, brightness float64) {
+}
 
 // Getenv is a function that returns the value of the environment variable key.
 func Getenv(key string) string { return os.Getenv(key) }

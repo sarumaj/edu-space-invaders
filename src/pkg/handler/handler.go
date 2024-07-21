@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/spaceship"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/star"
@@ -163,41 +164,29 @@ func (h *handler) checkCollisions() {
 // It draws the spaceship.
 // It draws the enemies.
 // It draws the bullets.
-func (h *handler) draw(resize bool) {
+func (h *handler) draw() {
 	config.ClearCanvas()
 	config.ClearBackground()
 
 	// Draw stars on the background
 	for _, s := range h.stars {
-		if resize {
-			s.Scale()
-		}
 		s.Draw()
 		s.Exhaust()
 	}
 
 	// Draw background
-	config.DrawBackground(h.spaceship.Level.AccelerateRate.Float()*config.Config.Star.SpeedRatio, resize)
+	config.DrawBackground(h.spaceship.Level.AccelerateRate.Float() * config.Config.Star.SpeedRatio)
 
 	// Draw spaceship
-	if resize {
-		h.spaceship.Scale()
-	}
 	h.spaceship.Draw()
 
 	// Draw enemies
 	for _, e := range h.enemies {
-		if resize {
-			e.Scale()
-		}
 		e.Draw()
 	}
 
 	// Draw bullets
 	for _, b := range h.spaceship.Bullets {
-		if resize {
-			b.Scale()
-		}
 		b.Draw()
 	}
 }
@@ -302,12 +291,18 @@ func (h *handler) handleMouse(event mouseEvent) {
 			return
 		}
 
-		switch sizeCorrection := h.spaceship.Size.ToVector().Div(2); {
+		canvasDimensions := config.CanvasBoundingBox()
+		positionCorrection := numeric.Position{
+			X: numeric.Number(canvasDimensions.ScaleWidth),
+			Y: numeric.Number(canvasDimensions.ScaleHeight),
+		}
+
+		switch {
 		case !event.CurrentPosition.IsZero():
-			h.spaceship.MoveTo(event.CurrentPosition.Sub(sizeCorrection))
+			h.spaceship.MoveTo(event.CurrentPosition.DivX(positionCorrection))
 
 		case !event.StartPosition.IsZero():
-			h.spaceship.MoveTo(event.StartPosition.Sub(sizeCorrection))
+			h.spaceship.MoveTo(event.StartPosition.DivX(positionCorrection))
 
 		}
 
@@ -338,12 +333,18 @@ func (h *handler) handleTouch(event touchEvent) {
 		return
 	}
 
-	switch sizeCorrection := h.spaceship.Size.ToVector().Div(2); {
+	canvasDimensions := config.CanvasBoundingBox()
+	positionCorrection := numeric.Position{
+		X: numeric.Number(canvasDimensions.ScaleWidth),
+		Y: numeric.Number(canvasDimensions.ScaleHeight),
+	}
+
+	switch {
 	case !event.CurrentPosition.IsZero():
-		h.spaceship.MoveTo(event.CurrentPosition.Sub(sizeCorrection))
+		h.spaceship.MoveTo(event.CurrentPosition.DivX(positionCorrection))
 
 	case !event.StartPosition.IsZero():
-		h.spaceship.MoveTo(event.StartPosition.Sub(sizeCorrection))
+		h.spaceship.MoveTo(event.StartPosition.DivX(positionCorrection))
 
 	}
 
@@ -388,7 +389,7 @@ func (h *handler) render() {
 		return
 	}
 
-	h.draw(false)
+	h.draw()
 }
 
 // refresh refreshes the game state.
@@ -401,7 +402,7 @@ func (h *handler) refresh() {
 		return
 	}
 
-	h.enemies.Update(h.spaceship.Position.Add(h.spaceship.Size.ToVector().Div(2)))
+	h.enemies.Update(h.spaceship.Position)
 	h.spaceship.UpdateState()
 	h.spaceship.Bullets.Update()
 	h.checkCollisions()

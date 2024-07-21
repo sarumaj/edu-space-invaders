@@ -1,18 +1,17 @@
 package star
 
 import (
-	"math/rand/v2"
-
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 )
 
 // Star represents a star.
 type Star struct {
-	Position     objects.Position
-	Radius       objects.Number
-	CurrentScale objects.Position
-	Spikes       objects.Number
+	InnerRadius  numeric.Number
+	Position     numeric.Position
+	Radius       numeric.Number
+	CurrentScale numeric.Position
+	Spikes       numeric.Number
 	Exhausted    bool
 	color        string
 }
@@ -23,7 +22,7 @@ func (star Star) Draw() {
 		return
 	}
 
-	config.DrawStar(star.Position.Pack(), star.Spikes.Float(), star.Radius.Float(), star.color, config.Config.Star.Brightness)
+	config.DrawStar(star.Position.Pack(), star.Spikes.Int(), star.Radius.Float(), star.InnerRadius.Float(), star.color, config.Config.Star.Brightness)
 }
 
 // Exhaust is a method that sets the star as exhausted.
@@ -31,31 +30,13 @@ func (star *Star) Exhaust() {
 	star.Exhausted = true
 }
 
-// Scale is a method that scales the star.
-func (star *Star) Scale() {
-	canvasDimensions := config.CanvasBoundingBox()
-	scale := objects.Position{
-		X: objects.Number(canvasDimensions.ScaleX),
-		Y: objects.Number(canvasDimensions.ScaleY),
-	}
-
-	_ = objects.
-		Measure(star.Position, star.Radius).
-		Scale(objects.Ones().DivX(star.CurrentScale)).
-		Scale(scale).
-		ApplyPosition(&star.Position).
-		ApplySize(&star.Radius)
-
-	star.CurrentScale = scale
-}
-
 // Twinkle is a function that creates a new star.
-func Twinkle(position objects.Position) *Star {
+func Twinkle(position numeric.Position) *Star {
 	star := Star{
 		Position:     position,
-		Radius:       objects.Number(rand.Float64()*config.Config.Star.MinimumRadius + (config.Config.Star.MaximumRadius - config.Config.Star.MinimumRadius)),
-		Spikes:       objects.Number(rand.Float64()*config.Config.Star.MinimumSpikes + (config.Config.Star.MaximumSpikes - config.Config.Star.MinimumSpikes)),
-		CurrentScale: objects.Ones(),
+		Radius:       numeric.RandomRange(config.Config.Star.MinimumRadius, config.Config.Star.MaximumRadius),
+		Spikes:       numeric.RandomRange(config.Config.Star.MinimumSpikes, config.Config.Star.MaximumSpikes),
+		CurrentScale: numeric.Ones(),
 		color: [...]string{
 			"White",
 			"LightYellow",
@@ -67,9 +48,12 @@ func Twinkle(position objects.Position) *Star {
 			"LightCoral",
 			"LightPink",
 			"LavenderBlush",
-		}[rand.IntN(10)],
+		}[numeric.RandomRange(0, 9).Int()],
 	}
 
-	star.Scale()
+	for star.InnerRadius == 0 || star.InnerRadius > star.Radius {
+		star.InnerRadius = numeric.RandomRange(config.Config.Star.MinimumInnerRadius, config.Config.Star.MaximumInnerRadius)
+	}
+
 	return &star
 }

@@ -2,19 +2,18 @@ package enemy
 
 import (
 	"fmt"
-	"math/rand"
 
 	"github.com/Pallinder/go-randomdata"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 )
 
 // Enemy represents the enemy.
 type Enemy struct {
 	Name                string           // Name is the name of the enemy.
-	Position            objects.Position // Position is the position of the enemy.
-	Size                objects.Size     // Size is the size of the enemy.
-	CurrentScale        objects.Position // CurrentScale is the scale of the enemy.
+	Position            numeric.Position // Position is the position of the enemy.
+	Size                numeric.Size     // Size is the size of the enemy.
+	CurrentScale        numeric.Position // CurrentScale is the scale of the enemy.
 	SpecialtyLikeliness float64          // SpecialtyLikeliness is the likelihood of the enemy being a goodie or a freezer (expected to be lower than 1).
 	Level               *EnemyLevel      // Level is the level of the enemy.
 	Type                EnemyType        // Type is the type of the enemy.
@@ -27,7 +26,7 @@ type Enemy struct {
 // If the enemy is an annihilator, it increases its size, health points and defense.
 func (enemy *Enemy) Berserk() {
 	boost := struct {
-		sizeFactor, speedFactor float64
+		sizeFactor, speedFactor numeric.Number
 		healthPoints, defense   int
 		nextType                EnemyType
 	}{
@@ -41,26 +40,26 @@ func (enemy *Enemy) Berserk() {
 	case Normal:
 		boost.defense = config.Config.Enemy.Berserker.DefenseBoost
 		boost.healthPoints = config.Config.Enemy.Berserker.HitpointsBoost
-		boost.speedFactor = config.Config.Enemy.Berserker.SpeedFactorBoost
-		boost.sizeFactor = config.Config.Enemy.Berserker.SizeFactorBoost
+		boost.speedFactor = numeric.Number(config.Config.Enemy.Berserker.SpeedFactorBoost)
+		boost.sizeFactor = numeric.Number(config.Config.Enemy.Berserker.SizeFactorBoost)
 		boost.nextType = Berserker
 
 	case Berserker:
 		boost.defense = config.Config.Enemy.Annihilator.DefenseBoost
 		boost.healthPoints = config.Config.Enemy.Annihilator.HitpointsBoost
-		boost.speedFactor = config.Config.Enemy.Annihilator.SpeedFactorBoost
-		boost.sizeFactor = config.Config.Enemy.Annihilator.SizeFactorBoost
+		boost.speedFactor = numeric.Number(config.Config.Enemy.Annihilator.SpeedFactorBoost)
+		boost.sizeFactor = numeric.Number(config.Config.Enemy.Annihilator.SizeFactorBoost)
 		boost.nextType = Annihilator
 
 	case Annihilator:
 		boost.defense = config.Config.Enemy.Annihilator.YetAgainFactor * config.Config.Enemy.Annihilator.DefenseBoost
 		boost.healthPoints = config.Config.Enemy.Annihilator.YetAgainFactor * config.Config.Enemy.Annihilator.HitpointsBoost
-		boost.speedFactor = config.Config.Enemy.Annihilator.SpeedFactorBoost
-		boost.sizeFactor = config.Config.Enemy.Annihilator.SizeFactorBoost
+		boost.speedFactor = numeric.Number(config.Config.Enemy.Annihilator.SpeedFactorBoost)
+		boost.sizeFactor = numeric.Number(config.Config.Enemy.Annihilator.SizeFactorBoost)
 
 	}
 
-	if rand.Intn(int(1.0/enemy.Level.BerserkLikeliness)) != 0 {
+	if !numeric.SampleUniform(enemy.Level.BerserkLikeliness) {
 		return
 	}
 
@@ -70,18 +69,15 @@ func (enemy *Enemy) Berserk() {
 	enemy.Level.Speed *= boost.speedFactor
 
 	canvasDimensions := config.CanvasBoundingBox()
-	canvasSize, newSize := objects.Size{
-		Width:  objects.Number(canvasDimensions.Width),
-		Height: objects.Number(canvasDimensions.Height),
-	}, objects.Position{
-		X: objects.Number(config.Config.Enemy.Width),
-		Y: objects.Number(config.Config.Enemy.Height),
-	}.Mul(objects.Number(boost.sizeFactor)).ToBox()
 
-	if newSize.ToVector().Less(canvasSize.ToVector()) {
+	newSize := numeric.
+		Locate(config.Config.Enemy.Width, config.Config.Enemy.Height).
+		Mul(boost.sizeFactor).
+		ToBox()
+
+	if newSize.ToVector().Less(numeric.Locate(canvasDimensions.OriginalWidth, canvasDimensions.OriginalHeight)) {
 		enemy.Size = newSize
-		enemy.Position = enemy.Position.Sub(newSize.ToVector().Div(objects.Number(boost.sizeFactor)))
-		enemy.Scale()
+		enemy.Position = enemy.Position.Sub(newSize.ToVector().Div(boost.sizeFactor))
 	}
 }
 
@@ -139,9 +135,9 @@ func (enemy Enemy) Draw() {
 // The damage is reduced by the defense of the enemy.
 // If the damage is less than 0, it is set to 0.
 func (enemy *Enemy) Hit(damage int) {
-	damage = damage - enemy.Level.Defense - rand.Intn(enemy.Level.Defense*enemy.Level.Progress)
+	damage = damage - enemy.Level.Defense - numeric.RandomRange(0, enemy.Level.Defense*enemy.Level.Progress).Int()
 	if damage < 0 {
-		damage = rand.Intn(config.Config.Bullet.InitialDamage)
+		damage = numeric.RandomRange(0, config.Config.Bullet.InitialDamage).Int()
 	}
 
 	enemy.Level.HitPoints -= damage
@@ -166,9 +162,9 @@ func (enemy Enemy) IsDestroyed() bool {
 // The direction of the enemy is based on the position of the spaceship.
 // If the spaceship is below the enemy, the enemy moves towards the spaceship.
 // Otherwise, the enemy moves randomly.
-func (enemy *Enemy) Move(spaceshipPosition objects.Position) {
+func (enemy *Enemy) Move(spaceshipPosition numeric.Position) {
 	if enemy.Type == Goodie {
-		enemy.Position.Y += objects.Number(enemy.Level.Speed)
+		enemy.Position.Y += numeric.Number(enemy.Level.Speed)
 		return
 	}
 
@@ -179,42 +175,35 @@ func (enemy *Enemy) Move(spaceshipPosition objects.Position) {
 	distance := delta.Magnitude()
 
 	// Define the strength formula
-	strength := objects.Number(enemy.Level.Progress) / (distance + 1) // Add 1 to avoid division by zero
+	strength := numeric.Number(enemy.Level.Progress) / (distance + 1) // Add 1 to avoid division by zero
 
 	// Add randomness to the chase based on strength
-	delta = delta.Add(objects.Position{
-		X: objects.Number(rand.Float64() - 0.5), // Random number between -0.5 and 0.5
-		Y: objects.Number(rand.Float64() - 1),   // Random number between -1 and 0
-	}).Mul(strength)
+	delta = delta.Add(numeric.Locate(
+		numeric.RandomRange(-0.5, 0.5), // Random number between -0.5 and 0.5
+		numeric.RandomRange(-1, 0),     // Random number between -1 and 0
+	)).Mul(strength)
 
 	// Limit the speed of the enemy
 	if delta.Magnitude().Float() > config.Config.Enemy.MaximumSpeed {
-		delta = delta.Normalize().Mul(objects.Number(config.Config.Enemy.MaximumSpeed))
+		delta = delta.Normalize().Mul(numeric.Number(config.Config.Enemy.MaximumSpeed))
 	}
 
 	// Move down using the speed
-	enemy.Position.Y += objects.Number(enemy.Level.Speed)
+	enemy.Position.Y += enemy.Level.Speed
+
+	// Dash off screen if the spaceship is below the enemy and the enemy is close to the spaceship
+	if enemy.Position.Y > spaceshipPosition.Y && enemy.Position.Sub(spaceshipPosition).X.Abs() < enemy.Size.ToVector().Magnitude() {
+		delta.Y = numeric.Number(config.Config.Enemy.MaximumSpeed)
+	}
 
 	// Move horizontally and vertically towards the spaceship
 	enemy.Position = enemy.Position.Add(delta)
-}
-
-// Scale scales the enemy based on the scale of the canvas.
-func (enemy *Enemy) Scale() {
 	canvasDimensions := config.CanvasBoundingBox()
-	scale := objects.Position{
-		X: objects.Number(canvasDimensions.ScaleX),
-		Y: objects.Number(canvasDimensions.ScaleY),
+	if enemy.Position.X < 0 {
+		enemy.Position.X = 0
+	} else if enemy.Position.X.Float() > canvasDimensions.OriginalWidth {
+		enemy.Position.X = numeric.Number(canvasDimensions.OriginalWidth)
 	}
-
-	_ = objects.
-		Measure(enemy.Position, enemy.Size).
-		Scale(objects.Ones().DivX(enemy.CurrentScale)).
-		Scale(scale).
-		ApplyPosition(&enemy.Position).
-		ApplySize(&enemy.Size)
-
-	enemy.CurrentScale = scale
 }
 
 // String returns the string representation of the enemy.
@@ -240,12 +229,8 @@ func (enemy *Enemy) Surprise(stats map[EnemyType]int) {
 		total = 1.0
 	}
 
-	if enemy.Type == Normal && rand.Intn(int(1.0/enemy.SpecialtyLikeliness)) == 0 {
-		index := 0
-		if rand.Float64()*(total-goodies)/total >= 0.5 {
-			index = 1
-		}
-		enemy.Type = [...]EnemyType{Freezer, Goodie}[index]
+	if enemy.Type == Normal && numeric.SampleUniform(enemy.SpecialtyLikeliness) {
+		enemy.Type = [...]EnemyType{Freezer, Goodie}[numeric.RandomRange(0, (total-goodies)/total).Int()]
 
 	}
 }
@@ -281,25 +266,19 @@ func Challenge(name string, randomY bool) *Enemy {
 	}
 
 	canvasDimensions := config.CanvasBoundingBox()
-	y := 0.0
+	var y numeric.Number
 	if randomY {
-		y = rand.Float64() * (canvasDimensions.Height/2 - config.Config.Enemy.Height)
+		y = numeric.RandomRange(0, canvasDimensions.OriginalHeight/2)
 	}
 
 	enemy := Enemy{
-		Position: objects.Position{
-			X: objects.Number(rand.Float64() * (canvasDimensions.Width - config.Config.Enemy.Width)),
-			Y: objects.Number(y),
-		},
-		Size: objects.Size{
-			Width:  objects.Number(config.Config.Enemy.Width),
-			Height: objects.Number(config.Config.Enemy.Height),
-		},
-		CurrentScale:        objects.Ones(),
+		Position:            numeric.Locate(numeric.RandomRange(0, canvasDimensions.OriginalWidth), y),
+		Size:                numeric.Locate(config.Config.Enemy.Width, config.Config.Enemy.Height).ToBox(),
+		CurrentScale:        numeric.Ones(),
 		SpecialtyLikeliness: config.Config.Enemy.SpecialtyLikeliness,
 		Level: &EnemyLevel{
 			Progress:          1,
-			Speed:             config.Config.Enemy.InitialSpeed,
+			Speed:             numeric.Number(config.Config.Enemy.InitialSpeed),
 			HitPoints:         config.Config.Enemy.InitialHitpoints,
 			Defense:           config.Config.Enemy.InitialDefense,
 			BerserkLikeliness: config.Config.Enemy.BerserkLikeliness,
@@ -308,6 +287,5 @@ func Challenge(name string, randomY bool) *Enemy {
 		Name: name,
 	}
 
-	enemy.Scale()
 	return &enemy
 }

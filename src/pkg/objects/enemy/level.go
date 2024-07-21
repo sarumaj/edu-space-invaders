@@ -1,13 +1,16 @@
 package enemy
 
-import "github.com/sarumaj/edu-space-invaders/src/pkg/config"
+import (
+	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
+)
 
 // EnemyLevel represents the enemy level.
 type EnemyLevel struct {
-	Progress           int     // Progress is the level of the enemy.
-	Speed              float64 // Speed is the speed of the enemy
-	HitPoints, Defense int     // HitPoints is the health points of the enemy, Defense is the defense of the enemy.
-	BerserkLikeliness  float64 // BerserkLikeliness is the likeliness of the enemy to become berserk or to become an annihilator.
+	Progress           int            // Progress is the level of the enemy.
+	Speed              numeric.Number // Speed is the speed of the enemy
+	HitPoints, Defense int            // HitPoints is the health points of the enemy, Defense is the defense of the enemy.
+	BerserkLikeliness  float64        // BerserkLikeliness is the likeliness of the enemy to become berserk or to become an annihilator.
 }
 
 // Down decreases the enemy level.
@@ -21,7 +24,7 @@ func (lvl *EnemyLevel) Down() {
 		return
 	}
 
-	if lvl.Speed > config.Config.Enemy.InitialSpeed {
+	if lvl.Speed.Float() > config.Config.Enemy.InitialSpeed {
 		lvl.Speed -= 1
 	}
 
@@ -44,8 +47,12 @@ func (lvl *EnemyLevel) Down() {
 // If the enemy speed is less than the maximum speed, it increases the speed by 1.
 // It increases the berserk likeliness by 0.01, the hit points by 10 and the defense by 10.
 func (lvl *EnemyLevel) Up() {
-	if lvl.Speed < config.Config.Enemy.MaximumSpeed {
+	if lvl.Speed.Float() < config.Config.Enemy.MaximumSpeed {
 		lvl.Speed += 1
+	}
+
+	if lvl.BerserkLikeliness < 1 {
+		lvl.BerserkLikeliness += config.Config.Enemy.BerserkLikelinessProgress
 	}
 
 	lvl.BerserkLikeliness += config.Config.Enemy.BerserkLikelinessProgress

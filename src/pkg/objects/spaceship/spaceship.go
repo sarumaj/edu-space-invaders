@@ -2,22 +2,21 @@ package spaceship
 
 import (
 	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/bullet"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
 )
 
 // Spaceship represents the player's spaceship.
 type Spaceship struct {
-	Position            objects.Position // Position of the spaceship
-	Speed               objects.Position // Speed of the spaceship in both directions
+	Position            numeric.Position // Position of the spaceship
+	Speed               numeric.Position // Speed of the spaceship in both directions
 	Directions          Directions       // Directions the spaceship can move
-	Size                objects.Size     // Size of the
-	CurrentScale        objects.Position // Scale of the spaceship
+	Size                numeric.Size     // Size of the
+	CurrentScale        numeric.Position // Scale of the spaceship
 	Bullets             bullet.Bullets   // Bullets fired by the spaceship
 	Cooldown            time.Duration    // Time between shots
 	Level               *SpaceshipLevel  // Spaceship level
@@ -38,8 +37,8 @@ func (spaceship *Spaceship) ChangeState(state SpaceshipState) {
 		if spaceship.Level.Cannons > config.Config.Spaceship.MaximumCannons {
 			spaceship.Level.Cannons = config.Config.Spaceship.MaximumCannons
 		}
-		spaceship.Size.Width = objects.Number(config.Config.Spaceship.Width * 2)
-		spaceship.Position.X -= objects.Number(config.Config.Spaceship.Width / 2)
+		spaceship.Size.Width = numeric.Number(config.Config.Spaceship.Width * 2)
+		spaceship.Position.X -= numeric.Number(config.Config.Spaceship.Width / 2)
 	}
 
 	spaceship.State = state
@@ -108,13 +107,14 @@ func (spaceship *Spaceship) Fire() {
 
 	for i := 1; i < spaceship.Level.Cannons+1; i++ {
 		spaceship.Bullets.Reload(
-			spaceship.Position.Add(objects.Position{
+			spaceship.Position.Add(numeric.Locate(
 				// X position of the bullet
 				// The X position of the bullet is calculated based on the position of the cannon.
 				// The X position of the bullet is the X position of the spaceship plus the width of the spaceship
 				// times the position of the cannon minus the width of the bullet divided by 2.
-				X: spaceship.Size.Width*objects.Number(i)/objects.Number(spaceship.Level.Cannons+1) - objects.Number(config.Config.Bullet.Width/2),
-			}),
+				spaceship.Size.Width*numeric.Number(i)/numeric.Number(spaceship.Level.Cannons+1)-numeric.Number(config.Config.Bullet.Width/2),
+				0,
+			)),
 			spaceship.GetBulletDamage(),
 			// Skew of the bullet
 			// Skew is the skew of the bullet based on the position of the cannon.
@@ -136,7 +136,7 @@ func (spaceship Spaceship) GetBulletDamage() int {
 	// Calculate the modifier
 	modifier := (spaceship.Level.Progress/config.Config.Bullet.ModifierProgressStep + 1) * spaceship.Level.Cannons
 	// Return the damage
-	return base*modifier + rand.Intn(base*modifier)
+	return base*modifier + numeric.RandomRange(0, base*modifier).Int()
 }
 
 // IsDestroyed checks if the spaceship is destroyed.
@@ -170,19 +170,18 @@ func (spaceship *Spaceship) MoveDown() {
 	spaceship.Directions.SetVertical(Down)
 
 	// Accelerate the spaceship vertically
-	spaceship.Speed.Y += objects.Number(spaceship.Level.AccelerateRate)
+	spaceship.Speed.Y += numeric.Number(spaceship.Level.AccelerateRate)
 
 	// Limit the speed of the spaceship
 	if spaceship.Speed.Magnitude().Float() > config.Config.Spaceship.MaximumSpeed {
-		spaceship.Speed = spaceship.Speed.Normalize().Mul(objects.Number(config.Config.Spaceship.MaximumSpeed))
+		spaceship.Speed = spaceship.Speed.Normalize().Mul(numeric.Number(config.Config.Spaceship.MaximumSpeed))
 	}
 
 	// Check the vertical boundaries and update the spaceship position
+	spaceship.Position.Y += spaceship.Speed.Y
 	canvasDimensions := config.CanvasBoundingBox()
-	if spaceship.Position.Y+spaceship.Size.Height+spaceship.Speed.Y < objects.Number(canvasDimensions.Height) {
-		spaceship.Position.Y += spaceship.Speed.Y
-	} else {
-		spaceship.Position.Y = objects.Number(canvasDimensions.Height - spaceship.Size.Height.Float())
+	if spaceship.Position.Y.Float() > canvasDimensions.OriginalHeight {
+		spaceship.Position.Y = numeric.Number(canvasDimensions.OriginalHeight)
 		spaceship.Speed.Y = 0
 	}
 
@@ -214,17 +213,16 @@ func (spaceship *Spaceship) MoveLeft() {
 	spaceship.Directions.SetHorizontal(Left)
 
 	// Accelerate the spaceship horizontally
-	spaceship.Speed.X += objects.Number(spaceship.Level.AccelerateRate)
+	spaceship.Speed.X += numeric.Number(spaceship.Level.AccelerateRate)
 
 	// Limit the speed of the spaceship
 	if spaceship.Speed.Magnitude().Float() > config.Config.Spaceship.MaximumSpeed {
-		spaceship.Speed = spaceship.Speed.Normalize().Mul(objects.Number(config.Config.Spaceship.MaximumSpeed))
+		spaceship.Speed = spaceship.Speed.Normalize().Mul(numeric.Number(config.Config.Spaceship.MaximumSpeed))
 	}
 
 	// Check the horizontal boundaries and update the spaceship position
-	if spaceship.Position.X-spaceship.Speed.X > 0 {
-		spaceship.Position.X -= spaceship.Speed.X
-	} else {
+	spaceship.Position.X -= spaceship.Speed.X
+	if spaceship.Position.X < 0 {
 		spaceship.Position.X = 0
 		spaceship.Speed.X = 0
 	}
@@ -258,19 +256,18 @@ func (spaceship *Spaceship) MoveRight() {
 	spaceship.Directions.SetHorizontal(Right)
 
 	// Accelerate the spaceship horizontally
-	spaceship.Speed.X += objects.Number(spaceship.Level.AccelerateRate)
+	spaceship.Speed.X += numeric.Number(spaceship.Level.AccelerateRate)
 
 	// Limit the speed of the spaceship
 	if spaceship.Speed.Magnitude().Float() > config.Config.Spaceship.MaximumSpeed {
-		spaceship.Speed = spaceship.Speed.Normalize().Mul(objects.Number(config.Config.Spaceship.MaximumSpeed))
+		spaceship.Speed = spaceship.Speed.Normalize().Mul(numeric.Number(config.Config.Spaceship.MaximumSpeed))
 	}
 
 	// Check the horizontal boundaries and update the spaceship position
 	canvasDimensions := config.CanvasBoundingBox()
-	if spaceship.Position.X+spaceship.Size.Width+spaceship.Speed.X < objects.Number(canvasDimensions.Width) {
-		spaceship.Position.X += spaceship.Speed.X
-	} else {
-		spaceship.Position.X = objects.Number(canvasDimensions.Width - spaceship.Size.Width.Float())
+	spaceship.Position.X += spaceship.Speed.X
+	if spaceship.Position.X.Float() > canvasDimensions.OriginalWidth {
+		spaceship.Position.X = numeric.Number(canvasDimensions.OriginalWidth)
 		spaceship.Speed.X = 0
 	}
 
@@ -302,17 +299,16 @@ func (spaceship *Spaceship) MoveUp() {
 	spaceship.Directions.SetVertical(Up)
 
 	// Accelerate the spaceship vertically
-	spaceship.Speed.Y += objects.Number(spaceship.Level.AccelerateRate)
+	spaceship.Speed.Y += numeric.Number(spaceship.Level.AccelerateRate)
 
 	// Limit the speed of the spaceship
 	if spaceship.Speed.Magnitude().Float() > config.Config.Spaceship.MaximumSpeed {
-		spaceship.Speed = spaceship.Speed.Normalize().Mul(objects.Number(config.Config.Spaceship.MaximumSpeed))
+		spaceship.Speed = spaceship.Speed.Normalize().Mul(numeric.Number(config.Config.Spaceship.MaximumSpeed))
 	}
 
 	// Check the vertical boundaries and update the spaceship position
-	if spaceship.Position.Y-spaceship.Speed.Y > 0 {
-		spaceship.Position.Y -= spaceship.Speed.Y
-	} else {
+	spaceship.Position.Y -= spaceship.Speed.Y
+	if spaceship.Position.Y < 0 {
 		spaceship.Position.Y = 0
 		spaceship.Speed.Y = 0
 	}
@@ -328,7 +324,7 @@ func (spaceship *Spaceship) MoveUp() {
 // If the spaceship's position is less than 0, it is set to 0.
 // If the spaceship's position is greater than the canvas height,
 // it is set to the canvas height.
-func (spaceship *Spaceship) MoveTo(target objects.Position) {
+func (spaceship *Spaceship) MoveTo(target numeric.Position) {
 	if spaceship.State == Frozen {
 		now := time.Now()
 		if now.Sub(spaceship.lastThrottledLog) >= config.Config.Spaceship.LogThrottling {
@@ -342,12 +338,11 @@ func (spaceship *Spaceship) MoveTo(target objects.Position) {
 	}
 
 	// Accelerate the spaceship
-	spaceship.Speed.Y += objects.Number(spaceship.Level.AccelerateRate)
-	spaceship.Speed.X += objects.Number(spaceship.Level.AccelerateRate)
+	spaceship.Speed = spaceship.Speed.AddN(spaceship.Level.AccelerateRate)
 
 	// Limit the speed of the spaceship
 	if spaceship.Speed.Magnitude().Float() > config.Config.Spaceship.MaximumSpeed {
-		spaceship.Speed = spaceship.Speed.Normalize().Mul(objects.Number(config.Config.Spaceship.MaximumSpeed))
+		spaceship.Speed = spaceship.Speed.Normalize().Mul(numeric.Number(config.Config.Spaceship.MaximumSpeed))
 	}
 
 	// Calculate the delta
@@ -362,33 +357,30 @@ func (spaceship *Spaceship) MoveTo(target objects.Position) {
 	// Set the new directions based on the delta
 	spaceship.Directions.SetFromDelta(delta)
 
-	// Update the target position
-	target = spaceship.Position.Sub(delta)
+	// Update the spaceship position
+	spaceship.Position = spaceship.Position.Sub(delta)
 
 	// Check the horizontal boundaries
 	canvasDimensions := config.CanvasBoundingBox()
 	switch {
-	case target.X < 0:
-		target.X = 0
-	case target.X > objects.Number(canvasDimensions.Width)-spaceship.Size.Width:
-		target.X = objects.Number(canvasDimensions.Width) - spaceship.Size.Width
+	case spaceship.Position.X < 0:
+		spaceship.Position.X = 0
+	case spaceship.Position.X.Float() > canvasDimensions.OriginalWidth:
+		spaceship.Position.X = numeric.Number(canvasDimensions.OriginalWidth)
 	}
 
 	// Check the vertical boundaries
 	switch {
-	case target.Y < 0:
-		target.Y = 0
-	case target.Y > objects.Number(canvasDimensions.Height)-spaceship.Size.Height:
-		target.Y = objects.Number(canvasDimensions.Height) - spaceship.Size.Height
+	case spaceship.Position.Y < 0:
+		spaceship.Position.Y = 0
+	case spaceship.Position.Y.Float() > canvasDimensions.OriginalHeight:
+		spaceship.Position.Y = numeric.Number(canvasDimensions.OriginalHeight)
 	}
-
-	// Update the spaceship position
-	spaceship.Position = target
 
 	go config.PlayAudio([...]string{
 		"spaceship_acceleration.wav",
 		"spaceship_whoosh.wav",
-	}[rand.Intn(2)], false)
+	}[numeric.RandomRange(0, 1).Int()], false)
 }
 
 // Penalize penalizes the spaceship by downgrading its level.
@@ -400,25 +392,6 @@ func (spaceship *Spaceship) Penalize(levels int) {
 			return
 		}
 	}
-}
-
-// Scale scales the spaceship.
-// The spaceship's position is scaled based on the scale of the canvas.
-func (spaceship *Spaceship) Scale() {
-	canvasDimensions := config.CanvasBoundingBox()
-	scale := objects.Position{
-		X: objects.Number(canvasDimensions.ScaleX),
-		Y: objects.Number(canvasDimensions.ScaleY),
-	}
-
-	_ = objects.
-		Measure(spaceship.Position, spaceship.Size).
-		Scale(objects.Ones().DivX(spaceship.CurrentScale)).
-		Scale(scale).
-		ApplyPosition(&spaceship.Position).
-		ApplySize(&spaceship.Size)
-
-	spaceship.CurrentScale = scale
 }
 
 // String returns a string representation of the spaceship.
@@ -441,8 +414,8 @@ func (spaceship *Spaceship) UpdateState() {
 	case Boosted:
 		if time.Since(spaceship.lastStateTransition) > config.Config.Spaceship.BoostDuration {
 			spaceship.Level.Cannons /= 2
-			spaceship.Size.Width = objects.Number(config.Config.Spaceship.Width)
-			spaceship.Position.X += objects.Number(config.Config.Spaceship.Width / 2)
+			spaceship.Size.Width = numeric.Number(config.Config.Spaceship.Width)
+			spaceship.Position.X += numeric.Number(config.Config.Spaceship.Width / 2)
 
 			if spaceship.Level.Cannons == 0 {
 				spaceship.Level.Cannons = 1
@@ -470,23 +443,16 @@ func (spaceship *Spaceship) UpdateState() {
 func Embark() *Spaceship {
 	canvasDimensions := config.CanvasBoundingBox()
 	spaceship := Spaceship{
-		Position: objects.Position{
-			X: objects.Number(canvasDimensions.Width/2 - config.Config.Spaceship.Width/2),
-			Y: objects.Number(canvasDimensions.Height - config.Config.Spaceship.Height),
-		},
-		Size: objects.Size{
-			Width:  objects.Number(config.Config.Spaceship.Width),
-			Height: objects.Number(config.Config.Spaceship.Height),
-		},
-		CurrentScale: objects.Ones(),
+		Position:     numeric.Locate(canvasDimensions.OriginalWidth/2, canvasDimensions.OriginalHeight),
+		Size:         numeric.Locate(config.Config.Spaceship.Width, config.Config.Spaceship.Height).ToBox(),
+		CurrentScale: numeric.Ones(),
 		Cooldown:     config.Config.Spaceship.Cooldown,
 		Level: &SpaceshipLevel{
-			AccelerateRate: objects.Number(config.Config.Spaceship.Acceleration),
+			AccelerateRate: numeric.Number(config.Config.Spaceship.Acceleration),
 			Progress:       1,
 			Cannons:        1,
 		},
 	}
 
-	spaceship.Scale()
 	return &spaceship
 }

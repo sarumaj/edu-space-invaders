@@ -4,15 +4,15 @@ import (
 	"fmt"
 
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
 )
 
 // Bullet represents a bullet shot by the spaceship.
 type Bullet struct {
-	Position     objects.Position // Position of the bullet
-	Size         objects.Size     // Size of the bullet
-	CurrentScale objects.Position // Scale of the bullet
+	Position     numeric.Position // Position of the bullet
+	Size         numeric.Size     // Size of the bullet
+	CurrentScale numeric.Position // Scale of the bullet
 	Speed        float64          // Speed and damage of the bullet
 	Damage       int              // Damage is the amount of health points the bullet takes from the enemy
 	skew         float64          // Skew of the bullet
@@ -59,27 +59,10 @@ func (b Bullet) HasHit(e enemy.Enemy) bool {
 // The bullet moves upwards and slightly to the left or right.
 // The skew of the bullet is based on the position of the cannon.
 func (b *Bullet) Move() {
-	b.Position = b.Position.Add(objects.Position{
-		Y: -objects.Number(b.Speed),
-		X: objects.Number(b.skew * b.Speed),
+	b.Position = b.Position.Add(numeric.Position{
+		Y: -numeric.Number(b.Speed),
+		X: numeric.Number(b.skew * b.Speed),
 	})
-}
-
-// Scale scales the bullet.
-func (bullet *Bullet) Scale() {
-	canvasDimensions := config.CanvasBoundingBox()
-	scale := objects.Position{
-		X: objects.Number(canvasDimensions.ScaleX),
-		Y: objects.Number(canvasDimensions.ScaleY),
-	}
-	_ = objects.
-		Measure(bullet.Position, bullet.Size).
-		Scale(objects.Ones().DivX(bullet.CurrentScale)).
-		Scale(scale).
-		ApplyPosition(&bullet.Position).
-		ApplySize(&bullet.Size)
-
-	bullet.CurrentScale = scale
 }
 
 // String returns the string representation of the bullet.
@@ -88,19 +71,15 @@ func (bullet Bullet) String() string {
 }
 
 // Craft creates a new bullet at the specified position.
-func Craft(position objects.Position, damage int, ratio, speedBoost float64) *Bullet {
+func Craft(position numeric.Position, damage int, ratio, speedBoost float64) *Bullet {
 	bullet := Bullet{
-		Position: position,
-		Size: objects.Size{
-			Width:  objects.Number(config.Config.Bullet.Width),
-			Height: objects.Number(config.Config.Bullet.Height),
-		},
-		CurrentScale: objects.Ones(),
+		Position:     position,
+		Size:         numeric.Locate(config.Config.Bullet.Width, config.Config.Bullet.Height).ToBox(),
+		CurrentScale: numeric.Ones(),
 		Speed:        config.Config.Bullet.Speed + speedBoost,
 		Damage:       damage,
 		skew:         ratio - 0.5,
 	}
 
-	bullet.Scale()
 	return &bullet
 }

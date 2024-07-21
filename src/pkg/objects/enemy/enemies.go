@@ -2,7 +2,7 @@ package enemy
 
 import (
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 )
 
 // Enemies represents a collection of enemies.
@@ -18,8 +18,8 @@ func (enemies Enemies) countByTypes() map[EnemyType]int {
 	return types
 }
 
-func (enemies Enemies) getHighestProperty(property func(Enemy) objects.Number) objects.Number {
-	var highest objects.Number
+func (enemies Enemies) getHighestProperty(property func(Enemy) numeric.Number) numeric.Number {
+	var highest numeric.Number
 	for _, enemy := range enemies {
 		if property(enemy) > highest {
 			highest = property(enemy)
@@ -31,7 +31,7 @@ func (enemies Enemies) getHighestProperty(property func(Enemy) objects.Number) o
 
 // getHighestProgress returns the highest progress of the current enemies generation.
 func (enemies Enemies) getHighestProgress() int {
-	progress := enemies.getHighestProperty(func(e Enemy) objects.Number { return objects.Number(e.Level.Progress) })
+	progress := enemies.getHighestProperty(func(e Enemy) numeric.Number { return numeric.Number(e.Level.Progress) })
 	if progress == 0 {
 		return 1
 	}
@@ -81,7 +81,7 @@ func (enemies *Enemies) AppendNew(name string, randomY bool) {
 // The enemies are regenerated when the spaceship reaches the bottom of the screen.
 // The new enemies are placed at the highest level of the existing enemies.
 // The new enemies are turned into a goodie and berserk based on the probabilities.
-func (enemies *Enemies) Update(spaceshipPosition objects.Position) {
+func (enemies *Enemies) Update(spaceshipPosition numeric.Position) {
 	stats := enemies.countByTypes()
 
 	var visibleEnemies Enemies
@@ -97,7 +97,7 @@ func (enemies *Enemies) Update(spaceshipPosition objects.Position) {
 
 		enemy.Move(spaceshipPosition)
 		canvasDimensions := config.CanvasBoundingBox()
-		if (enemy.Position.Y + enemy.Size.Height).Float() >= canvasDimensions.Height {
+		if enemy.Position.Y.Float() >= canvasDimensions.OriginalHeight {
 			newEnemy := Challenge(enemy.Name, false)
 			newEnemy.ToProgressLevel(enemy.Level.Progress + 1)
 			newEnemy.Surprise(stats)

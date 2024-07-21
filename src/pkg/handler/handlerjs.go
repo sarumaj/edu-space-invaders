@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 )
 
 // monitor is a method that watches the FPS rate of the game.
@@ -86,7 +86,7 @@ func (h *handler) monitor() {
 func (h *handler) registerEventHandlers() {
 	h.once.Do(func() {
 		config.GlobalSet("drawFunc", js.FuncOf(func(_ js.Value, _ []js.Value) any {
-			h.draw(true)
+			h.draw()
 			return nil
 		}))
 
@@ -171,9 +171,9 @@ func (event *mouseEvent) mouseDown() js.Func {
 		canvasDimensions := config.CanvasBoundingBox()
 		_ = event.
 			Reset().
-			SetStartPosition(objects.Position{
-				X: objects.Number(p[0].Get("clientX").Float() - canvasDimensions.Left),
-				Y: objects.Number(p[0].Get("clientY").Float() - canvasDimensions.Top),
+			SetStartPosition(numeric.Position{
+				X: numeric.Number(p[0].Get("clientX").Float() - canvasDimensions.BoxLeft),
+				Y: numeric.Number(p[0].Get("clientY").Float() - canvasDimensions.BoxTop),
 			}).
 			SetButton(mouseButton(p[0].Get("button").Int())).
 			SetStartTime(time.Now()).
@@ -195,9 +195,9 @@ func (event *mouseEvent) mouseMove(rcv chan<- mouseEvent) js.Func {
 		canvasDimensions := config.CanvasBoundingBox()
 		btnType := mouseButton(p[0].Get("button").Int())
 		_ = event.
-			SetCurrentPosition(objects.Position{
-				X: objects.Number(p[0].Get("clientX").Float() - canvasDimensions.Left),
-				Y: objects.Number(p[0].Get("clientY").Float() - canvasDimensions.Top),
+			SetCurrentPosition(numeric.Position{
+				X: numeric.Number(p[0].Get("clientX").Float() - canvasDimensions.BoxLeft),
+				Y: numeric.Number(p[0].Get("clientY").Float() - canvasDimensions.BoxTop),
 			}).
 			SetType(MouseEventTypeMove)
 
@@ -227,9 +227,9 @@ func (event *mouseEvent) mouseUp(rcv chan<- mouseEvent) js.Func {
 		p[0].Call("preventDefault")
 		canvasDimensions := config.CanvasBoundingBox()
 		event.
-			SetEndPosition(objects.Position{
-				X: objects.Number(p[0].Get("clientX").Float() - canvasDimensions.Left),
-				Y: objects.Number(p[0].Get("clientY").Float() - canvasDimensions.Top),
+			SetEndPosition(numeric.Position{
+				X: numeric.Number(p[0].Get("clientX").Float() - canvasDimensions.BoxLeft),
+				Y: numeric.Number(p[0].Get("clientY").Float() - canvasDimensions.BoxTop),
 			}).
 			SetButton(mouseButton(p[0].Get("button").Int())).
 			SetEndTime(time.Now()).
@@ -248,9 +248,9 @@ func (event *touchEvent) touchEnd(rcv chan<- touchEvent) js.Func {
 		changedTouches := p[0].Get("changedTouches")
 		canvasDimensions := config.CanvasBoundingBox()
 		event.
-			SetEndPosition(objects.Position{
-				X: objects.Number(changedTouches.Index(0).Get("clientX").Float() - canvasDimensions.Left),
-				Y: objects.Number(changedTouches.Index(0).Get("clientY").Float() - canvasDimensions.Top),
+			SetEndPosition(numeric.Position{
+				X: numeric.Number(changedTouches.Index(0).Get("clientX").Float() - canvasDimensions.BoxLeft),
+				Y: numeric.Number(changedTouches.Index(0).Get("clientY").Float() - canvasDimensions.BoxTop),
 			}).
 			SetEndTime(time.Now()).
 			SetMultiTap(changedTouches.Length() > 1).
@@ -268,9 +268,9 @@ func (event *touchEvent) touchMove(rcv chan<- touchEvent) js.Func {
 		changedTouches := p[0].Get("changedTouches")
 		canvasDimensions := config.CanvasBoundingBox()
 		event.
-			SetCurrentPosition(objects.Position{
-				X: objects.Number(changedTouches.Index(0).Get("clientX").Float() - canvasDimensions.Left),
-				Y: objects.Number(changedTouches.Index(0).Get("clientY").Float() - canvasDimensions.Top),
+			SetCurrentPosition(numeric.Position{
+				X: numeric.Number(changedTouches.Index(0).Get("clientX").Float() - canvasDimensions.BoxLeft),
+				Y: numeric.Number(changedTouches.Index(0).Get("clientY").Float() - canvasDimensions.BoxTop),
 			}).
 			SetMultiTap(changedTouches.Length() > 1).
 			SetType(TouchTypeMove).
@@ -288,9 +288,9 @@ func (event *touchEvent) touchStart() js.Func {
 		canvasDimensions := config.CanvasBoundingBox()
 		_ = event.
 			Reset().
-			SetStartPosition(objects.Position{
-				X: objects.Number(changedTouches.Index(0).Get("clientX").Float() - canvasDimensions.Left),
-				Y: objects.Number(changedTouches.Index(0).Get("clientY").Float() - canvasDimensions.Top),
+			SetStartPosition(numeric.Position{
+				X: numeric.Number(changedTouches.Index(0).Get("clientX").Float() - canvasDimensions.BoxLeft),
+				Y: numeric.Number(changedTouches.Index(0).Get("clientY").Float() - canvasDimensions.BoxTop),
 			}).
 			SetStartTime(time.Now()).
 			SetMultiTap(changedTouches.Length() > 1).

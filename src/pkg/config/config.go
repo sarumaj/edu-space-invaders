@@ -39,6 +39,7 @@ type config struct {
 	Control struct {
 		AudioEnabled                *bool
 		BackgroundAnimationEnabled  *bool
+		CollisionDetectionVersion   envVariable[int]
 		Debug                       envVariable[bool]
 		CriticalFramesPerSecondRate float64
 		DesiredFramesPerSecondRate  float64

@@ -249,6 +249,17 @@ func (enemy *Enemy) ToProgressLevel(progress int) {
 	}
 }
 
+// Vertices returns the vertices of the enemy.
+// The vertices are the bottom, top left and top right corners of the enemy.
+// It assumes that the enemy is a triangle.
+func (enemy Enemy) Vertices() numeric.Triangle {
+	return numeric.Triangle{
+		numeric.Locate(enemy.Position.X+enemy.Size.Width/2, enemy.Position.Y+enemy.Size.Height), // Bottom
+		numeric.Locate(enemy.Position.X, enemy.Position.Y),                                      // Top left
+		numeric.Locate(enemy.Position.X+enemy.Size.Width, enemy.Position.Y),                     // Top right
+	}
+}
+
 // Challenge creates a new enemy.
 // If the name is empty, a random name is generated.
 // If randomY is true, the enemy is placed at a random Y position

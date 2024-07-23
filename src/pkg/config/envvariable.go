@@ -8,9 +8,11 @@ import (
 // envVariable represents an environment variable.
 type envVariable[T any] string
 
+// Get returns the value of the environment variable.
 func (e envVariable[T]) Get() (result T) {
 	raw := Getenv(string(e))
 	target := reflect.ValueOf(&result).Elem()
+
 	switch target.Kind() {
 	case reflect.Bool:
 		v, _ := strconv.ParseBool(raw)
@@ -39,4 +41,14 @@ func (e envVariable[T]) Get() (result T) {
 		return
 
 	}
+}
+
+// GetWithFallback returns the value of the environment variable with a fallback value.
+func (e envVariable[T]) GetWithFallback(fallback T) (result T) {
+	result = e.Get()
+	if v := reflect.ValueOf(result); !v.IsValid() || v.IsZero() {
+		return fallback
+	}
+
+	return
 }

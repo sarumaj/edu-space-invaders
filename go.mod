@@ -8,6 +8,7 @@ require (
 	github.com/Pallinder/go-randomdata v1.2.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/rookie-ninja/rk-boot/v2 v2.2.22
+	github.com/rookie-ninja/rk-entry/v2 v2.2.22
 	github.com/rookie-ninja/rk-gin/v2 v2.2.23
 	go.uber.org/zap v1.25.0
 	golang.org/x/text v0.16.0
@@ -54,7 +55,6 @@ require (
 	github.com/prometheus/client_model v0.4.1-0.20230718164431-9a2bf3000d16 // indirect
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.11.1 // indirect
-	github.com/rookie-ninja/rk-entry/v2 v2.2.22 // indirect
 	github.com/rookie-ninja/rk-logger v1.2.13 // indirect
 	github.com/rookie-ninja/rk-query v1.2.14 // indirect
 	github.com/rs/xid v1.3.0 // indirect

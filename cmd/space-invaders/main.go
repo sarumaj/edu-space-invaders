@@ -14,22 +14,32 @@ import (
 
 	"github.com/gin-gonic/gin"
 	rkboot "github.com/rookie-ninja/rk-boot/v2"
+	rkentry "github.com/rookie-ninja/rk-entry/v2/entry"
 	rkgin "github.com/rookie-ninja/rk-gin/v2/boot"
 	zapcore "go.uber.org/zap/zapcore"
 )
 
-const envVarPrefix = "SPACE_INVADERS_"
+const (
+	defaultEndpoint = "index.html"      // defaultEndpoint is the default endpoint.
+	envVarPrefix    = "SPACE_INVADERS_" // envVarPrefix is the prefix for the environment variables.
+	ginEntryName    = "space-invaders"  // ginEntryName is the name of the Gin entry.
+)
 
-//go:embed boot.yaml
-var bootRaw []byte
+var (
+	//go:embed boot.yaml
+	bootRaw []byte
 
-var port = flag.Int("port", func() int {
-	parsed, err := strconv.Atoi(os.Getenv("PORT"))
-	if err == nil {
-		return parsed
-	}
-	return 8080
-}(), "port to listen on")
+	environ []string
+	logger  *rkentry.LoggerEntry
+
+	port = flag.Int("port", func() int {
+		parsed, err := strconv.Atoi(os.Getenv("PORT"))
+		if err == nil {
+			return parsed
+		}
+		return 8080
+	}(), "port to listen on")
+)
 
 // main is the entry point of the game server.
 func main() {
@@ -38,14 +48,15 @@ func main() {
 	// Set the port based on the environment variable (necessary for Heroku).
 	_ = os.Setenv("RK_GIN_0_PORT", fmt.Sprint(*port))
 
-	envData := os.Environ()
-	slices.Sort(envData)
+	environ = os.Environ()
+	slices.Sort(environ)
 
 	boot := rkboot.NewBoot(rkboot.WithBootConfigRaw(bootRaw))
 
-	entry := rkgin.GetGinEntry("space-invaders")
+	entry := rkgin.GetGinEntry(ginEntryName)
+	logger = entry.LoggerEntry
 
-	entry.LoggerEntry.Info("Booting up", zapcore.Field{Key: "environ", Interface: envData, Type: zapcore.ReflectType})
+	logger.Info("Booting up", zapcore.Field{Key: "environ", Interface: environ, Type: zapcore.ReflectType})
 
 	entry.Router.Use(CacheControlMiddleware())
 	entry.Router.POST("/.env", HandleEnv())
@@ -56,5 +67,5 @@ func main() {
 	boot.Bootstrap(context.Background())
 
 	boot.WaitForShutdownSig(context.Background())
-	entry.LoggerEntry.Warn("Unexpected shut down")
+	logger.Warn("Unexpected shut down")
 }

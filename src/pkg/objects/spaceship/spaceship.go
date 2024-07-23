@@ -78,10 +78,25 @@ func (spaceship *Spaceship) ChangeState(state SpaceshipState) {
 	}
 }
 
-// DetectCollision checks if the spaceship has collided with an enemy.
-func (spaceship Spaceship) DetectCollision(e enemy.Enemy) bool {
+// DetectCollisionV1 checks if the spaceship has collided with an enemy.
+// The collision detection is based on the bounding box method.
+// It is less accurate than DetectCollisionV2.
+func (spaceship Spaceship) DetectCollisionV1(e enemy.Enemy) bool {
 	return spaceship.Position.Less(e.Position.Add(e.Size.ToVector())) &&
 		spaceship.Position.Add(spaceship.Size.ToVector()).Greater(e.Position)
+}
+
+// DetectCollision V2 checks if the spaceship has collided with an enemy.
+// The collision detection is based on the separating axis theorem.
+// The separating axis theorem states that if two convex shapes do not overlap
+// on all axes, then they do not overlap.
+func (spaceship Spaceship) DetectCollisionV2(e enemy.Enemy) bool {
+	// Get the vertices of the triangles
+	spaceshipVertices := spaceship.Vertices()
+	enemyVertices := e.Vertices()
+
+	// Check for overlap on all axes
+	return !numeric.HaveSeparatingAxis(spaceshipVertices[:], enemyVertices[:])
 }
 
 // Draw draws the spaceship on the canvas.
@@ -407,6 +422,17 @@ func (spaceship *Spaceship) UpdateState() {
 			spaceship.State = Neutral
 		}
 
+	}
+}
+
+// Vertices returns the vertices of the spaceship.
+// The vertices are the top, bottom left, and bottom right corners of the spaceship.
+// It assumes that the spaceship is a triangle.
+func (spaceship Spaceship) Vertices() numeric.Triangle {
+	return numeric.Triangle{
+		numeric.Locate(spaceship.Position.X+spaceship.Size.Width/2, spaceship.Position.Y),                     // Top
+		numeric.Locate(spaceship.Position.X, spaceship.Position.Y+spaceship.Size.Height),                      // Bottom left
+		numeric.Locate(spaceship.Position.X+spaceship.Size.Width, spaceship.Position.Y+spaceship.Size.Height), // Bottom right
 	}
 }
 

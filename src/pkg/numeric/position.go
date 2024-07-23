@@ -31,6 +31,13 @@ func (pos Position) Average() Number {
 	return (pos.X + pos.Y) / 2
 }
 
+// Cross returns the cross product of two positions.
+// The cross product is the magnitude of the cross product of the two positions.
+// The third dimension is 0, so the cross product is a scalar.
+func (pos Position) Cross(other Position) Number {
+	return pos.X*other.Y - pos.Y*other.X
+}
+
 // Distance returns the Euclidean distance between two position.
 func (pos Position) Distance(other Position) Number {
 	return pos.Sub(other).Magnitude()
@@ -64,6 +71,11 @@ func (pos Position) DivX(other Position) Position {
 	}
 
 	return result
+}
+
+// Dot returns the dot product of two positions.
+func (pos Position) Dot(other Position) Number {
+	return pos.X*other.X + pos.Y*other.Y
 }
 
 // Equal checks if two positions are equal within a tolerance (1e-9).
@@ -133,6 +145,37 @@ func (pos Position) Normalize() Position {
 // Pack returns the packed representation of the position.
 func (pos Position) Pack() [2]float64 {
 	return [2]float64{pos.X.Float(), pos.Y.Float()}
+}
+
+// Perpendicular returns the perpendicular position.
+func (p Position) Perpendicular() Position {
+	return Position{-p.Y, p.X}
+}
+
+// Project projects the position onto the axis.
+// It returns the minimum and maximum projections.
+// The vertices are the vertices of the object.
+// The axis is the axis to project onto.
+func (axis Position) Project(vertices []Position) (min, max Number) {
+	if len(vertices) == 0 {
+		return
+	}
+
+	min = vertices[0].Dot(axis)
+	max = min
+
+	for i := 1; i < len(vertices); i++ {
+		projection := vertices[i].Dot(axis)
+		if projection < min {
+			min = projection
+		}
+
+		if projection > max {
+			max = projection
+		}
+	}
+
+	return
 }
 
 // Root returns the square root of the position.

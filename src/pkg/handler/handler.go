@@ -7,6 +7,7 @@ import (
 
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/bullet"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/spaceship"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/star"
@@ -39,8 +40,24 @@ type handler struct {
 // If the bullets have hit an enemy, it applies the necessary damage.
 // If the enemy has no health points, it upgrades the spaceship.
 func (h *handler) checkCollisions() {
+	var collisionDetector func(enemy.Enemy) bool
+	var bulletHitDetector func(bullet.Bullet) func(enemy.Enemy) bool
+
+	// Choose the collision detection version.
+	// Default is the version 2 if the version is not set.
+	switch config.Config.Control.CollisionDetectionVersion.GetWithFallback(2) {
+	case 1:
+		collisionDetector = h.spaceship.DetectCollisionV1
+		bulletHitDetector = func(b bullet.Bullet) func(enemy.Enemy) bool { return b.HasHitV1 }
+
+	default:
+		collisionDetector = h.spaceship.DetectCollisionV2
+		bulletHitDetector = func(b bullet.Bullet) func(enemy.Enemy) bool { return b.HasHitV2 }
+
+	}
+
 	for j, e := range h.enemies {
-		if e.Level.HitPoints > 0 && h.spaceship.DetectCollision(e) {
+		if e.Level.HitPoints > 0 && collisionDetector(e) {
 			// If the spaceship is boosted, destroy the enemy.
 			if h.spaceship.State == spaceship.Boosted {
 				h.enemies[j].Destroy()
@@ -128,7 +145,7 @@ func (h *handler) checkCollisions() {
 				e.Level.HitPoints <= 0,
 				e.Type == enemy.Goodie,
 				e.Type == enemy.Freezer,
-				!b.HasHit(e):
+				!bulletHitDetector(b)(e):
 
 			default: // The bullet has hit the enemy.
 				h.spaceship.Bullets[i].Exhaust()

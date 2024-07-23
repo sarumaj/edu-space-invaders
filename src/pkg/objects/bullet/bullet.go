@@ -49,10 +49,28 @@ func (b *Bullet) Exhaust() {
 	b.Exhausted = true
 }
 
-// HasHit returns true if the bullet has hit the enemy.
-func (b Bullet) HasHit(e enemy.Enemy) bool {
+// HasHitV1 returns true if the bullet has hit the enemy.
+// This version is less precise than HasHitV2.
+// It uses a simple bounding box collision check.
+func (b Bullet) HasHitV1(e enemy.Enemy) bool {
 	return b.Position.Less(e.Position.Add(e.Size.ToVector())) &&
 		b.Position.Add(e.Size.ToVector()).Greater(e.Position)
+}
+
+// HasHitV2 returns true if the bullet has hit the enemy.
+// This version is more precise than HasHit.
+// It uses the Separating Axis Theorem to check for collision.
+// The Separating Axis Theorem states that if two convex shapes do not overlap on any axis, then they do not intersect.
+// The axes to test are the normals to the edges of the triangle and the rectangle.
+// If there is a separating axis, there is no collision.
+// It assumes that the bullet is a rectangle and the enemy is a triangle.
+func (b Bullet) HasHitV2(e enemy.Enemy) bool {
+	// The vertices of the bullet and the enemy
+	bulletVertices := b.Vertices()
+	enemyVertices := e.Vertices()
+
+	// Check for overlap on all axes
+	return !numeric.HaveSeparatingAxis(bulletVertices[:], enemyVertices[:])
 }
 
 // Move moves the bullet.
@@ -68,6 +86,18 @@ func (b *Bullet) Move() {
 // String returns the string representation of the bullet.
 func (bullet Bullet) String() string {
 	return fmt.Sprintf("Bullet (Pos: %s, Speed: %g, Damage: %d)", bullet.Position, bullet.Speed, bullet.Damage)
+}
+
+// Vertices returns the vertices of the bullet.
+// The vertices are the upper left, upper right, lower right, and lower left corners of the bullet.
+// It assumes that the bullet is rectangular.
+func (b Bullet) Vertices() numeric.Rectangle {
+	return numeric.Rectangle{
+		b.Position,
+		numeric.Locate(b.Position.X+b.Size.Width, b.Position.Y),
+		numeric.Locate(b.Position.X+b.Size.Width, b.Position.Y+b.Size.Height),
+		numeric.Locate(b.Position.X, b.Position.Y+b.Size.Height),
+	}
 }
 
 // Craft creates a new bullet at the specified position.

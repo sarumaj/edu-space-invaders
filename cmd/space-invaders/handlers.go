@@ -49,10 +49,17 @@ func HandleEnv() gin.HandlerFunc {
 
 		// Set the environment variables based on the request body.
 		// Communication from WASM to Go is done through the request body.
+		altered := false
 		for k, v := range body {
 			if strings.HasPrefix(k, envVarPrefix) {
 				_ = os.Setenv(k, fmt.Sprintf("%v", v))
+				altered = true
 			}
+		}
+
+		// Update the environment variables if they were altered.
+		if altered {
+			environ = os.Environ()
 		}
 
 		// Return the environment variables as a response.

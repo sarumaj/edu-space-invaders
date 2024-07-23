@@ -231,7 +231,6 @@ func (enemy *Enemy) Surprise(stats map[EnemyType]int) {
 
 	if enemy.Type == Normal && numeric.SampleUniform(enemy.SpecialtyLikeliness) {
 		enemy.Type = [...]EnemyType{Freezer, Goodie}[numeric.RandomRange(0, (total-goodies)/total).Int()]
-
 	}
 }
 

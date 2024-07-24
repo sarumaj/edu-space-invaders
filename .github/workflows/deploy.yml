@@ -22,11 +22,9 @@ jobs:
           fetch-depth: 0
 
       - name: Git-Crypt Unlock
-        uses: zemuldo/git-crypt-unlock@v2.0
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GPG_KEY_GRIP: ${{ secrets.GPG_KEY_GRIP }}
-          GPG_KEY_PASS: ${{ secrets.GPG_KEY_PASS }}
+        uses: amplium/git-crypt-action@v0.1.5
+        with:
+          key_encoded: ${{ secrets.GIT_CRYPT_KEY }}
 
       - name: Install go
         uses: actions/setup-go@v4

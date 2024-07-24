@@ -501,6 +501,15 @@ func PlayAudio(name string, loop bool) {
 		return
 	}
 
+	// Reinitialize the audio context if it is not initialized
+	if !audioCtx.Truthy() {
+		audioCtx = getAudioContext()
+		if !audioCtx.Truthy() {
+			LogError(fmt.Errorf("failed to initialize audio context"))
+			return
+		}
+	}
+
 	audioPlayersMutex.RLock()
 	player, playerOk := audioPlayers[name]
 	audioPlayersMutex.RUnlock()

@@ -98,7 +98,8 @@ func (spaceship Spaceship) DetectCollisionV2(e enemy.Enemy) bool {
 	enemyVertices := numeric.GetSpaceshipVerticesV1(e.Position, e.Size, false)
 
 	// Check for overlap on all axes
-	return !numeric.HaveSeparatingAxis(spaceshipVertices[:], enemyVertices[:])
+	// Do not sort assuming that the vertices are already sorted
+	return !numeric.HaveSeparatingAxis(spaceshipVertices[:], enemyVertices[:], false)
 }
 
 // DetectCollisionV3 checks if the spaceship has collided with an enemy.
@@ -113,7 +114,8 @@ func (spaceship Spaceship) DetectCollisionV3(e enemy.Enemy) bool {
 	enemyVertices := numeric.GetSpaceshipVerticesV2(e.Position, e.Size, false)
 
 	// Check for overlap on all axes
-	return !numeric.HaveSeparatingAxis(spaceshipVertices[:], enemyVertices[:])
+	// Do not sort assuming that the vertices are already sorted
+	return !numeric.HaveSeparatingAxis(spaceshipVertices[:], enemyVertices[:], false)
 }
 
 // Draw draws the spaceship on the canvas.

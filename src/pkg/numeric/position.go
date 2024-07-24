@@ -26,6 +26,16 @@ func (pos Position) AddN(n Number) Position {
 	}
 }
 
+// Angle returns the angle of the position.
+func (pos Position) Angle() Number {
+	return Number(math.Atan2(pos.Y.Float(), pos.X.Float()))
+}
+
+// AngleTo returns the angle between two positions.
+func (pos Position) AngleTo(other Position) Number {
+	return other.Sub(pos).Angle()
+}
+
 // Average returns the average of the position.
 func (pos Position) Average() Number {
 	return (pos.X + pos.Y) / 2

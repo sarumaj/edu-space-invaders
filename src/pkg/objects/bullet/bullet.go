@@ -70,7 +70,8 @@ func (b Bullet) HasHitV2(e enemy.Enemy) bool {
 	enemyVertices := numeric.GetSpaceshipVerticesV1(e.Position, e.Size, false)
 
 	// Check for overlap on all axes
-	return !numeric.HaveSeparatingAxis(bulletVertices[:], enemyVertices[:])
+	// Do not sort assuming that the vertices are already sorted
+	return !numeric.HaveSeparatingAxis(bulletVertices[:], enemyVertices[:], false)
 }
 
 // HasHitV3 returns true if the bullet has hit the enemy.
@@ -86,7 +87,8 @@ func (b Bullet) HasHitV3(e enemy.Enemy) bool {
 	enemyVertices := numeric.GetSpaceshipVerticesV2(e.Position, e.Size, false)
 
 	// Check for overlap on all axes
-	return !numeric.HaveSeparatingAxis(bulletVertices[:], enemyVertices[:])
+	// Do not sort assuming that the vertices are already sorted
+	return !numeric.HaveSeparatingAxis(bulletVertices[:], enemyVertices[:], false)
 }
 
 // Move moves the bullet.

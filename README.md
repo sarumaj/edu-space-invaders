@@ -65,7 +65,9 @@ To setup similar project follow following steps:
     - [service config file boot.yaml](cmd/space-invaders/boot.yaml)
 - [module file go.mod](go.mod)
 - [source directory](src)
+
   - [package pkg](src/pkg)
+
     - [package config](src/pkg/config)
       - [unit tests for config.go](src/pkg/config/config_test.go)
       - [code file config.go](src/pkg/config/config.go)
@@ -85,6 +87,7 @@ To setup similar project follow following steps:
       - [code file mouseevent.go](src/pkg/handler/mouseevent.go)
       - [code file touchevent.go](src/pkg/handler/touchevent.go)
     - [package numeric](src/pkg/objects/numeric)
+      - [unit tests for arithmetic.go](src/pkg/objects/arithmetic_test.go)
       - [code file arithmetic.go](src/pkg/objects/arithmetic.go)
       - [code file figure.go](src/pkg/objects/figure.go)
       - [unit tests for future.go](src/pkg/objects/future_test.go)

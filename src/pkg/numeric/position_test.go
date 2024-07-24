@@ -71,6 +71,8 @@ func testPosition[
 func TestPosition(t *testing.T) {
 	testPosition(t, "Add", Position{X: 1, Y: 2}, Position{X: 3, Y: 4}, Position{X: 4, Y: 6})
 	testPosition(t, "AddN", Position{X: 1, Y: 2}, Number(3), Position{X: 4, Y: 5})
+	testPosition(t, "Angle", Position{X: 1, Y: 2}, any(nil), Number(1.1071487177940904))
+	testPosition(t, "AngleTo", Position{X: 1, Y: 2}, Position{X: 3, Y: 4}, Number(0.7853981633974483))
 	testPosition(t, "Average", Position{X: 1, Y: 2}, any(nil), Number(1.5))
 	testPosition(t, "Cross", Position{X: 1, Y: 2}, Position{X: 3, Y: 4}, Number(-2))
 	testPosition(t, "Distance", Position{X: 1, Y: 2}, Position{X: 4, Y: 6}, Number(5))

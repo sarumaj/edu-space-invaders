@@ -3,16 +3,16 @@
 set -e
 
 print_usage() {
-	echo "Usage: $0 [-d target_directory] [--directory target_directory]"
-	echo "  -d, --directory target_directory   Directory where the project will be created (default: current directory)"
+  echo "Usage: $0 [-d target_directory] [--directory target_directory]"
+  echo "  -d, --directory target_directory   Directory where the project will be created (default: current directory)"
 }
 
 log_message() {
-	local message
-	local timestamp
-	message="$1"
-	timestamp="$(date +"%Y-%m-%d %H:%M:%S.%3N")"
-	echo "[$timestamp] $message"
+  local message
+  local timestamp
+  message="$1"
+  timestamp="$(date +"%Y-%m-%d %H:%M:%S.%3N")"
+  echo "[$timestamp] $message"
 }
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
@@ -22,17 +22,17 @@ TARGET_DIR="."
 
 # Parse command line options
 while [[ "$#" -gt 0 ]]; do
-	case $1 in
-	-d | --directory)
-		TARGET_DIR="$2"
-		shift 2
-		;;
-	*)
-		echo "Unknown option: $1"
-		print_usage
-		exit 1
-		;;
-	esac
+  case $1 in
+  -d | --directory)
+    TARGET_DIR="$2"
+    shift 2
+    ;;
+  *)
+    echo "Unknown option: $1"
+    print_usage
+    exit 1
+    ;;
+  esac
 done
 
 # Create target directory if it doesn't exist
@@ -45,20 +45,20 @@ log_message "Building the Go program"
 GOOS=js GOARCH=wasm go build -trimpath -ldflags="-s -w" -o "$TARGET_DIR/main.wasm" "$SCRIPT_DIR/main.go"
 
 if [ -f "$TARGET_DIR/main.wasm" ]; then
-	log_message "Go program built successfully"
+  log_message "Go program built successfully"
 else
-	log_message "Failed to build the Go program"
-	exit 1
+  log_message "Failed to build the Go program"
+  exit 1
 fi
 
 # Download the Go runtime for WebAssembly
 log_message "Downloading the Go runtime for WebAssembly"
 curl \
-	--retry 3 \
-	--retry-all-errors \
-	--retry-delay 5 \
-	-sL https://raw.githubusercontent.com/golang/go/master/misc/wasm/wasm_exec.js \
-	-o "$TARGET_DIR/wasm_exec.js"
+  --retry 3 \
+  --retry-all-errors \
+  --retry-delay 5 \
+  -sL https://raw.githubusercontent.com/golang/go/master/misc/wasm/wasm_exec.js \
+  -o "$TARGET_DIR/wasm_exec.js"
 log_message "Go runtime downloaded successfully"
 
 # Copy the static files

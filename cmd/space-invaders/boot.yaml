@@ -10,3 +10,6 @@ gin:
       gzip:
         enabled: true
         level: bestCompression
+      rateLimit:
+        enabled: true
+        reqPerSec: 60

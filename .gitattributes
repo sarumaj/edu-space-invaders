@@ -1,0 +1,2 @@
+.gitattributes !filter !diff
+**/*.pem filter=git-crypt diff=git-crypt

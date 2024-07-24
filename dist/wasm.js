@@ -1,9 +1,10 @@
 async function envCallback() {
   try {
     const response = await fetch(".env", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
     });
     const data = await response.json();
 

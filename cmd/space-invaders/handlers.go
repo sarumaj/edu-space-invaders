@@ -46,35 +46,37 @@ func CacheControlMiddleware() gin.HandlerFunc {
 // It returns the environment variables as a response.
 func HandleEnv() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		var body gin.H
-		if err := ctx.ShouldBind(&body); err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		// Set the environment variables based on the request body.
-		// Communication from WASM to Go is done through the request body.
-		var fields []zapcore.Field
-		for k, v := range body {
-			if !strings.HasPrefix(k, envVarPrefix) {
-				continue
+		body := gin.H{}
+		if ctx.Request.Method == http.MethodPost {
+			if err := ctx.ShouldBind(&body); err != nil {
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
 			}
 
-			if v == nil {
-				_ = os.Unsetenv(k)
-				fields = append(fields, zapcore.Field{Key: k, Type: zapcore.StringType, String: "unset"})
+			// Set the environment variables based on the request body.
+			// Communication from WASM to Go is done through the request body.
+			var fields []zapcore.Field
+			for k, v := range body {
+				if !strings.HasPrefix(k, envVarPrefix) {
+					continue
+				}
+
+				if v == nil {
+					_ = os.Unsetenv(k)
+					fields = append(fields, zapcore.Field{Key: k, Type: zapcore.StringType, String: "unset"})
+				} else {
+					_ = os.Setenv(k, fmt.Sprintf("%v", v))
+					fields = append(fields, zapcore.Field{Key: k, Type: zapcore.StringType, String: fmt.Sprintf("%v", v)})
+				}
+			}
+
+			// Update the environment variables if they were altered.
+			if len(fields) > 0 {
+				logger.Info("Environment variables updated", fields...)
+				environ = os.Environ()
 			} else {
-				_ = os.Setenv(k, fmt.Sprintf("%v", v))
-				fields = append(fields, zapcore.Field{Key: k, Type: zapcore.StringType, String: fmt.Sprintf("%v", v)})
+				logger.Info("No environment variables updated")
 			}
-		}
-
-		// Update the environment variables if they were altered.
-		if len(fields) > 0 {
-			logger.Info("Environment variables updated", fields...)
-			environ = os.Environ()
-		} else {
-			logger.Info("No environment variables updated")
 		}
 
 		// Return the environment variables as a response.

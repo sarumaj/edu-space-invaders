@@ -3,8 +3,9 @@
 set -e
 
 print_usage() {
-  echo "Usage: $0 [-d target_directory] [--directory target_directory]"
-  echo "  -d, --directory target_directory   Directory where the project will be created (default: current directory)"
+  echo "Usage: $0 [-k private_key_path] [--priv-key private_key_path] [--ttl duration]"
+  echo "  -k, --priv-key private_key_path  Path to the private key file (default: ./private_key.pem)"
+  echo "  --ttl          duration          Duration in seconds for which the token will be valid (default: 600)"
 }
 
 # Function to URL-safe base64 encode
@@ -13,13 +14,18 @@ base64_url_encode() {
 }
 
 # Default values
-KEY_PATH="."
+KEY_PATH="./private_key.pem"
+TTL="600"
 
 # Parse command line options
 while [[ "$#" -gt 0 ]]; do
   case $1 in
-  -k | --key)
+  -k | --priv-key)
     KEY_PATH="$2"
+    shift 2
+    ;;
+  --ttl)
+    TTL="$2"
     shift 2
     ;;
   *)
@@ -29,6 +35,20 @@ while [[ "$#" -gt 0 ]]; do
     ;;
   esac
 done
+
+# Check if the private key file exists
+if [ ! -f "$KEY_PATH" ]; then
+  echo "Private key file not found: $KEY_PATH"
+  print_usage
+  exit 1
+fi
+
+# Validate TTL
+if ! [[ "$TTL" =~ ^[0-9]+$ ]]; then
+  echo "Invalid TTL: $TTL"
+  print_usage
+  exit 1
+fi
 
 # Get the current timestamp for 'iat' claim
 iat=$(date +%s)
@@ -46,7 +66,7 @@ payload=$(
 	"sub": "sarumaj",
 	"aud": ["space-invaders"],
 	"iat": $iat,
-	"exp": $((iat + 600))
+	"exp": $((iat + $TTL))
 }
 EOF
 )

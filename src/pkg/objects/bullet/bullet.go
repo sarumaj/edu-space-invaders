@@ -66,8 +66,24 @@ func (b Bullet) HasHitV1(e enemy.Enemy) bool {
 // It assumes that the bullet is a rectangle and the enemy is a triangle.
 func (b Bullet) HasHitV2(e enemy.Enemy) bool {
 	// The vertices of the bullet and the enemy
-	bulletVertices := b.Vertices()
-	enemyVertices := e.Vertices()
+	bulletVertices := numeric.GetRectangularVertices(b.Position, b.Size)
+	enemyVertices := numeric.GetSpaceshipVerticesV1(e.Position, e.Size, false)
+
+	// Check for overlap on all axes
+	return !numeric.HaveSeparatingAxis(bulletVertices[:], enemyVertices[:])
+}
+
+// HasHitV3 returns true if the bullet has hit the enemy.
+// This version is more precise than HasHitV2.
+// It uses the Separating Axis Theorem to check for collision.
+// The Separating Axis Theorem states that if two convex shapes do not overlap on any axis, then they do not intersect.
+// The axes to test are the normals to the edges of the spaceship polygon and the bullet rectangle.
+// If there is a separating axis, there is no collision.
+// It assumes that the bullet is a rectangle and the enemy is a spaceship polygon.
+func (b Bullet) HasHitV3(e enemy.Enemy) bool {
+	// The vertices of the bullet and the enemy
+	bulletVertices := numeric.GetRectangularVertices(b.Position, b.Size)
+	enemyVertices := numeric.GetSpaceshipVerticesV2(e.Position, e.Size, false)
 
 	// Check for overlap on all axes
 	return !numeric.HaveSeparatingAxis(bulletVertices[:], enemyVertices[:])
@@ -86,18 +102,6 @@ func (b *Bullet) Move() {
 // String returns the string representation of the bullet.
 func (bullet Bullet) String() string {
 	return fmt.Sprintf("Bullet (Pos: %s, Speed: %g, Damage: %d)", bullet.Position, bullet.Speed, bullet.Damage)
-}
-
-// Vertices returns the vertices of the bullet.
-// The vertices are the upper left, upper right, lower right, and lower left corners of the bullet.
-// It assumes that the bullet is rectangular.
-func (b Bullet) Vertices() numeric.Rectangle {
-	return numeric.Rectangle{
-		b.Position,
-		numeric.Locate(b.Position.X+b.Size.Width, b.Position.Y),
-		numeric.Locate(b.Position.X+b.Size.Width, b.Position.Y+b.Size.Height),
-		numeric.Locate(b.Position.X, b.Position.Y+b.Size.Height),
-	}
 }
 
 // Craft creates a new bullet at the specified position.

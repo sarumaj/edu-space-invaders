@@ -35,8 +35,8 @@ jobs:
           go install golang.org/x/tools/gopls@latest && \
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
-      - name: Run linters
-        run: gofmt -s -d ./ && golangci-lint run -v
+      - name: Run linters and tests
+        run: gofmt -s -d ./ && golangci-lint run -v && go test -v -race -tags future ./...
 
       - name: Get app url
         uses: akhileshns/heroku-deploy@v3.13.15
@@ -63,6 +63,7 @@ jobs:
         env:
           HD_SPACE_INVADERS_DEBUG: "false"
           HD_SPACE_INVADERS_GOD_MODE: "false"
+          HD_SPACE_INVADERS_COLLISION_DETECTION_VERSION: "3"
 
       - name: Update code documentation
         run: curl -fsSL https://proxy.golang.org/${{ steps.export_module_name.outputs.MODULE_NAME }}/@v/${{ github.ref_name }}.info

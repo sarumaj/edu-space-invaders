@@ -1,6 +1,27 @@
 package numeric
 
-import "testing"
+import (
+	"testing"
+)
+
+func figureToSlice[F interface {
+	Triangle | Rectangle | SpaceshipPolygon
+}](figure F) []Position {
+	switch f := any(figure).(type) {
+	case Rectangle:
+		return f[:]
+
+	case Triangle:
+		return f[:]
+
+	case SpaceshipPolygon:
+		return f[:]
+
+	default:
+		return nil
+
+	}
+}
 
 func makeTestRect(pos Position, size Size) Rectangle {
 	return Rectangle{
@@ -19,9 +40,12 @@ func makeTestTriangle(pos Position, size Size) Triangle {
 	}
 }
 
-func testHaveSeparatingAxis(t *testing.T, verticesA Figure, verticesB Figure, want bool) {
+func testHaveSeparatingAxis[F1, F2 interface {
+	Triangle | Rectangle | SpaceshipPolygon
+}](t *testing.T, verticesA F1, verticesB F2, want bool) {
 	t.Helper()
-	if got := HaveSeparatingAxis(verticesA.Slice(), verticesB.Slice()); got != want {
+
+	if got := HaveSeparatingAxis(figureToSlice(verticesA), figureToSlice(verticesB)); got != want {
 		t.Errorf("HaveSeparatingAxis(%v, %v) = %t, want %t", verticesA, verticesB, got, want)
 	}
 }

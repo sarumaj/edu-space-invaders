@@ -10,7 +10,7 @@ import (
 
 	gin "github.com/gin-gonic/gin"
 	dist "github.com/sarumaj/edu-space-invaders/dist"
-	"go.uber.org/zap/zapcore"
+	zapcore "go.uber.org/zap/zapcore"
 )
 
 // CacheControlMiddleware is a middleware that sets the cache control headers.

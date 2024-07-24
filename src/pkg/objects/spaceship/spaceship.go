@@ -90,10 +90,27 @@ func (spaceship Spaceship) DetectCollisionV1(e enemy.Enemy) bool {
 // The collision detection is based on the separating axis theorem.
 // The separating axis theorem states that if two convex shapes do not overlap
 // on all axes, then they do not overlap.
+// This version is more accurate than DetectCollisionV1.
+// It uses the triangular vertices of the spaceship and the enemy.
 func (spaceship Spaceship) DetectCollisionV2(e enemy.Enemy) bool {
 	// Get the vertices of the triangles
-	spaceshipVertices := spaceship.Vertices()
-	enemyVertices := e.Vertices()
+	spaceshipVertices := numeric.GetSpaceshipVerticesV1(spaceship.Position, spaceship.Size, true)
+	enemyVertices := numeric.GetSpaceshipVerticesV1(e.Position, e.Size, false)
+
+	// Check for overlap on all axes
+	return !numeric.HaveSeparatingAxis(spaceshipVertices[:], enemyVertices[:])
+}
+
+// DetectCollisionV3 checks if the spaceship has collided with an enemy.
+// The collision detection is based on the separating axis theorem.
+// The separating axis theorem states that if two convex shapes do not overlap
+// on all axes, then they do not overlap.
+// This version is more accurate than DetectCollisionV2.
+// It uses the exact vertices of the spaceship and the enemy.
+func (spaceship Spaceship) DetectCollisionV3(e enemy.Enemy) bool {
+	// Get the vertices of the spaceship polygons
+	spaceshipVertices := numeric.GetSpaceshipVerticesV2(spaceship.Position, spaceship.Size, true)
+	enemyVertices := numeric.GetSpaceshipVerticesV2(e.Position, e.Size, false)
 
 	// Check for overlap on all axes
 	return !numeric.HaveSeparatingAxis(spaceshipVertices[:], enemyVertices[:])
@@ -422,17 +439,6 @@ func (spaceship *Spaceship) UpdateState() {
 			spaceship.State = Neutral
 		}
 
-	}
-}
-
-// Vertices returns the vertices of the spaceship.
-// The vertices are the top, bottom left, and bottom right corners of the spaceship.
-// It assumes that the spaceship is a triangle.
-func (spaceship Spaceship) Vertices() numeric.Triangle {
-	return numeric.Triangle{
-		numeric.Locate(spaceship.Position.X+spaceship.Size.Width/2, spaceship.Position.Y),                     // Top
-		numeric.Locate(spaceship.Position.X, spaceship.Position.Y+spaceship.Size.Height),                      // Bottom left
-		numeric.Locate(spaceship.Position.X+spaceship.Size.Width, spaceship.Position.Y+spaceship.Size.Height), // Bottom right
 	}
 }
 

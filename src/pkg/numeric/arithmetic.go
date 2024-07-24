@@ -53,7 +53,7 @@ func HaveSeparatingAxis(verticesA, verticesB []Position) bool {
 		minA, maxA := axis.Project(verticesA)
 		minB, maxB := axis.Project(verticesB)
 
-		if !(minA <= maxB && minB <= maxA) {
+		if minA > maxB || minB > maxA {
 			// There is a separating axis, no collision
 			return true
 		}

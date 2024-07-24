@@ -45,14 +45,18 @@ func (h *handler) checkCollisions() {
 
 	// Choose the collision detection version.
 	// Default is the version 2 if the version is not set.
-	switch config.Config.Control.CollisionDetectionVersion.GetWithFallback(2) {
+	switch config.Config.Control.CollisionDetectionVersion.GetWithFallback(3) {
 	case 1:
 		collisionDetector = h.spaceship.DetectCollisionV1
 		bulletHitDetector = func(b bullet.Bullet) func(enemy.Enemy) bool { return b.HasHitV1 }
 
-	default:
+	case 2:
 		collisionDetector = h.spaceship.DetectCollisionV2
 		bulletHitDetector = func(b bullet.Bullet) func(enemy.Enemy) bool { return b.HasHitV2 }
+
+	default:
+		collisionDetector = h.spaceship.DetectCollisionV3
+		bulletHitDetector = func(b bullet.Bullet) func(enemy.Enemy) bool { return b.HasHitV3 }
 
 	}
 

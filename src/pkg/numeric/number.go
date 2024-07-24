@@ -17,9 +17,6 @@ func (n Number) Abs() Number {
 	return n
 }
 
-// Equal returns true if the numbers are equal within a tolerance (1e-9).
-func (n Number) Equal(other Number) bool { return Equal(n, other, 1e-9) }
-
 // Int returns the int representation of the number.
 func (n Number) Int() int {
 	return int(math.Round(float64(n)))

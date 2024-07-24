@@ -25,7 +25,7 @@ func (lvl *EnemyLevel) Down() {
 	}
 
 	if lvl.Speed.Float() > config.Config.Enemy.InitialSpeed {
-		lvl.Speed -= 1
+		lvl.Speed -= numeric.Number(config.Config.Enemy.AccelerationProgress)
 	}
 
 	if lvl.BerserkLikeliness > config.Config.Enemy.BerserkLikeliness {
@@ -48,7 +48,7 @@ func (lvl *EnemyLevel) Down() {
 // It increases the berserk likeliness by 0.01, the hit points by 10 and the defense by 10.
 func (lvl *EnemyLevel) Up() {
 	if lvl.Speed.Float() < config.Config.Enemy.MaximumSpeed {
-		lvl.Speed += 1
+		lvl.Speed += numeric.Number(config.Config.Enemy.AccelerationProgress)
 	}
 
 	if lvl.BerserkLikeliness < 1 {

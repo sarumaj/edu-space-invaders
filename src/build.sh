@@ -3,8 +3,8 @@
 set -e
 
 print_usage() {
-	echo "Usage: $0 [-d target_directory]"
-	echo "  -d target_directory   Directory where the project will be created (default: current directory)"
+	echo "Usage: $0 [-d target_directory] [--directory target_directory]"
+	echo "  -d, --directory target_directory   Directory where the project will be created (default: current directory)"
 }
 
 log_message() {
@@ -21,10 +21,14 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 TARGET_DIR="."
 
 # Parse command line options
-while getopts 'n:d:' flag; do
-	case "${flag}" in
-	d) TARGET_DIR="${OPTARG}" ;;
+while [[ "$#" -gt 0 ]]; do
+	case $1 in
+	-d | --directory)
+		TARGET_DIR="$2"
+		shift 2
+		;;
 	*)
+		echo "Unknown option: $1"
 		print_usage
 		exit 1
 		;;

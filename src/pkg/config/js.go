@@ -39,6 +39,7 @@ var (
 	console                = GlobalGet("console")
 	document               = GlobalGet("document")
 	environ                = GlobalGet(goEnv)
+	fpsDiv                 = document.Call("getElementById", "fps")
 	invisibleCanvas        = document.Call("createElement", "canvas")
 	invisibleCtx           = invisibleCanvas.Call("getContext", "2d")
 	invisibleCanvasScrollY = 0.0
@@ -661,4 +662,9 @@ func ThrowError(err error) {
 // Unsetenv is a function that unsets the environment variable key.
 func Unsetenv(key string) {
 	environ.Delete(key)
+}
+
+// UpdateFPS is a function that updates the frames per second.
+func UpdateFPS(fps float64) {
+	fpsDiv.Set("innerHTML", fmt.Sprintf(fpsDiv.Call("getAttribute", "data-format").String(), fps))
 }

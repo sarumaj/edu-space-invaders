@@ -1,4 +1,4 @@
-//go:generate bash -c "../../src/build.sh -d \"../../dist\""
+//go:generate bash -c "../../src/build.sh --directory \"../../dist\""
 package main
 
 import (

@@ -19,8 +19,8 @@ func TestGetRectangularVertices(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got := GetRectangularVertices(tt.args.pos, tt.args.size)
-			if !AreVerticesSortedClockwise(got.Slice()) {
-				sorted := Rectangle(SortVerticesClockwise(got.Slice()))
+			if !got.Vertices().AreSorted(true) {
+				sorted := Rectangle(got.Vertices().Sort(true))
 				t.Errorf("got %v, want %v", got, sorted)
 			}
 		})
@@ -43,8 +43,8 @@ func TestGetSpaceshipVerticesV1(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got := GetSpaceshipVerticesV1(tt.args.pos, tt.args.size, tt.args.faceUp)
-			if !AreVerticesSortedClockwise(got.Slice()) {
-				sorted := Triangle(SortVerticesClockwise(got.Slice()))
+			if !got.Vertices().AreSorted(true) {
+				sorted := Triangle(got.Vertices().Sort(true))
 				t.Errorf("got %v, want %v", got, sorted)
 			}
 		})
@@ -67,8 +67,8 @@ func TestGetSpaceshipVerticesV2(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got := GetSpaceshipVerticesV2(tt.args.pos, tt.args.size, tt.args.faceUp)
-			if !AreVerticesSortedClockwise(got.Slice()) {
-				sorted := SpaceshipPolygon(SortVerticesClockwise(got.Slice()))
+			if !got.Vertices().AreSorted(true) {
+				sorted := SpaceshipPolygon(got.Vertices().Sort(true))
 				t.Errorf("got %v, want %v", got, sorted)
 			}
 		})

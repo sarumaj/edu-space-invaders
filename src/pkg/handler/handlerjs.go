@@ -32,7 +32,10 @@ func (h *handler) monitor() {
 		}
 
 		if elapsed := now.Sub(lastFrameTime).Seconds(); elapsed >= precision {
-			switch fps := float64(frameCount) / elapsed; {
+			fps := float64(frameCount) / elapsed
+			config.UpdateFPS(fps)
+
+			switch {
 			case fps <= config.Config.Control.CriticalFramesPerSecondRate:
 				if running.Get(h.ctx) { // If the game is running
 					// Notify the user about the performance drop

@@ -14,11 +14,11 @@ import (
 type Spaceship struct {
 	Position            numeric.Position // Position of the spaceship
 	Speed               numeric.Position // Speed of the spaceship in both directions
+	Cooldown            time.Duration    // Time between shots
 	Directions          Directions       // Directions the spaceship can move
 	Size                numeric.Size     // Size of the
 	CurrentScale        numeric.Position // Scale of the spaceship
 	Bullets             bullet.Bullets   // Bullets fired by the spaceship
-	Cooldown            time.Duration    // Time between shots
 	Level               *SpaceshipLevel  // Spaceship level
 	State               SpaceshipState   // Spaceship state
 	HighScore           int              // HighScore is the high score of the spaceship.
@@ -93,13 +93,10 @@ func (spaceship Spaceship) DetectCollisionV1(e enemy.Enemy) bool {
 // This version is more accurate than DetectCollisionV1.
 // It uses the triangular vertices of the spaceship and the enemy.
 func (spaceship Spaceship) DetectCollisionV2(e enemy.Enemy) bool {
-	// Get the vertices of the triangles
-	spaceshipVertices := numeric.GetSpaceshipVerticesV1(spaceship.Position, spaceship.Size, true)
-	enemyVertices := numeric.GetSpaceshipVerticesV1(e.Position, e.Size, false)
-
-	// Check for overlap on all axes
-	// Do not sort assuming that the vertices are already sorted
-	return !numeric.HaveSeparatingAxis(spaceshipVertices[:], enemyVertices[:], false)
+	return !numeric.
+		GetSpaceshipVerticesV1(spaceship.Position, spaceship.Size, true).
+		Vertices().
+		HasSeparatingAxis(numeric.GetSpaceshipVerticesV1(e.Position, e.Size, false).Vertices())
 }
 
 // DetectCollisionV3 checks if the spaceship has collided with an enemy.
@@ -109,13 +106,10 @@ func (spaceship Spaceship) DetectCollisionV2(e enemy.Enemy) bool {
 // This version is more accurate than DetectCollisionV2.
 // It uses the exact vertices of the spaceship and the enemy.
 func (spaceship Spaceship) DetectCollisionV3(e enemy.Enemy) bool {
-	// Get the vertices of the spaceship polygons
-	spaceshipVertices := numeric.GetSpaceshipVerticesV2(spaceship.Position, spaceship.Size, true)
-	enemyVertices := numeric.GetSpaceshipVerticesV2(e.Position, e.Size, false)
-
-	// Check for overlap on all axes
-	// Do not sort assuming that the vertices are already sorted
-	return !numeric.HaveSeparatingAxis(spaceshipVertices[:], enemyVertices[:], false)
+	return !numeric.
+		GetSpaceshipVerticesV2(spaceship.Position, spaceship.Size, true).
+		Vertices().
+		HasSeparatingAxis(numeric.GetSpaceshipVerticesV2(e.Position, e.Size, false).Vertices())
 }
 
 // Draw draws the spaceship on the canvas.
@@ -182,8 +176,16 @@ func (spaceship Spaceship) GetBulletDamage() int {
 	base := config.Config.Bullet.InitialDamage + spaceship.Level.Progress
 	// Calculate the modifier
 	modifier := (spaceship.Level.Progress/config.Config.Bullet.ModifierProgressStep + 1) * spaceship.Level.Cannons
+
+	damage := base*modifier + numeric.RandomRange(0, base*modifier).Int()
+
+	// Allow critical hit
+	if numeric.SampleUniform(config.Config.Bullet.CriticalHitChance) {
+		damage *= damage
+	}
+
 	// Return the damage
-	return base*modifier + numeric.RandomRange(0, base*modifier).Int()
+	return damage
 }
 
 // IsDestroyed checks if the spaceship is destroyed.
@@ -452,8 +454,8 @@ func Embark() *Spaceship {
 	spaceship := Spaceship{
 		Position:     numeric.Locate(canvasDimensions.OriginalWidth/2, canvasDimensions.OriginalHeight),
 		Size:         numeric.Locate(config.Config.Spaceship.Width, config.Config.Spaceship.Height).ToBox(),
-		CurrentScale: numeric.Ones(),
 		Cooldown:     config.Config.Spaceship.Cooldown,
+		CurrentScale: numeric.Ones(),
 		Level: &SpaceshipLevel{
 			AccelerateRate: numeric.Number(config.Config.Spaceship.Acceleration),
 			Progress:       1,

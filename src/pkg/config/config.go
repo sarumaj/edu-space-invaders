@@ -29,6 +29,7 @@ var Config config = func() (config config) {
 // config represents the configuration of the game.
 type config struct {
 	Bullet struct {
+		CriticalHitChance    float64
 		Height               float64
 		InitialDamage        int
 		ModifierProgressStep int
@@ -48,6 +49,7 @@ type config struct {
 	}
 
 	Enemy struct {
+		AccelerationProgress      float64
 		Count                     int
 		CountProgressStep         int
 		BerserkLikeliness         float64

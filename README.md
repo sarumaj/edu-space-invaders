@@ -86,16 +86,16 @@ To setup similar project follow following steps:
       - [code file keyevent.go](src/pkg/handler/keyevent.go)
       - [code file mouseevent.go](src/pkg/handler/mouseevent.go)
       - [code file touchevent.go](src/pkg/handler/touchevent.go)
-    - [package numeric](src/pkg/objects/numeric)
-      - [unit tests for arithmetic.go](src/pkg/objects/arithmetic_test.go)
-      - [code file arithmetic.go](src/pkg/objects/arithmetic.go)
-      - [code file figure.go](src/pkg/objects/figure.go)
-      - [unit tests for future.go](src/pkg/objects/future_test.go)
-      - [code file future.go](src/pkg/objects/future.go)
-      - [code file number.go](src/pkg/objects/number.go)
-      - [unit tests for position.go](src/pkg/objects/position_test.go)
-      - [code file position.go](src/pkg/objects/position.go)
-      - [code file size.go](src/pkg/objects/size.go)
+    - [package numeric](src/pkg/numeric)
+      - [code file arithmetic.go](src/pkg/numeric/arithmetic.go)
+      - [unit tests for figure.go](src/pkg/numeric/figure_test.go)
+      - [code file figure.go](src/pkg/numeric/figure.go)
+      - [code file number.go](src/pkg/numeric/number.go)
+      - [unit tests for position.go](src/pkg/numeric/position_test.go)
+      - [code file position.go](src/pkg/numeric/position.go)
+      - [code file size.go](src/pkg/numeric/size.go)
+      - [unit tests for vertices.go](src/pkg/numeric/vertices_test.go)
+      - [code file vertices.go](src/pkg/numeric/vertices.go)
     - [package objects](src/pkg/objects)
       - [package bullet](src/pkg/objects/bullet)
         - [code file bullet.go](src/pkg/objects/bullet.go)
@@ -130,6 +130,7 @@ To setup similar project follow following steps:
 The script [build.sh](src/build.sh) is meant to compile the web assembly package (main.wasm) and create a distribution package [dist](dist).
 The [game server](cmd/space-invaders/main.go) serves the files from the distribution package using the web assembly. The files can be served in any other runtime than Go.
 Some code components are meant to be compiled only for the JS WASM architecture (e.g. [js.go](src/pkg/config/js.go) and [handlerjs.go](src/pkg/handler/handlerjs.go)).
+
 To be able to compile the code for other targets and to run tests against it, build tags has been leveraged and some mock-ups haven been defined (e.g. [os.go](src/pkg/config/os.go) and [handleros.go](src/pkg/handler/handleros.go)). The heart of the web application is the JavaScript script building the bridge between the WASM package: [wasm.js](src/static/wasm.js) and our static web page: [index.html](src/static/index.html).
 
 ## Furter reading

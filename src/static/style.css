@@ -17,7 +17,7 @@ body {
 canvas {
   width: 100%;
   max-width: 800px;
-  aspect-ratio: 800.0 / 600.0; /* Maintain a 4:3 aspect ratio */
+  aspect-ratio: 800 / 600; /* Maintain a 4:3 aspect ratio */
 }
 
 #audioToggle,
@@ -51,7 +51,7 @@ canvas {
   align-items: center;
   width: 100%;
   max-width: 800px;
-  aspect-ratio: 800.0 / 600.0;
+  aspect-ratio: 800 / 600;
   border: 5px solid white;
   padding: 5px;
   box-sizing: border-box; /* Include padding and border in the element's total width and height */
@@ -77,6 +77,16 @@ canvas {
   margin-bottom: 20px;
   padding-bottom: 10px;
   border-bottom: 5px solid white;
+}
+
+#info {
+  position: fixed;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-family: Arial, sans-serif;
+  top: 10px;
+  right: 10px;
 }
 
 #message {

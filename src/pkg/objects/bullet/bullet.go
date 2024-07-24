@@ -65,13 +65,10 @@ func (b Bullet) HasHitV1(e enemy.Enemy) bool {
 // If there is a separating axis, there is no collision.
 // It assumes that the bullet is a rectangle and the enemy is a triangle.
 func (b Bullet) HasHitV2(e enemy.Enemy) bool {
-	// The vertices of the bullet and the enemy
-	bulletVertices := numeric.GetRectangularVertices(b.Position, b.Size)
-	enemyVertices := numeric.GetSpaceshipVerticesV1(e.Position, e.Size, false)
-
-	// Check for overlap on all axes
-	// Do not sort assuming that the vertices are already sorted
-	return !numeric.HaveSeparatingAxis(bulletVertices[:], enemyVertices[:], false)
+	return !numeric.
+		GetRectangularVertices(b.Position, b.Size).
+		Vertices().
+		HasSeparatingAxis(numeric.GetSpaceshipVerticesV1(e.Position, e.Size, false).Vertices())
 }
 
 // HasHitV3 returns true if the bullet has hit the enemy.
@@ -82,13 +79,10 @@ func (b Bullet) HasHitV2(e enemy.Enemy) bool {
 // If there is a separating axis, there is no collision.
 // It assumes that the bullet is a rectangle and the enemy is a spaceship polygon.
 func (b Bullet) HasHitV3(e enemy.Enemy) bool {
-	// The vertices of the bullet and the enemy
-	bulletVertices := numeric.GetRectangularVertices(b.Position, b.Size)
-	enemyVertices := numeric.GetSpaceshipVerticesV2(e.Position, e.Size, false)
-
-	// Check for overlap on all axes
-	// Do not sort assuming that the vertices are already sorted
-	return !numeric.HaveSeparatingAxis(bulletVertices[:], enemyVertices[:], false)
+	return !numeric.
+		GetRectangularVertices(b.Position, b.Size).
+		Vertices().
+		HasSeparatingAxis(numeric.GetSpaceshipVerticesV2(e.Position, e.Size, false).Vertices())
 }
 
 // Move moves the bullet.

@@ -115,3 +115,6 @@ func ThrowError(err error) {
 
 // Unsetenv is a function that unsets the environment variable key.
 func Unsetenv(key string) { _ = os.Unsetenv(key) }
+
+// UpdateFPS is a function that updates the frames per second.
+func UpdateFPS(fps float64) {}

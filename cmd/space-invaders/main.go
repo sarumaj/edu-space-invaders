@@ -31,20 +31,17 @@ var (
 	//go:embed boot.yaml
 	bootRaw []byte
 
-	//go:embed private_key.pem
-	privKey []byte
-	//go:embed public_key.pem
-	pubKey []byte
-
 	environ []string
 	logger  *rkentry.LoggerEntry
 	signer  rkentry.SignerJwt
 
-	port = flag.Int("port", parsePort(), "port to listen on")
+	port        = flag.Int("port", parsePort(), "port to listen on")
+	private_key = flag.String("private-key", "private_key.pem", "path to the private key")
+	public_key  = flag.String("public-key", "public_key.pem", "path to the public key")
 )
 
-// init initializes the game server.
-func init() {
+// main is the entry point of the game server.
+func main() {
 	flag.Parse()
 
 	// Set the port based on the environment variable (necessary for Heroku).
@@ -53,18 +50,25 @@ func init() {
 	environ = os.Environ()
 	slices.Sort(environ)
 
-	// Register the asymmetric JWT signer.
-	signer = rkentry.RegisterAsymmetricJwtSigner(ginEntryName, "RS256", privKey, pubKey)
-}
-
-// main is the entry point of the game server.
-func main() {
 	boot := rkboot.NewBoot(rkboot.WithBootConfigRaw(bootRaw))
 
 	entry := rkgin.GetGinEntry(ginEntryName)
 	logger = entry.LoggerEntry
 
 	logger.Info("Booting up", zapcore.Field{Key: "environ", Interface: environ, Type: zapcore.ReflectType})
+
+	privKey, err := os.ReadFile(*private_key)
+	if err != nil {
+		logger.Error("Failed to read private key", zapcore.Field{Key: "error", Interface: err, Type: zapcore.ErrorType})
+	}
+
+	pubKey, err := os.ReadFile(*public_key)
+	if err != nil {
+		logger.Error("Failed to read public key", zapcore.Field{Key: "error", Interface: err, Type: zapcore.ErrorType})
+	}
+
+	// Register the asymmetric JWT signer.
+	signer = rkentry.RegisterAsymmetricJwtSigner(ginEntryName, "RS256", privKey, pubKey)
 
 	entry.Router.Use(CacheControlMiddleware())
 	entry.Router.POST("/.env", rkginjwt.Middleware(rkmidjwt.WithSigner(signer)), HandleEnv())

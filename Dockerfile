@@ -18,10 +18,13 @@ RUN go generate ./... && \
     -tags="osusergo netgo static_build" \
     -o /server \
     "cmd/space-invaders/main.go" "cmd/space-invaders/handlers.go" && \
+    mkdir -p /secret && cp /usr/src/app/secret/*.pem /secret/ && \
     rm -rf /usr/src/app
 
 FROM scratch AS final
 
 COPY --from=builder /server /
+COPY --from=builder /secret/*.pem /secret/
 
 ENTRYPOINT ["/server"]
+CMD ["-private-key", "/secret/private_key.pem", "-public-key", "/secret/public_key.pem"]

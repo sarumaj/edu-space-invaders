@@ -21,10 +21,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Git-Crypt Unlock
-        uses: amplium/git-crypt-action@v0.1.5
-        with:
-          key_encoded: ${{ secrets.GIT_CRYPT_KEY }}
+      - name: Install git-crypt and decrypt repository
+        env:
+          GIT_CRYPT_KEY: ${{ secrets.GIT_CRYPT_KEY }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git-crypt
+          echo "$GIT_CRYPT_KEY" | base64 -d | git-crypt unlock -
+          git-crypt status
 
       - name: Install go
         uses: actions/setup-go@v4

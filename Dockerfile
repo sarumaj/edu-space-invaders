@@ -11,7 +11,9 @@ RUN go mod download && go mod verify && \
 COPY . .
 
 RUN go generate ./... && \
-    gofmt -s -d ./ && GOFLAGS="-buildvcs=false" golangci-lint run -v && go test -v -race ./... && \
+    gofmt -s -d ./ && \
+    GOFLAGS="-buildvcs=false" golangci-lint run -v && \
+    go test -v -race ./... && \
     go build \
     -trimpath \
     -ldflags="-s -w -extldflags=-static" \

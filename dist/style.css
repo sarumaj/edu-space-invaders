@@ -46,6 +46,7 @@ canvas {
 }
 
 #canvasContainer {
+  position: relative; /* Important: This positions the #info div correctly */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -80,13 +81,15 @@ canvas {
 }
 
 #info {
-  position: fixed;
-  padding: 20px;
+  position: absolute;
+  padding: 10px;
   background: rgba(255, 255, 255, 0.2);
   color: #fff;
   font-family: Arial, sans-serif;
-  top: 10px;
+  font-size: 10px;
+  bottom: 10px;
   right: 10px;
+  z-index: -1; /* Ensure it is behind other elements */
 }
 
 #message {

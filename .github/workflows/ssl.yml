@@ -1,0 +1,49 @@
+name: Obtain SSL with Certbot and DNS-01 Challenge
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 0 * * 1" # Runs every Monday at midnight
+
+jobs:
+  obtain-cert:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Certbot
+        run: sudo apt-get update && sudo apt-get install -y certbot
+
+      - name: Obtain SSL certificate
+        env:
+          CERTBOT_DOMAIN: space-invaders.sarumaj.com
+          CERTBOT_EMAIL: ${{ secrets.HEROKU_USER_EMAIL }}
+          NAMECHEAP_API_USER: ${{ secrets.NAMECHEAP_API_USER }}
+          NAMECHEAP_API_KEY: ${{ secrets.NAMECHEAP_API_KEY }}
+          NAMECHEAP_USERNAME: ${{ secrets.NAMECHEAP_USERNAME }}
+          NAMECHEAP_CLIENT_IP: ${{ secrets.NAMECHEAP_CLIENT_IP }}
+        run: |
+          sudo certbot certonly \
+          --verbose \
+          --non-interactive \
+          --manual \
+          --preferred-challenges=dns \
+          --manual-auth-hook "./.github/scripts/auth-hook.sh" \
+          --manual-cleanup-hook "./.github/scripts/cleanup-hook.sh" \
+          --email $CERTBOT_EMAIL \
+          --agree-tos \
+          --manual-public-ip-logging-ok \
+          -d $CERTBOT_DOMAIN \
+          --server https://acme-v02.api.letsencrypt.org/directory
+
+      - name: Deploy certificate to Heroku
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+          CERTBOT_DOMAIN: space-invaders.sarumaj.com
+        run: |
+          heroku certs:auto:disable --app $HEROKU_APP_NAME
+          heroku certs:update /etc/letsencrypt/live/$CERTBOT_DOMAIN/fullchain.pem /etc/letsencrypt/live/$CERTBOT_DOMAIN/privkey.pem --app $HEROKU_APP_NAME

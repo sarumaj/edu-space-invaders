@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -111,6 +112,37 @@ func HandleHealth() gin.HandlerFunc {
 	}
 }
 
+// HttpsRedirectMiddleware redirects HTTP requests to HTTPS
+func HttpsRedirectMiddleware(enabled bool) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		if enabled && ctx.Request.URL.Scheme != "https" && ctx.Request.Header.Get("X-Forwarded-Proto") != "https" {
+			location := &url.URL{
+				Scheme:      "https",
+				Host:        ctx.Request.Header.Get("X-Forwarded-Host"),
+				Path:        ctx.Request.URL.Path,
+				RawPath:     ctx.Request.URL.RawPath,
+				RawQuery:    ctx.Request.URL.RawQuery,
+				ForceQuery:  false,
+				User:        ctx.Request.URL.User,
+				Fragment:    ctx.Request.URL.Fragment,
+				RawFragment: ctx.Request.URL.RawFragment,
+				Opaque:      ctx.Request.URL.Opaque,
+				OmitHost:    false,
+			}
+
+			if location.Host == "" {
+				location.Host = ctx.Request.Host
+			}
+
+			ctx.Redirect(http.StatusMovedPermanently, location.String())
+			ctx.Abort()
+			return
+		}
+
+		ctx.Next()
+	}
+}
+
 // Redirect redirects the client to the specified location.
 func Redirect[L interface {
 	~string | func(*gin.Context) string
@@ -127,8 +159,8 @@ func Redirect[L interface {
 	}
 }
 
-// ServerFileSystem serves the files from the embedded file system.
-func ServerFileSystem(conflicting map[*regexp.Regexp]gin.HandlerFunc) gin.HandlerFunc {
+// ServeFileSystem serves the files from the embedded file system.
+func ServeFileSystem(conflicting map[*regexp.Regexp]gin.HandlerFunc) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		path := ctx.Param("filepath")
 		for pattern, handler := range conflicting {

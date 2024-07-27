@@ -72,6 +72,7 @@ jobs:
         env:
           HD_SPACE_INVADERS_COLLISION_DETECTION_VERSION: "3"
           HD_SPACE_INVADERS_DEBUG: "false"
+          HD_SPACE_INVADERS_FORCE_SECURE: "true"
           HD_SPACE_INVADERS_GOD_MODE: "false"
 
       - name: Update code documentation

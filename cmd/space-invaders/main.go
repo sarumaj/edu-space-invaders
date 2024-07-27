@@ -36,6 +36,7 @@ var (
 	signer  rkentry.SignerJwt
 
 	port        = flag.Int("port", parsePort(), "port to listen on")
+	forceSecure = flag.Bool("force-secure", os.Getenv("SPACE_INVADERS_FORCE_SECURE") == "true", "force secure connection")
 	private_key = flag.String("private-key", "private_key.pem", "path to the private key")
 	public_key  = flag.String("public-key", "public_key.pem", "path to the public key")
 )
@@ -52,8 +53,8 @@ func main() {
 
 	boot := rkboot.NewBoot(rkboot.WithBootConfigRaw(bootRaw))
 
-	entry := rkgin.GetGinEntry(ginEntryName)
-	logger = entry.LoggerEntry
+	ginEntry := rkgin.GetGinEntry(ginEntryName)
+	logger = ginEntry.LoggerEntry
 
 	logger.Info("Booting up", zapcore.Field{Key: "environ", Interface: environ, Type: zapcore.ReflectType})
 
@@ -70,9 +71,9 @@ func main() {
 	// Register the asymmetric JWT signer.
 	signer = rkentry.RegisterAsymmetricJwtSigner(ginEntryName, "RS256", privKey, pubKey)
 
-	entry.Router.Use(CacheControlMiddleware())
-	entry.Router.POST("/.env", rkginjwt.Middleware(rkmidjwt.WithSigner(signer)), HandleEnv())
-	entry.Router.Match([]string{http.MethodHead, http.MethodGet}, "/*filepath", ServerFileSystem(map[*regexp.Regexp]gin.HandlerFunc{
+	ginEntry.Router.Use(HttpsRedirectMiddleware(*forceSecure), CacheControlMiddleware())
+	ginEntry.Router.POST("/.env", rkginjwt.Middleware(rkmidjwt.WithSigner(signer)), HandleEnv())
+	ginEntry.Router.Match([]string{http.MethodHead, http.MethodGet}, "/*filepath", ServeFileSystem(map[*regexp.Regexp]gin.HandlerFunc{
 		regexp.MustCompile(`^/?health/?$`): HandleHealth(),
 		regexp.MustCompile(`^/?\.env/?$`):  HandleEnv(),
 	}))

@@ -19,9 +19,9 @@ Web Assembly allows us to develop web-frontend applications in a runtime like Go
 
 Click here to play the game:
 
-<a href="https://edu-space-invaders-bd0bf5ebb055.herokuapp.com/">
+<a href="https://space-invaders.sarumaj.com">
   <p align="center">
-    <img src="assets/play.png" alt="https://edu-space-invaders.herokuapp.com" width="200" height="auto">
+    <img src="assets/play.png" alt="https://space-invaders.sarumaj.com" width="200" height="auto">
   </p>
 </a>
 

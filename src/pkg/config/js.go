@@ -65,8 +65,9 @@ type dimensions struct {
 
 func init() {
 	setupAudioInterface()
-	setupRefreshInterface()
 	setupCanvasInterface()
+	setupMessageBoxInterface()
+	setupRefreshInterface()
 }
 
 // getAudioContext is a function that returns the audio context.
@@ -148,6 +149,28 @@ func setupCanvasInterface() {
 	}))
 
 	GlobalCall("requestAnimationFrame", GlobalGet("resize"))
+}
+
+// setupMessageBoxInterface is a function that sets up the message box interface.
+// The message box is scrollable only if the content inside the #message element can scroll.
+// The touch events are prevented from propagating to the body when the message box is touched.
+func setupMessageBoxInterface() {
+	if !IsTouchDevice() {
+		return
+	}
+
+	messageBox.Call("addEventListener", "touchstart", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		p[0].Call("stopPropagation") // Stop the touch event from propagating to the body
+		return nil
+	}))
+
+	messageBox.Call("addEventListener", "touchmove", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		// Allow touch move events only if the content inside the #message element can scroll
+		if messageBox.Get("scrollHeight").Float() > messageBox.Get("clientHeight").Float() {
+			p[0].Call("stopPropagation") // Prevent body scroll when inside the messageBox
+		}
+		return nil
+	}))
 }
 
 // setupRefreshInterface is a function that sets up the refresh interface.

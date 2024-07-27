@@ -61,13 +61,12 @@ To setup similar project follow following steps:
 
 - [directory cmd](cmd)
   - [directory space-invaders](cmd/space-invaders)
+    - [game server endpoint and middleware definitions handlers.go](cmd/space-invaders/handlers.go)
     - [game server main.go](cmd/space-invaders/main.go)
     - [service config file boot.yaml](cmd/space-invaders/boot.yaml)
 - [module file go.mod](go.mod)
 - [source directory](src)
-
   - [package pkg](src/pkg)
-
     - [package config](src/pkg/config)
       - [unit tests for config.go](src/pkg/config/config_test.go)
       - [code file config.go](src/pkg/config/config.go)

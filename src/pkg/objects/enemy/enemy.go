@@ -108,7 +108,7 @@ func (enemy *Enemy) Destroy() {
 	config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.EnemyDestroyed, config.Template{
 		"EnemyName": enemy.Name,
 		"EnemyType": enemy.Type,
-	}))
+	}), false)
 	enemy.Level.HitPoints = 0
 	go config.PlayAudio("enemy_destroyed.wav", false)
 }
@@ -146,7 +146,7 @@ func (enemy *Enemy) Hit(damage int) {
 		"EnemyName": enemy.Name,
 		"EnemyType": enemy.Type,
 		"Damage":    damage,
-	}))
+	}), false)
 
 	go config.PlayAudio("enemy_hit.wav", false)
 }

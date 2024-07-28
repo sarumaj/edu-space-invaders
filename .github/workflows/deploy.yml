@@ -45,7 +45,10 @@ jobs:
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
       - name: Run linters and tests
-        run: gofmt -s -d ./ && golangci-lint run -v && go test -v -race ./...
+        run: |
+          gofmt -s -d ./ && \
+          golangci-lint run -v --timeout 5m && \
+          go test -v -race ./...
 
       - name: Get app url
         uses: akhileshns/heroku-deploy@v3.13.15

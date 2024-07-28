@@ -42,7 +42,7 @@ func (h *handler) monitor() {
 					if config.Config.Control.Debug.Get() {
 						config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.PerformanceDropped, config.Template{
 							"FPS": fps,
-						}))
+						}), false)
 					}
 
 					running.Set(&h.ctx, false)  // Pause the game
@@ -63,7 +63,7 @@ func (h *handler) monitor() {
 							// Notify the user about the performance boost
 							config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.PerformanceImproved, config.Template{
 								"FPS": fps,
-							}))
+							}), false)
 						}
 
 						running.Set(&h.ctx, true)    // Resume the game
@@ -171,6 +171,7 @@ func (known registeredKeys) keyUp(rcv chan<- keyEvent) js.Func {
 func (event *mouseEvent) mouseDown() js.Func {
 	return js.FuncOf(func(_ js.Value, p []js.Value) any {
 		p[0].Call("preventDefault")
+
 		canvasDimensions := config.CanvasBoundingBox()
 		_ = event.
 			Reset().
@@ -196,7 +197,6 @@ func (event *mouseEvent) mouseMove(rcv chan<- mouseEvent) js.Func {
 
 		p[0].Call("preventDefault")
 		canvasDimensions := config.CanvasBoundingBox()
-		btnType := mouseButton(p[0].Get("button").Int())
 		_ = event.
 			SetCurrentPosition(numeric.Position{
 				X: numeric.Number(p[0].Get("clientX").Float() - canvasDimensions.BoxLeft),
@@ -205,7 +205,7 @@ func (event *mouseEvent) mouseMove(rcv chan<- mouseEvent) js.Func {
 			SetType(MouseEventTypeMove)
 
 		// Check which buttons are pressed
-		switch buttons := p[0].Get("buttons").Int(); {
+		switch buttons, btnType := p[0].Get("buttons").Int(), mouseButton(p[0].Get("button").Int()); {
 		case buttons&1 != 0 && btnType == MouseButtonPrimary:
 			_ = event.SetPressed(true).SetButton(MouseButtonPrimary)
 

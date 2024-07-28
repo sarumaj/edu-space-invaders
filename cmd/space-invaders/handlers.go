@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -12,33 +11,33 @@ import (
 	gin "github.com/gin-gonic/gin"
 	dist "github.com/sarumaj/edu-space-invaders/dist"
 	zapcore "go.uber.org/zap/zapcore"
+	gorm "gorm.io/gorm"
+	clause "gorm.io/gorm/clause"
 )
 
-// CacheControlMiddleware is a middleware that sets the cache control headers.
-// It also handles the ETag header.
-func CacheControlMiddleware() gin.HandlerFunc {
+// GetScores returns the scores as a response.
+// It returns the scores in descending order of the score.
+// If the scores have the same score, they are ordered in ascending order of the name.
+func GetScores(scoreBoardDatabase *gorm.DB) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		path := strings.Trim(ctx.Request.URL.Path, "/")
-		if path == "/" {
-			path = defaultEndpoint
+		scores := make([]Score, 0)
+		if err := scoreBoardDatabase.
+			Order(clause.OrderBy{
+				Columns: []clause.OrderByColumn{
+					{Column: clause.Column{Name: "score"}, Desc: true},
+					{Column: clause.Column{Name: "name"}, Desc: false},
+				},
+			}).
+			Find(&scores).
+			Error; err != nil {
+
+			logger.Error("Failed to get scores", zapcore.Field{Key: "error", Interface: err, Type: zapcore.ErrorType})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
 		}
 
-		fields := []zapcore.Field{{Key: "path", Type: zapcore.StringType, String: path}}
-
-		if eTag, ok := dist.LookupHash(path); ok {
-			fields = append(fields, zapcore.Field{Key: "eTag", Type: zapcore.StringType, String: eTag})
-			ctx.Header("Cache-Control", "public, must-revalidate")
-			ctx.Header("ETag", eTag)
-
-			if strings.Contains(ctx.GetHeader("If-None-Match"), eTag) {
-				logger.Info("ETag matched", fields...)
-				ctx.Status(http.StatusNotModified)
-				return
-			}
-		}
-
-		logger.Info("ETag not matched", fields...)
-		ctx.Next()
+		logger.Info("Scores retrieved", zapcore.Field{Key: "scores", Interface: scores, Type: zapcore.ReflectType})
+		ctx.JSON(http.StatusOK, scores)
 	}
 }
 
@@ -47,7 +46,7 @@ func CacheControlMiddleware() gin.HandlerFunc {
 // It returns the environment variables as a response.
 func HandleEnv() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		body := gin.H{}
+		body := make(gin.H, 0)
 		if ctx.Request.Method == http.MethodPost {
 			if err := ctx.ShouldBind(&body); err != nil {
 				ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -93,6 +92,8 @@ func HandleEnv() gin.HandlerFunc {
 	}
 }
 
+// HandleHealth handles the health check.
+// It returns the boot time, build time, current time, status, and uptime as a response.
 func HandleHealth() gin.HandlerFunc {
 	bootTime := time.Now()
 
@@ -112,66 +113,50 @@ func HandleHealth() gin.HandlerFunc {
 	}
 }
 
-// HttpsRedirectMiddleware redirects HTTP requests to HTTPS
-func HttpsRedirectMiddleware(enabled bool) gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		if enabled && ctx.Request.URL.Scheme != "https" && ctx.Request.Header.Get("X-Forwarded-Proto") != "https" {
-			location := &url.URL{
-				Scheme:      "https",
-				Host:        ctx.Request.Header.Get("X-Forwarded-Host"),
-				Path:        ctx.Request.URL.Path,
-				RawPath:     ctx.Request.URL.RawPath,
-				RawQuery:    ctx.Request.URL.RawQuery,
-				ForceQuery:  false,
-				User:        ctx.Request.URL.User,
-				Fragment:    ctx.Request.URL.Fragment,
-				RawFragment: ctx.Request.URL.RawFragment,
-				Opaque:      ctx.Request.URL.Opaque,
-				OmitHost:    false,
-			}
-
-			if location.Host == "" {
-				location.Host = ctx.Request.Host
-			}
-
-			ctx.Redirect(http.StatusMovedPermanently, location.String())
-			ctx.Abort()
-			return
-		}
-
-		ctx.Next()
-	}
-}
-
-// Redirect redirects the client to the specified location.
-func Redirect[L interface {
-	~string | func(*gin.Context) string
-}](location L) gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		switch location := any(location).(type) {
-		case string:
-			ctx.Redirect(http.StatusMovedPermanently, location)
-
-		case func(*gin.Context) string:
-			ctx.Redirect(http.StatusMovedPermanently, location(ctx))
-
-		}
-	}
-}
-
 // ServeFileSystem serves the files from the embedded file system.
-func ServeFileSystem(conflicting map[*regexp.Regexp]gin.HandlerFunc) gin.HandlerFunc {
+func ServeFileSystem(conflicting map[*regexp.Regexp]gin.HandlersChain) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		path := ctx.Param("filepath")
-		for pattern, handler := range conflicting {
+		for pattern, handlers := range conflicting {
 			if pattern.MatchString(path) {
 				logger.Info("Matched conflicting path", zapcore.Field{Key: "path", Type: zapcore.StringType, String: path})
-				handler(ctx)
+				for _, handler := range handlers {
+					handler(ctx)
+				}
 				return
 			}
 		}
 
 		logger.Info("Serving file", zapcore.Field{Key: "path", Type: zapcore.StringType, String: path})
 		ctx.FileFromFS("/"+strings.TrimLeft(path, "/"), dist.HttpFS)
+	}
+}
+
+// SaveScores saves the scores to the database.
+func SaveScores(scoreBoardDatabase *gorm.DB) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		var scores []Score
+		if err := ctx.ShouldBind(&scores); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if err := scoreBoardDatabase.
+			Clauses(clause.OnConflict{
+				Columns: []clause.Column{{Name: "name"}},
+				DoUpdates: clause.Assignments(map[string]interface{}{
+					"score": gorm.Expr("MAX(score, excluded.score)"), // Update the score if it is higher (Caution, SQLite dialect only).
+				}),
+			}).
+			Save(&scores).
+			Error; err != nil {
+
+			logger.Error("Failed to save scores", zapcore.Field{Key: "error", Interface: err, Type: zapcore.ErrorType})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		logger.Info("Scores saved", zapcore.Field{Key: "scores", Interface: scores, Type: zapcore.ReflectType})
+		ctx.Status(http.StatusOK)
 	}
 }

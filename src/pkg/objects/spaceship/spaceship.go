@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Pallinder/go-randomdata"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/bullet"
@@ -12,6 +13,7 @@ import (
 
 // Spaceship represents the player's spaceship.
 type Spaceship struct {
+	Commandant          string           // Commandant is the name of the spaceship's commander.
 	Position            numeric.Position // Position of the spaceship
 	Speed               numeric.Position // Speed of the spaceship in both directions
 	Cooldown            time.Duration    // Time between shots
@@ -38,7 +40,7 @@ func (spaceship *Spaceship) isFrozen() bool {
 			config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipStillFrozen, config.Template{
 				"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).
 					Round(config.Config.Spaceship.LogThrottling),
-			}))
+			}), false)
 			spaceship.lastThrottledLog = now
 		}
 
@@ -449,9 +451,10 @@ func (spaceship *Spaceship) UpdateState() {
 // Embark creates a new spaceship.
 // The spaceship is created at the bottom of the canvas.
 // The spaceship's position, size, cooldown, level, and state are set.
-func Embark() *Spaceship {
+func Embark(commandant string) *Spaceship {
 	canvasDimensions := config.CanvasBoundingBox()
 	spaceship := Spaceship{
+		Commandant:   commandant,
 		Position:     numeric.Locate(canvasDimensions.OriginalWidth/2, canvasDimensions.OriginalHeight),
 		Size:         numeric.Locate(config.Config.Spaceship.Width, config.Config.Spaceship.Height).ToBox(),
 		Cooldown:     config.Config.Spaceship.Cooldown,
@@ -461,6 +464,10 @@ func Embark() *Spaceship {
 			Progress:       1,
 			Cannons:        1,
 		},
+	}
+
+	if spaceship.Commandant == "" {
+		spaceship.Commandant = randomdata.FullName(randomdata.RandomGender)
 	}
 
 	return &spaceship

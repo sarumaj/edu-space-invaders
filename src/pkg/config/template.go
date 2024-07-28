@@ -12,6 +12,28 @@ import (
 // printer is a message printer for English.
 var printer = message.NewPrinter(language.English)
 
+var funcsMap = template.FuncMap{
+	"color": func(color string, args ...any) string {
+		return fmt.Sprintf(`<span style="color: %s;">%s</span>`, color, fmt.Sprint(args...))
+	},
+	"bold": func(args ...any) string {
+		return fmt.Sprintf(`<b>%s</b>`, fmt.Sprint(args...))
+	},
+	"italic": func(args ...any) string {
+		return fmt.Sprintf(`<i>%s</i>`, fmt.Sprint(args...))
+	},
+	"inc": func(n int) int {
+		return n + 1
+	},
+	"printf": printer.Sprintf,
+	"strike": func(args ...any) string {
+		return fmt.Sprintf(`<s>%s</s>`, fmt.Sprint(args...))
+	},
+	"underline": func(args ...any) string {
+		return fmt.Sprintf(`<u>%s</u>`, fmt.Sprint(args...))
+	},
+}
+
 type templateString string
 
 // Template represents a message template.
@@ -20,24 +42,7 @@ type Template map[string]any
 // execute renders the template with the given string.
 func (t Template) execute(str templateString) string {
 	out := bytes.NewBuffer(nil)
-	parsed, err := template.New(fmt.Sprintf("%p", out)).Funcs(template.FuncMap{
-		"color": func(color string, args ...any) string {
-			return fmt.Sprintf(`<span style="color: %s;">%s</span>`, color, fmt.Sprint(args...))
-		},
-		"bold": func(args ...any) string {
-			return fmt.Sprintf(`<b>%s</b>`, fmt.Sprint(args...))
-		},
-		"italic": func(args ...any) string {
-			return fmt.Sprintf(`<i>%s</i>`, fmt.Sprint(args...))
-		},
-		"printf": printer.Sprintf,
-		"strike": func(args ...any) string {
-			return fmt.Sprintf(`<s>%s</s>`, fmt.Sprint(args...))
-		},
-		"underline": func(args ...any) string {
-			return fmt.Sprintf(`<u>%s</u>`, fmt.Sprint(args...))
-		},
-	}).Parse(string(str))
+	parsed, err := template.New(fmt.Sprintf("%p", out)).Funcs(funcsMap).Parse(string(str))
 	LogError(err)
 	LogError(parsed.Execute(out, t))
 

@@ -71,7 +71,7 @@ func (h *handler) checkCollisions() {
 						"EnemyName":      e.Name,
 						"EnemyType":      e.Type,
 						"SpaceshipLevel": h.spaceship.Level.Progress,
-					}))
+					}), false)
 				}
 				return
 			}
@@ -95,11 +95,15 @@ func (h *handler) checkCollisions() {
 				h.spaceship.Penalize(penalty)
 				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipDowngradedByEnemy, config.Template{
 					"SpaceshipLevel": h.spaceship.Level.Progress,
-				}))
+				}), false)
 				if h.spaceship.IsDestroyed() {
+					config.SetScore(h.spaceship.Commandant, h.spaceship.HighScore)
+					scores, rank := config.GetScoresAndRank(10, h.spaceship.HighScore)
 					config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.GameOver, config.Template{
 						"HighScore": h.spaceship.HighScore,
-					}))
+						"Rank":      rank,
+						"TopScores": scores,
+					}), false)
 					h.cancel()
 				}
 				return
@@ -113,7 +117,7 @@ func (h *handler) checkCollisions() {
 				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipUpgradedByGoodie, config.Template{
 					"SpaceshipLevel": h.spaceship.Level.Progress,
 					"BoostDuration":  config.Config.Spaceship.BoostDuration,
-				}))
+				}), false)
 				return
 
 			case enemy.Freezer: // If the spaceship has collided with a freezer, freeze the spaceship.
@@ -123,7 +127,7 @@ func (h *handler) checkCollisions() {
 				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipFrozen, config.Template{
 					"SpaceshipLevel": h.spaceship.Level.Progress,
 					"FreezeDuration": config.Config.Spaceship.FreezeDuration,
-				}))
+				}), false)
 				return
 
 			}
@@ -133,11 +137,15 @@ func (h *handler) checkCollisions() {
 			h.spaceship.ChangeState(spaceship.Damaged)
 			config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipDowngradedByEnemy, config.Template{
 				"SpaceshipLevel": h.spaceship.Level.Progress,
-			}))
+			}), false)
 			if h.spaceship.IsDestroyed() {
+				config.SetScore(h.spaceship.Commandant, h.spaceship.HighScore)
+				scores, rank := config.GetScoresAndRank(10, h.spaceship.HighScore)
 				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.GameOver, config.Template{
 					"HighScore": h.spaceship.HighScore,
-				}))
+					"Rank":      rank,
+					"TopScores": scores,
+				}), false)
 				h.cancel()
 				return
 			}
@@ -162,7 +170,7 @@ func (h *handler) checkCollisions() {
 						"EnemyName":      e.Name,
 						"EnemyType":      e.Type,
 						"SpaceshipLevel": h.spaceship.Level.Progress,
-					}))
+					}), false)
 				}
 
 				// If the progress is a multiple of the enemy count progress step,
@@ -383,9 +391,9 @@ func (h *handler) pause() {
 	suspended.Set(&h.ctx, false) // signal that the game is not suspended
 
 	if config.IsTouchDevice() {
-		config.SendMessage(config.Config.MessageBox.Messages.GamePausedTouchDevice)
+		config.SendMessage(config.Config.MessageBox.Messages.GamePausedTouchDevice, false)
 	} else {
-		config.SendMessage(config.Config.MessageBox.Messages.GamePausedNoTouchDevice)
+		config.SendMessage(config.Config.MessageBox.Messages.GamePausedNoTouchDevice, false)
 	}
 }
 
@@ -441,9 +449,9 @@ func (h *handler) start() bool {
 
 		if isFirstTime.Get(h.ctx) {
 			if config.IsTouchDevice() {
-				config.SendMessage(config.Config.MessageBox.Messages.GameStartedTouchDevice)
+				config.SendMessage(config.Config.MessageBox.Messages.GameStartedTouchDevice, false)
 			} else {
-				config.SendMessage(config.Config.MessageBox.Messages.GameStartedNoTouchDevice)
+				config.SendMessage(config.Config.MessageBox.Messages.GameStartedNoTouchDevice, false)
 			}
 		}
 
@@ -475,19 +483,25 @@ func (h *handler) GenerateEnemies(num int, randomY bool) {
 // It refreshes the game state, renders the game, and handles the keydown events.
 // It should be called in a separate goroutine.
 func (h *handler) Loop() {
+	if isFirstTime.Get(h.ctx) {
+		config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.Greeting, config.Template{
+			"Commandant": h.spaceship.Commandant,
+		}), true)
+	}
+
 	// Notify the user about how to start the game.
 	if !running.Get(h.ctx) {
 		if isFirstTime.Get(h.ctx) {
 			if config.IsTouchDevice() {
-				config.SendMessage(config.Config.MessageBox.Messages.HowToStartTouchDevice)
+				config.SendMessage(config.Config.MessageBox.Messages.HowToStartTouchDevice, false)
 			} else {
-				config.SendMessage(config.Config.MessageBox.Messages.HowToStartNoTouchDevice)
+				config.SendMessage(config.Config.MessageBox.Messages.HowToStartNoTouchDevice, false)
 			}
 		} else {
 			if config.IsTouchDevice() {
-				config.SendMessage(config.Config.MessageBox.Messages.HowToRestartTouchDevice)
+				config.SendMessage(config.Config.MessageBox.Messages.HowToRestartTouchDevice, false)
 			} else {
-				config.SendMessage(config.Config.MessageBox.Messages.HowToRestartNoTouchDevice)
+				config.SendMessage(config.Config.MessageBox.Messages.HowToRestartNoTouchDevice, false)
 			}
 		}
 	}
@@ -540,7 +554,7 @@ func (h *handler) Loop() {
 
 // Restart restarts the game.
 func (h *handler) Restart() {
-	h.spaceship = spaceship.Embark()
+	h.spaceship = spaceship.Embark(h.spaceship.Commandant)
 	h.enemies = nil
 	h.stars = star.Explode(config.Config.Star.Count)
 	h.ctx, h.cancel = context.WithCancel(context.Background())
@@ -549,14 +563,14 @@ func (h *handler) Restart() {
 }
 
 // New creates a new handler.
-// It creates a new spaceship and registers the keydown event.
+// It creates a new spaceship and registers all event handlers.
 func New() *handler {
 	h := &handler{
 		keyEvent:   make(chan keyEvent),
 		keysHeld:   make(map[keyBinding]bool),
 		mouseEvent: make(chan mouseEvent),
 		touchEvent: make(chan touchEvent),
-		spaceship:  spaceship.Embark(),
+		spaceship:  spaceship.Embark(""),
 		stars:      star.Explode(config.Config.Star.Count),
 	}
 

@@ -61,8 +61,10 @@ To setup similar project follow following steps:
 
 - [directory cmd](cmd)
   - [directory space-invaders](cmd/space-invaders)
-    - [game server endpoint and middleware definitions handlers.go](cmd/space-invaders/handlers.go)
+    - [game server endpoint definitions handlers.go](cmd/space-invaders/handlers.go)
     - [game server main.go](cmd/space-invaders/main.go)
+    - [game server middleware definitions middlewares.go](cmd/space-invaders/middlewares.go)
+    - [scoreboard database model definition model.go](cmd/space-invaders/model.go)
     - [service config file boot.yaml](cmd/space-invaders/boot.yaml)
 - [module file go.mod](go.mod)
 - [source directory](src)
@@ -124,9 +126,12 @@ To setup similar project follow following steps:
         - [audio file spaceship_whoosh.wav](src/static/audio/spaceship_whoosh.wav)
         - [audio file theme_heroic.wav](src/static/audio/theme_heroic.wav)
     - [build script build.sh](src/build.sh)
+    - [script to authenticate jwt.sh](src/jwt.sh)
     - [game entrypoint main.go](src/main.go)
 
 The script [build.sh](src/build.sh) is meant to compile the web assembly package (main.wasm) and create a distribution package [dist](dist).
+To authenticate the WASM application towards the game server, the [jwt.sh](src/jwt.sh) can be used. The application will then be able to call protected endpoints of the game servers, like `POST /scores` which is used to publish a highscore record. The JWT based authentication scheme is meant to prevent the manipulation of the scoreboard from outside.
+
 The [game server](cmd/space-invaders/main.go) serves the files from the distribution package using the web assembly. The files can be served in any other runtime than Go.
 Some code components are meant to be compiled only for the JS WASM architecture (e.g. [js.go](src/pkg/config/js.go) and [handlerjs.go](src/pkg/handler/handlerjs.go)).
 

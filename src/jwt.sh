@@ -4,8 +4,9 @@ set -e
 
 print_usage() {
   echo "Usage: $0 [-k private_key_path] [--priv-key private_key_path] [--ttl duration]"
-  echo "  -k, --priv-key private_key_path  Path to the private key file (default: ./private_key.pem)"
-  echo "  --ttl          duration          Duration in seconds for which the token will be valid (default: 600)"
+  echo "  -k, --private-key private_key_path  Path to the private key file (default: ./private_key.pem)"
+  echo "  -s, --subject subject               Subject of the token (default: sarumaj)"
+  echo "  --ttl duration                      Duration in seconds for which the token will be valid (default: 600)"
 }
 
 # Function to URL-safe base64 encode
@@ -16,12 +17,17 @@ base64_url_encode() {
 # Default values
 KEY_PATH="./private_key.pem"
 TTL="600"
+SUBJECT="sarumaj"
 
 # Parse command line options
 while [[ "$#" -gt 0 ]]; do
   case $1 in
-  -k | --priv-key)
+  -k | --private-key)
     KEY_PATH="$2"
+    shift 2
+    ;;
+  -s | --subject)
+    SUBJECT="$2"
     shift 2
     ;;
   --ttl)
@@ -59,17 +65,17 @@ header='{
 	"typ": "JWT"
 }'
 
-payload=$(
-  cat <<EOF
-{
-	"iss": "space-invaders",
-	"sub": "sarumaj",
-	"aud": ["space-invaders"],
-	"iat": $iat,
-	"exp": $((iat + $TTL))
-}
-EOF
-)
+payload=$(jq -n --arg iat "$iat" --arg ttl "$TTL" --arg sub "$SUBJECT" '
+  .iat = ($iat | tonumber) |
+  .iss = "space-invaders" |
+  .sub = $sub |
+  .aud = ["space-invaders"] |
+  if ($ttl | tonumber) > 0 then
+    .exp = (($iat | tonumber) + ($ttl | tonumber))
+  else
+    .
+  end
+')
 
 # Base64 URL encode the header and payload
 header_base64=$(echo -n "${header}" | base64_url_encode)

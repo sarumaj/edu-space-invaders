@@ -100,6 +100,7 @@ type config struct {
 				EnemyDestroyed               templateString
 				EnemyHit                     templateString
 				GameOver                     templateString
+				Greeting                     templateString
 				PerformanceDropped           templateString
 				PerformanceImproved          templateString
 				SpaceshipDowngradedByEnemy   templateString

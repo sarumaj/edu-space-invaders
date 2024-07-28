@@ -3,10 +3,12 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"syscall/js"
@@ -24,6 +26,8 @@ const (
 	audioToggleBtnId = "audioToggle"
 	canvasId         = "gameCanvas"
 	goEnv            = "go_env"
+	goScoreBoard     = "go_scoreBoard"
+	goSaveScoreBoard = "go_saveScoreBoard"
 	messageBoxId     = "message"
 	refreshButtonId  = "refreshButton"
 )
@@ -44,6 +48,7 @@ var (
 	invisibleCtx           = invisibleCanvas.Call("getContext", "2d")
 	invisibleCanvasScrollY = 0.0
 	messageBox             = document.Call("getElementById", messageBoxId)
+	scoreBoard             []score
 	window                 = GlobalGet("window")
 	windowLocation         = window.Get("location")
 )
@@ -63,11 +68,18 @@ type dimensions struct {
 	ScaleWidth, ScaleHeight              float64
 }
 
+// score represents a score.
+type score struct {
+	Name  string `json:"name"`
+	Score int    `json:"score"`
+}
+
 func init() {
 	setupAudioInterface()
 	setupCanvasInterface()
 	setupMessageBoxInterface()
 	setupRefreshInterface()
+	setupScoreBoard()
 }
 
 // getAudioContext is a function that returns the audio context.
@@ -215,6 +227,11 @@ func setupRefreshInterface() {
 
 	refreshButton.Call("addEventListener", "click", GlobalGet("refreshButtonClick"))
 	refreshButton.Call("addEventListener", "touchend", GlobalGet("refreshButtonTouchEnd"))
+}
+
+// setupScoreBoard is a function that sets up the score board.
+func setupScoreBoard() {
+	ThrowError(json.Unmarshal([]byte(GlobalGet("JSON").Call("stringify", GlobalGet(goScoreBoard)).String()), &scoreBoard))
 }
 
 // AddEventListener is a function that adds an event listener to the document.
@@ -418,8 +435,26 @@ func Getenv(key string) string {
 	return got.String()
 }
 
+// GetScoresAndRank is a function that returns the top scores and the rank of the current score.
+func GetScoresAndRank(top int, currentScore int) (scores []score, rank int) {
+	rank = len(scoreBoard) + 1
+	// Calculate the rank of the current score.
+	for i, s := range scoreBoard {
+		if currentScore >= s.Score {
+			rank = i + 1
+			break
+		}
+	}
+
+	for i := 0; i < top && i < len(scoreBoard); i++ {
+		scores = append(scores, scoreBoard[i])
+	}
+
+	return
+}
+
 // GlobalCall is a function that calls the global function name with the specified arguments.
-func GlobalCall(name string, args ...any) any {
+func GlobalCall(name string, args ...any) js.Value {
 	return js.Global().Call(name, args...)
 }
 
@@ -430,7 +465,12 @@ func GlobalGet(key string) js.Value {
 
 // GlobalSet is a function that sets the global value of key to value.
 func GlobalSet(key string, value any) {
-	js.Global().Set(key, value)
+	switch value := value.(type) {
+	case js.Value:
+		js.Global().Set(key, value)
+	default:
+		js.Global().Set(key, js.ValueOf(value))
+	}
 }
 
 // IsPlaying is a function that returns true if the audio track is playing.
@@ -606,11 +646,14 @@ func PlayAudio(name string, loop bool) {
 }
 
 // SendMessage sends a message to the message box.
-func SendMessage(msg string) {
-	content := messageBox.Get("innerHTML").String()
-	lines := append(strings.Split(content, "<br>"), msg)
-	if len(lines) > Config.MessageBox.BufferSize {
-		lines = lines[len(lines)-Config.MessageBox.BufferSize:]
+func SendMessage(msg string, reset bool) {
+	lines := []string{msg}
+	if !reset {
+		content := messageBox.Get("innerHTML").String()
+		lines = append(strings.Split(content, "<br>"), lines...)
+		if len(lines) > Config.MessageBox.BufferSize {
+			lines = lines[len(lines)-Config.MessageBox.BufferSize:]
+		}
 	}
 
 	messageBox.Set("innerHTML", strings.Join(lines, "<br>"))
@@ -620,6 +663,51 @@ func SendMessage(msg string) {
 // Setenv is a function that sets the environment variable key to value.
 func Setenv(key, value string) {
 	environ.Set(key, value)
+}
+
+// SetScore is a function that sets the score.
+func SetScore(name string, newScore int) {
+	// Update the score board
+	var exists bool
+	for i, s := range scoreBoard {
+		if s.Name == name {
+			if newScore <= s.Score {
+				return
+			}
+
+			scoreBoard[i].Score = newScore
+			exists = true
+			break
+		}
+	}
+
+	// Add the score if it does not exist
+	if !exists {
+		scoreBoard = append(scoreBoard, score{Name: name, Score: newScore})
+	}
+
+	// Sort the score board in descending order of score
+	slices.SortStableFunc(scoreBoard, func(i, j score) int {
+		if i.Score == j.Score {
+			return strings.Compare(i.Name, j.Name)
+		}
+
+		return j.Score - i.Score
+	})
+
+	// Save the score board
+	var scores []any
+	for _, s := range scoreBoard {
+		scores = append(scores, MakeObject(map[string]any{"name": s.Name, "score": s.Score}))
+	}
+
+	// Save the score board
+	wait := make(chan struct{}, 1)
+	GlobalCall(goSaveScoreBoard, js.ValueOf(scores)).Call("then", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		wait <- struct{}{}
+		return nil
+	}))
+	<-wait
 }
 
 // StopAudio is a function that stops an audio track.

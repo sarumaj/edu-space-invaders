@@ -15,6 +15,12 @@ type dimensions struct {
 	ScaleWidth, ScaleHeight              float64
 }
 
+// score represents a score.
+type score struct {
+	Name  string `json:"name"`
+	Score int    `json:"score"`
+}
+
 // AddEventListener is a function that adds an event listener to the document.
 func AddEventListener(event string, listener any) {}
 
@@ -57,6 +63,9 @@ func DrawStar(coords [2]float64, spikes int, radius, innerRadius float64, color 
 // Getenv is a function that returns the value of the environment variable key.
 func Getenv(key string) string { return os.Getenv(key) }
 
+// GetScores is a function that returns the scores.
+func GetScoresAndRank(top int, currentScore int) (scores []score, rank int) { return }
+
 // GlobalCall is a function that calls the global function name with the specified arguments.
 func GlobalCall(name string, args ...any) any { return nil }
 
@@ -95,10 +104,13 @@ func NewInstance(typ string, args ...any) any { return nil }
 func PlayAudio(name string, loop bool) {}
 
 // SendMessage sends a message to the message box.
-func SendMessage(msg string) { log.Println(msg) }
+func SendMessage(msg string, reset bool) { log.Println(msg) }
 
 // Setenv is a function that sets the environment variable key to value.
 func Setenv(key, value string) { _ = os.Setenv(key, value) }
+
+// SetScore is a function that sets the score.
+func SetScore(name string, score int) {}
 
 // StopAudio is a function that stops an audio track.
 func StopAudio(name string) {}

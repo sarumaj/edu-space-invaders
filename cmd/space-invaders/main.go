@@ -1,4 +1,4 @@
-//go:generate bash -c "../../src/build.sh --directory \"../../dist\""
+//go:generate bash -c "../../src/build.sh --directory \"../../dist\" --api-key $(../../src/jwt.sh --private-key \"../../secret/private_key.pem\" --ttl 0 --subject \"wasm\")"
 package main
 
 import (
@@ -14,6 +14,7 @@ import (
 
 	gin "github.com/gin-gonic/gin"
 	rkboot "github.com/rookie-ninja/rk-boot/v2"
+	rksqlite "github.com/rookie-ninja/rk-db/sqlite"
 	rkentry "github.com/rookie-ninja/rk-entry/v2/entry"
 	rkmidjwt "github.com/rookie-ninja/rk-entry/v2/middleware/jwt"
 	rkgin "github.com/rookie-ninja/rk-gin/v2/boot"
@@ -22,9 +23,11 @@ import (
 )
 
 const (
-	defaultEndpoint = "index.html"      // defaultEndpoint is the default endpoint.
-	envVarPrefix    = "SPACE_INVADERS_" // envVarPrefix is the prefix for the environment variables.
-	ginEntryName    = "space-invaders"  // ginEntryName is the name of the Gin entry.
+	defaultEndpoint        = "index.html"      // defaultEndpoint is the default endpoint.
+	envVarPrefix           = "SPACE_INVADERS_" // envVarPrefix is the prefix for the environment variables.
+	ginEntryName           = "space-invaders"  // ginEntryName is the name of the Gin entry.
+	scoreBoardDatabaseName = "space-invaders"  // scoreBoardDatabaseName is the name of the score board database.
+	sqliteEntryName        = "space-invaders"  // sqliteEntryName is the name of the SQLite entry.
 )
 
 var (
@@ -33,7 +36,6 @@ var (
 
 	environ []string
 	logger  *rkentry.LoggerEntry
-	signer  rkentry.SignerJwt
 
 	port        = flag.Int("port", parsePort(), "port to listen on")
 	forceSecure = flag.Bool("force-secure", os.Getenv("SPACE_INVADERS_FORCE_SECURE") == "true", "force secure connection")
@@ -48,15 +50,26 @@ func main() {
 	// Set the port based on the environment variable (necessary for Heroku).
 	_ = os.Setenv("RK_GIN_0_PORT", fmt.Sprint(*port))
 
+	// Load the environment variables.
 	environ = os.Environ()
 	slices.Sort(environ)
 
+	// Bootstrap the application.
 	boot := rkboot.NewBoot(rkboot.WithBootConfigRaw(bootRaw))
+	boot.Bootstrap(context.Background())
 
+	// Get the Gin entry and logger.
 	ginEntry := rkgin.GetGinEntry(ginEntryName)
 	logger = ginEntry.LoggerEntry
 
 	logger.Info("Booting up", zapcore.Field{Key: "environ", Interface: environ, Type: zapcore.ReflectType})
+
+	// Get the SQLite entry and database.
+	sqliteEntry := rksqlite.GetSqliteEntry(sqliteEntryName)
+	scoreBoardDatabase := sqliteEntry.GetDB(scoreBoardDatabaseName)
+	if !scoreBoardDatabase.DryRun {
+		_ = scoreBoardDatabase.AutoMigrate(&Score{})
+	}
 
 	privKey, err := os.ReadFile(*private_key)
 	if err != nil {
@@ -69,17 +82,20 @@ func main() {
 	}
 
 	// Register the asymmetric JWT signer.
-	signer = rkentry.RegisterAsymmetricJwtSigner(ginEntryName, "RS256", privKey, pubKey)
+	signer := rkentry.RegisterAsymmetricJwtSigner(ginEntryName, "RS256", privKey, pubKey)
 
+	// Register the routes.
+	jwtAuthenticator := rkginjwt.Middleware(rkmidjwt.WithSigner(signer))
 	ginEntry.Router.Use(HttpsRedirectMiddleware(*forceSecure), CacheControlMiddleware())
-	ginEntry.Router.POST("/.env", rkginjwt.Middleware(rkmidjwt.WithSigner(signer)), HandleEnv())
-	ginEntry.Router.Match([]string{http.MethodHead, http.MethodGet}, "/*filepath", ServeFileSystem(map[*regexp.Regexp]gin.HandlerFunc{
-		regexp.MustCompile(`^/?health/?$`): HandleHealth(),
-		regexp.MustCompile(`^/?\.env/?$`):  HandleEnv(),
+	ginEntry.Router.POST("/.env", jwtAuthenticator, HandleEnv())
+	ginEntry.Router.POST("/scores", jwtAuthenticator, SaveScores(scoreBoardDatabase))
+	ginEntry.Router.Match([]string{http.MethodHead, http.MethodGet}, "/*filepath", ServeFileSystem(map[*regexp.Regexp]gin.HandlersChain{
+		regexp.MustCompile(`^/?health/?$`): {HandleHealth()},
+		regexp.MustCompile(`^/?\.env/?$`):  {HandleEnv()},
+		regexp.MustCompile(`^/?scores/?$`): {GetScores(scoreBoardDatabase)},
 	}))
 
-	boot.Bootstrap(context.Background())
-
+	// Start the server.
 	boot.WaitForShutdownSig(context.Background())
 	logger.Warn("Unexpected shut down")
 }

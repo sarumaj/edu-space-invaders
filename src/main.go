@@ -7,8 +7,19 @@ import (
 	handler "github.com/sarumaj/edu-space-invaders/src/pkg/handler"
 )
 
+// ApiKey is the API key for the game.
+// It is set by the build script.
+// It is used to communicate with the game server.
+var ApiKey string
+
 // main is the entry point of the game.
 func main() {
+	if ApiKey == "" {
+		panic("AppKey is not set")
+	}
+
+	config.GlobalSet("apiKey", ApiKey)
+
 	for game := handler.New(); ; {
 		config.Log("Generating enemies")
 		game.GenerateEnemies(config.Config.Enemy.Count, true)

@@ -4,15 +4,23 @@ import (
 	"time"
 )
 
-// Base is the base model for the database models.
-type Base struct {
-	CreatedAt time.Time `yaml:"-" json:"-"`
-	UpdatedAt time.Time `yaml:"-" json:"-"`
+// BaseModel is the base model for the database models.
+type BaseModel struct {
+	CreatedAt *time.Time `yaml:"created_at,omitempty" json:"created_at,omitempty" gorm:"autoCreateTime"`
+	UpdatedAt *time.Time `yaml:"updated_at,omitempty" json:"updated_at,omitempty" gorm:"autoUpdateTime"`
+}
+
+// MetricsEntry represents a metrics entry.
+type MetricsEntry struct {
+	BaseModel
+	Endpoint string `yaml:"endpoint" json:"endpoint" gorm:"primaryKey"`
+	Method   string `yaml:"method" json:"method" gorm:"primaryKey"`
+	Count    int    `yaml:"count" json:"count"`
 }
 
 // Score represents a player's score.
 type Score struct {
-	Base
+	BaseModel
 	Name  string `yaml:"name" json:"name" gorm:"primaryKey"`
 	Score int    `yaml:"score" json:"score"`
 }

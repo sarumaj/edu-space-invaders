@@ -95,6 +95,8 @@ type config struct {
 			HowToRestartTouchDevice   string
 			HowToStartNoTouchDevice   string
 			HowToStartTouchDevice     string
+			ScoreBoardUpdated         string
+			WaitForScoreBoardUpdate   string
 
 			Templates struct {
 				EnemyDestroyed               templateString
@@ -103,6 +105,7 @@ type config struct {
 				Greeting                     templateString
 				PerformanceDropped           templateString
 				PerformanceImproved          templateString
+				Prompt                       templateString
 				SpaceshipDowngradedByEnemy   templateString
 				SpaceshipFrozen              templateString
 				SpaceshipStillFrozen         templateString
@@ -127,6 +130,7 @@ type config struct {
 		Height             float64
 		LogThrottling      time.Duration
 		MaximumCannons     int
+		MaximumLabelLength int
 		MaximumSpeed       float64
 		Width              float64
 	}

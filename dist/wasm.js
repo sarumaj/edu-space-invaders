@@ -10,10 +10,11 @@ async function envCallback() {
       },
     });
     const data = await response.json();
+    const prefix = data["_prefix"];
 
     // Filter out only the environment variables that start with "SPACE_INVADERS_"
     const env = Object.keys(data)
-      .filter((key) => key.startsWith("SPACE_INVADERS_"))
+      .filter((key) => key.startsWith(prefix))
       .reduce((obj, key) => {
         obj[key] = data[key];
         return obj;
@@ -28,7 +29,7 @@ async function envCallback() {
 
 async function getScoreBoard() {
   try {
-    const response = await fetch(`/scores`, {
+    const response = await fetch(`/scores.db`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -39,7 +40,8 @@ async function getScoreBoard() {
       throw new Error("Error getting scores");
     }
 
-    return response.json();
+    const text = await response.text();
+    return JSON.parse(text.slice(text.indexOf(";") + 1));
   } catch (err) {
     console.error("Error getting scores:", err);
     return [];
@@ -52,7 +54,7 @@ async function saveScoreBoard(scores) {
       throw new Error("API key not set");
     }
 
-    const response = await fetch(`/scores`, {
+    const response = await fetch(`/scores.db`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -128,6 +128,7 @@ func (enemy Enemy) Draw() {
 			Berserker:   "Firebrick",
 			Annihilator: "MidnightBlue",
 		}[enemy.Type],
+		enemy.Name,
 	)
 }
 

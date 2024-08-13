@@ -51,7 +51,7 @@ func DrawRect(coords [2]float64, size [2]float64, color string, cornerRadius flo
 // DrawSpaceship is a function that draws a spaceship on the canvas.
 // The spaceship is drawn at the specified position (x, y) with the specified width and height.
 // The spaceship is drawn facing the specified direction.
-func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color string) {}
+func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color, label string) {}
 
 // DrawStar draws a star on the canvas.
 // The star is drawn at the specified position (cx, cy) with the specified number of spikes.
@@ -64,7 +64,7 @@ func DrawStar(coords [2]float64, spikes int, radius, innerRadius float64, color 
 func Getenv(key string) string { return os.Getenv(key) }
 
 // GetScores is a function that returns the scores.
-func GetScoresAndRank(top int, currentScore int) (scores []score, rank int) { return }
+func GetScores(top int) (scores []score) { return }
 
 // GlobalCall is a function that calls the global function name with the specified arguments.
 func GlobalCall(name string, args ...any) any { return nil }
@@ -103,6 +103,9 @@ func NewInstance(typ string, args ...any) any { return nil }
 // PlayAudio is a function that plays an audio track.
 func PlayAudio(name string, loop bool) {}
 
+// SaveScores is a function that saves the score board persistently.
+func SaveScores() {}
+
 // SendMessage sends a message to the message box.
 func SendMessage(msg string, reset bool) { log.Println(msg) }
 
@@ -110,7 +113,7 @@ func SendMessage(msg string, reset bool) { log.Println(msg) }
 func Setenv(key, value string) { _ = os.Setenv(key, value) }
 
 // SetScore is a function that sets the score.
-func SetScore(name string, score int) {}
+func SetScore(name string, score int) (rank int) { return }
 
 // StopAudio is a function that stops an audio track.
 func StopAudio(name string) {}
@@ -130,3 +133,6 @@ func Unsetenv(key string) { _ = os.Unsetenv(key) }
 
 // UpdateFPS is a function that updates the frames per second.
 func UpdateFPS(fps float64) {}
+
+// UpdateMessage is a function that updates the last message in the message box.
+func UpdateMessage(msg string) {}

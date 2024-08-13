@@ -130,6 +130,7 @@ func (spaceship Spaceship) Draw() {
 			Boosted: "Chartreuse",
 			Frozen:  "DeepSkyBlue",
 		}[spaceship.State],
+		spaceship.Commandant,
 	)
 }
 

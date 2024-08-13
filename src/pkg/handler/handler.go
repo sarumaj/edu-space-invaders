@@ -97,12 +97,10 @@ func (h *handler) checkCollisions() {
 					"SpaceshipLevel": h.spaceship.Level.Progress,
 				}), false)
 				if h.spaceship.IsDestroyed() {
-					config.SetScore(h.spaceship.Commandant, h.spaceship.HighScore)
-					scores, rank := config.GetScoresAndRank(10, h.spaceship.HighScore)
 					config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.GameOver, config.Template{
 						"HighScore": h.spaceship.HighScore,
-						"Rank":      rank,
-						"TopScores": scores,
+						"Rank":      config.SetScore(h.spaceship.Commandant, h.spaceship.HighScore),
+						"TopScores": config.GetScores(10),
 					}), false)
 					h.cancel()
 				}
@@ -124,10 +122,19 @@ func (h *handler) checkCollisions() {
 				h.enemies[j].Destroy()
 				h.spaceship.ChangeState(spaceship.Frozen)
 				h.spaceship.Penalize(config.Config.Spaceship.FreezerPenalty)
-				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipFrozen, config.Template{
-					"SpaceshipLevel": h.spaceship.Level.Progress,
-					"FreezeDuration": config.Config.Spaceship.FreezeDuration,
-				}), false)
+				if h.spaceship.IsDestroyed() {
+					config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.GameOver, config.Template{
+						"HighScore": h.spaceship.HighScore,
+						"Rank":      config.SetScore(h.spaceship.Commandant, h.spaceship.HighScore),
+						"TopScores": config.GetScores(10),
+					}), false)
+					h.cancel()
+				} else {
+					config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipFrozen, config.Template{
+						"SpaceshipLevel": h.spaceship.Level.Progress,
+						"FreezeDuration": config.Config.Spaceship.FreezeDuration,
+					}), false)
+				}
 				return
 
 			}
@@ -139,12 +146,10 @@ func (h *handler) checkCollisions() {
 				"SpaceshipLevel": h.spaceship.Level.Progress,
 			}), false)
 			if h.spaceship.IsDestroyed() {
-				config.SetScore(h.spaceship.Commandant, h.spaceship.HighScore)
-				scores, rank := config.GetScoresAndRank(10, h.spaceship.HighScore)
 				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.GameOver, config.Template{
 					"HighScore": h.spaceship.HighScore,
-					"Rank":      rank,
-					"TopScores": scores,
+					"Rank":      config.SetScore(h.spaceship.Commandant, h.spaceship.HighScore),
+					"TopScores": config.GetScores(10),
 				}), false)
 				h.cancel()
 				return
@@ -578,6 +583,7 @@ func New() *handler {
 	running.Set(&h.ctx, false)
 	isFirstTime.Set(&h.ctx, true)
 	h.registerEventHandlers()
+	h.ask()
 
 	return h
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"text/template"
+	"time"
 
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -18,6 +19,19 @@ var funcsMap = template.FuncMap{
 	},
 	"bold": func(args ...any) string {
 		return fmt.Sprintf(`<b>%s</b>`, fmt.Sprint(args...))
+	},
+	"greet": func() string {
+		now := time.Now()
+		switch {
+		case now.Hour() >= 6 && now.Hour() < 12:
+			return "Good morning"
+		case now.Hour() >= 12 && now.Hour() < 18:
+			return "Good afternoon"
+		case now.Hour() >= 18 && now.Hour() < 24:
+			return "Good evening"
+		default:
+			return "Good night"
+		}
 	},
 	"italic": func(args ...any) string {
 		return fmt.Sprintf(`<i>%s</i>`, fmt.Sprint(args...))

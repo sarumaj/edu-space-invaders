@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"syscall/js"
+	"time"
 )
 
 const (
@@ -49,6 +50,7 @@ var (
 	invisibleCanvasScrollY = 0.0
 	messageBox             = document.Call("getElementById", messageBoxId)
 	scoreBoard             []score
+	scoreBoardMutex        = sync.RWMutex{}
 	window                 = GlobalGet("window")
 	windowLocation         = window.Get("location")
 )
@@ -70,8 +72,10 @@ type dimensions struct {
 
 // score represents a score.
 type score struct {
-	Name  string `json:"name"`
-	Score int    `json:"score"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Name      string    `json:"name"`
+	Score     int       `json:"score"`
 }
 
 func init() {
@@ -89,6 +93,24 @@ func getAudioContext() js.Value {
 		ctx = NewInstance("webkitAudioContext")
 	}
 	return ctx
+}
+
+// scoreBoardSortFunc is a function that sorts the scores.
+// The scores are sorted in descending order of the score.
+// If the scores have the same score, they are ordered in ascending order of their timestamps.
+func scoreBoardSortFunc(i, j score) int {
+	if i.Score == j.Score {
+		if !i.UpdatedAt.IsZero() && !j.UpdatedAt.IsZero() {
+			// Sort in ascending order
+			return j.UpdatedAt.Compare(i.UpdatedAt)
+		}
+
+		// Sort in ascending order
+		return j.CreatedAt.Compare(i.CreatedAt)
+	}
+
+	// Sort in descending order
+	return j.Score - i.Score
 }
 
 // setupAudioInterface is a function that sets up the audio interface.
@@ -231,7 +253,11 @@ func setupRefreshInterface() {
 
 // setupScoreBoard is a function that sets up the score board.
 func setupScoreBoard() {
+	scoreBoardMutex.Lock()
+	defer scoreBoardMutex.Unlock()
+
 	ThrowError(json.Unmarshal([]byte(GlobalGet("JSON").Call("stringify", GlobalGet(goScoreBoard)).String()), &scoreBoard))
+	slices.SortStableFunc(scoreBoard, scoreBoardSortFunc)
 }
 
 // AddEventListener is a function that adds an event listener to the document.
@@ -336,7 +362,7 @@ func DrawRect(coords [2]float64, size [2]float64, color string, cornerRadius flo
 // DrawSpaceship is a function that draws a spaceship on the document.
 // The spaceship is drawn at the specified position (x, y) with the specified width and height.
 // The spaceship is drawn facing the specified direction.
-func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color string) {
+func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color, label string) {
 	x, y := coors[0], coors[1]
 	width, height := size[0], size[1]
 
@@ -386,6 +412,32 @@ func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color string)
 	canvasObjectContext.Call("closePath")
 	canvasObjectContext.Call("fill")
 	canvasObjectContext.Call("stroke")
+
+	// Draw the label above or below the spaceship
+	if label != "" {
+		canvasObjectContext.Set("fillStyle", color)   // Set text color
+		canvasObjectContext.Set("font", "16px Arial") // Set font
+
+		// Shorten the label if it is too long
+		if len(label) > Config.Spaceship.MaximumLabelLength {
+			label = fmt.Sprintf("%s...", label[:Config.Spaceship.MaximumLabelLength-3])
+		}
+
+		// Measure the width of the label text
+		textMetrics := canvasObjectContext.Call("measureText", label)
+		labelWidth := textMetrics.Get("width").Float()
+
+		labelX := x + (width-labelWidth)/2 // Center the label horizontally
+
+		var labelY float64
+		if faceUp {
+			labelY = y + height + 10 // Below the spaceship
+		} else {
+			labelY = y - 5 // Above the spaceship
+		}
+
+		canvasObjectContext.Call("fillText", label, labelX, labelY)
+	}
 }
 
 // DrawStar draws a star on the invisible canvas to be used as a background on the visible one.
@@ -435,16 +487,10 @@ func Getenv(key string) string {
 	return got.String()
 }
 
-// GetScoresAndRank is a function that returns the top scores and the rank of the current score.
-func GetScoresAndRank(top int, currentScore int) (scores []score, rank int) {
-	rank = len(scoreBoard) + 1
-	// Calculate the rank of the current score.
-	for i, s := range scoreBoard {
-		if currentScore >= s.Score {
-			rank = i + 1
-			break
-		}
-	}
+// GetScores is a function that returns the scores.
+func GetScores(top int) (scores []score) {
+	scoreBoardMutex.RLock()
+	defer scoreBoardMutex.RUnlock()
 
 	for i := 0; i < top && i < len(scoreBoard); i++ {
 		scores = append(scores, scoreBoard[i])
@@ -645,6 +691,33 @@ func PlayAudio(name string, loop bool) {
 	audioBufferPromise.Call("then", then).Call("catch", catch)
 }
 
+// SaveScores is a function that saves the score board persistently.
+func SaveScores() {
+	// Transform the score board into an array of objects
+	var scores []any
+	scoreBoardMutex.RLock()
+	for _, s := range scoreBoard {
+		scores = append(scores, MakeObject(map[string]any{"name": s.Name, "score": s.Score}))
+	}
+	scoreBoardMutex.RUnlock()
+
+	// Save the score board
+	SendMessage(Config.MessageBox.Messages.WaitForScoreBoardUpdate, false)
+	scoreBoardMutex.Lock()
+
+	GlobalCall(goSaveScoreBoard, js.ValueOf(scores)).Call("then", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		SendMessage(Config.MessageBox.Messages.ScoreBoardUpdated, false)
+		scoreBoardMutex.Unlock()
+		return nil
+
+	})).Call("catch", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		LogError(fmt.Errorf("failed to save score board: %s", p[0].String()))
+		scoreBoardMutex.Unlock()
+		return nil
+
+	}))
+}
+
 // SendMessage sends a message to the message box.
 func SendMessage(msg string, reset bool) {
 	lines := []string{msg}
@@ -666,13 +739,16 @@ func Setenv(key, value string) {
 }
 
 // SetScore is a function that sets the score.
-func SetScore(name string, newScore int) {
+func SetScore(name string, newScore int) (rank int) {
+	scoreBoardMutex.Lock()
+
 	// Update the score board
 	var exists bool
 	for i, s := range scoreBoard {
 		if s.Name == name {
 			if newScore <= s.Score {
-				return
+				scoreBoardMutex.Unlock()
+				return len(scoreBoard)
 			}
 
 			scoreBoard[i].Score = newScore
@@ -686,28 +762,24 @@ func SetScore(name string, newScore int) {
 		scoreBoard = append(scoreBoard, score{Name: name, Score: newScore})
 	}
 
-	// Sort the score board in descending order of score
-	slices.SortStableFunc(scoreBoard, func(i, j score) int {
-		if i.Score == j.Score {
-			return strings.Compare(i.Name, j.Name)
+	// Sort the score board
+	slices.SortStableFunc(scoreBoard, scoreBoardSortFunc)
+	scoreBoardMutex.Unlock()
+
+	// Calculate the rank of the new score
+	scoreBoardMutex.RLock()
+	for i, s := range scoreBoard {
+		if s.Name == name && s.Score == newScore {
+			rank = i + 1
+			break
 		}
-
-		return j.Score - i.Score
-	})
-
-	// Save the score board
-	var scores []any
-	for _, s := range scoreBoard {
-		scores = append(scores, MakeObject(map[string]any{"name": s.Name, "score": s.Score}))
 	}
+	scoreBoardMutex.RUnlock()
 
-	// Save the score board
-	wait := make(chan struct{}, 1)
-	GlobalCall(goSaveScoreBoard, js.ValueOf(scores)).Call("then", js.FuncOf(func(_ js.Value, _ []js.Value) any {
-		wait <- struct{}{}
-		return nil
-	}))
-	<-wait
+	// Save the score board asynchronously
+	go SaveScores()
+
+	return
 }
 
 // StopAudio is a function that stops an audio track.
@@ -787,4 +859,11 @@ func Unsetenv(key string) {
 // UpdateFPS is a function that updates the frames per second.
 func UpdateFPS(fps float64) {
 	fpsDiv.Set("innerHTML", fmt.Sprintf(fpsDiv.Call("getAttribute", "data-format").String(), fps))
+}
+
+// UpdateMessage is a function that updates the last message in the message box.
+func UpdateMessage(msg string) {
+	lines := strings.Split(messageBox.Get("innerHTML").String(), "<br>")
+	lines[len(lines)-1] = msg
+	messageBox.Set("innerHTML", strings.Join(lines, "<br>"))
 }

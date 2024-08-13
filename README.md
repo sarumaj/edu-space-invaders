@@ -137,6 +137,9 @@ Some code components are meant to be compiled only for the JS WASM architecture 
 
 To be able to compile the code for other targets and to run tests against it, build tags has been leveraged and some mock-ups haven been defined (e.g. [os.go](src/pkg/config/os.go) and [handleros.go](src/pkg/handler/handleros.go)). The heart of the web application is the JavaScript script building the bridge between the WASM package: [wasm.js](src/static/wasm.js) and our static web page: [index.html](src/static/index.html).
 
+The game engine uses the **Hyperplane separation theorem** to detect object collisions.
+
 ## Furter reading
 
 - [WebAssembly](https://go.dev/wiki/WebAssembly)
+- [Hyperplane Separation Theorem](https://en.wikipedia.org/wiki/Hyperplane_separation_theorem)

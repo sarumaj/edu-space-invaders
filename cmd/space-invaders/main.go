@@ -37,8 +37,9 @@ var (
 	environ []string
 	logger  *rkentry.LoggerEntry
 
-	port        = flag.Int("port", parsePort(), "port to listen on")
+	port        = flag.Uint("port", parseInt("PORT", uint(8080)), "port to listen on")
 	forceSecure = flag.Bool("force-secure", os.Getenv("SPACE_INVADERS_FORCE_SECURE") == "true", "force secure connection")
+	queueSize   = flag.Uint("queue-size", parseInt("SPACE_INVADERS_METRICS_QUEUE_SIZE", uint(12)), "queue size for bulk metrics update")
 	private_key = flag.String("private-key", "private_key.pem", "path to the private key")
 	public_key  = flag.String("public-key", "public_key.pem", "path to the public key")
 )
@@ -68,6 +69,7 @@ func main() {
 	sqliteEntry := rksqlite.GetSqliteEntry(sqliteEntryName)
 	scoreBoardDatabase := sqliteEntry.GetDB(scoreBoardDatabaseName)
 	if !scoreBoardDatabase.DryRun {
+		_ = scoreBoardDatabase.AutoMigrate(&MetricsEntry{})
 		_ = scoreBoardDatabase.AutoMigrate(&Score{})
 	}
 
@@ -86,13 +88,13 @@ func main() {
 
 	// Register the routes.
 	jwtAuthenticator := rkginjwt.Middleware(rkmidjwt.WithSigner(signer))
-	ginEntry.Router.Use(HttpsRedirectMiddleware(*forceSecure), CacheControlMiddleware())
+	ginEntry.Router.Use(MetricsMiddleware(scoreBoardDatabase, *queueSize), HttpsRedirectMiddleware(*forceSecure), CacheControlMiddleware())
 	ginEntry.Router.POST("/.env", jwtAuthenticator, HandleEnv())
-	ginEntry.Router.POST("/scores", jwtAuthenticator, SaveScores(scoreBoardDatabase))
+	ginEntry.Router.POST("/scores.db", jwtAuthenticator, SaveScores(scoreBoardDatabase))
 	ginEntry.Router.Match([]string{http.MethodHead, http.MethodGet}, "/*filepath", ServeFileSystem(map[*regexp.Regexp]gin.HandlersChain{
-		regexp.MustCompile(`^/?health/?$`): {HandleHealth()},
-		regexp.MustCompile(`^/?\.env/?$`):  {HandleEnv()},
-		regexp.MustCompile(`^/?scores/?$`): {GetScores(scoreBoardDatabase)},
+		regexp.MustCompile(`^/?health/?$`):     {HandleHealth(scoreBoardDatabase)},
+		regexp.MustCompile(`^/?\.env/?$`):      {HandleEnv()},
+		regexp.MustCompile(`^/?scores\.db/?$`): {GetScores(scoreBoardDatabase)},
 	}))
 
 	// Start the server.
@@ -100,18 +102,18 @@ func main() {
 	logger.Warn("Unexpected shut down")
 }
 
-// parsePort parses the port from the environment variable.
-// Heroku sets the port in the environment variable.
-func parsePort() int {
-	raw := os.Getenv("PORT")
+// parseInt parses the integer from the environment variable.
+// If the environment variable is not set or the integer cannot be parsed, the fallback value is returned.
+func parseInt[I interface{ ~int | ~uint }](envVarName string, fallback I) I {
+	raw := os.Getenv(envVarName)
 	if raw == "" {
-		return 8080
+		return fallback
 	}
 
 	parsed, err := strconv.Atoi(raw)
 	if err == nil {
-		return parsed
+		return I(parsed)
 	}
 
-	return 8080
+	return fallback
 }

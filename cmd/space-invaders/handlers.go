@@ -22,10 +22,11 @@ func GetScores(scoreBoardDatabase *gorm.DB) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		scores := make([]Score, 0)
 		if err := scoreBoardDatabase.
+			Clauses(clause.Locking{Strength: clause.LockingStrengthShare}).
 			Order(clause.OrderBy{
 				Columns: []clause.OrderByColumn{
 					{Column: clause.Column{Name: "score"}, Desc: true},
-					{Column: clause.Column{Name: "name"}, Desc: false},
+					{Column: clause.Column{Name: "CASE WHEN updated_at > created_at THEN updated_at ELSE created_at END", Raw: true}},
 				},
 			}).
 			Find(&scores).
@@ -37,7 +38,7 @@ func GetScores(scoreBoardDatabase *gorm.DB) gin.HandlerFunc {
 		}
 
 		logger.Info("Scores retrieved", zapcore.Field{Key: "scores", Interface: scores, Type: zapcore.ReflectType})
-		ctx.JSON(http.StatusOK, scores)
+		ctx.SecureJSON(http.StatusOK, scores)
 	}
 }
 
@@ -88,25 +89,50 @@ func HandleEnv() gin.HandlerFunc {
 			}
 		}
 
+		body["_size"] = len(body)
+		body["_prefix"] = envVarPrefix
 		ctx.JSON(http.StatusOK, body)
 	}
 }
 
 // HandleHealth handles the health check.
 // It returns the boot time, build time, current time, status, and uptime as a response.
-func HandleHealth() gin.HandlerFunc {
+func HandleHealth(metricsDatabase *gorm.DB) gin.HandlerFunc {
 	bootTime := time.Now()
 
 	return func(ctx *gin.Context) {
+		var metrics []MetricsEntry
+		if err := metricsDatabase.
+			Clauses(clause.Locking{Strength: clause.LockingStrengthShare}).
+			Select("endpoint", "method", "count").
+			Find(&metrics).
+			Error; err != nil {
+
+			logger.Error("Failed to get metrics", zapcore.Field{Key: "error", Interface: err, Type: zapcore.ErrorType})
+			return
+		}
+
 		if ctx.Request.Method == http.MethodHead {
 			ctx.Status(http.StatusOK)
 			return
+		}
+
+		metricsObject := make(map[string]int)
+		for _, metric := range metrics {
+			switch metric.Endpoint {
+			case "/health":
+
+			default:
+				metricsObject[metric.Method+" "+metric.Endpoint] = metric.Count
+
+			}
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
 			"BootTime":  bootTime.Format(time.RFC3339),
 			"BuildTime": dist.BuildTime(),
 			"Current":   time.Now().Format(time.RFC3339),
+			"Metrics":   metricsObject,
 			"Status":    "ok",
 			"UpTime":    time.Since(bootTime).String(),
 		})
@@ -142,13 +168,16 @@ func SaveScores(scoreBoardDatabase *gorm.DB) gin.HandlerFunc {
 		}
 
 		if err := scoreBoardDatabase.
+			Clauses(clause.Locking{Strength: clause.LockingStrengthUpdate}).
 			Clauses(clause.OnConflict{
 				Columns: []clause.Column{{Name: "name"}},
-				DoUpdates: clause.Assignments(map[string]interface{}{
-					"score": gorm.Expr("MAX(score, excluded.score)"), // Update the score if it is higher (Caution, SQLite dialect only).
+				DoUpdates: clause.Assignments(map[string]any{
+					"score":      gorm.Expr("excluded.score"),
+					"updated_at": gorm.Expr("?", time.Now()),
 				}),
+				Where: clause.Where{Exprs: []clause.Expression{gorm.Expr("excluded.score > score")}},
 			}).
-			Save(&scores).
+			Create(&scores).
 			Error; err != nil {
 
 			logger.Error("Failed to save scores", zapcore.Field{Key: "error", Interface: err, Type: zapcore.ErrorType})

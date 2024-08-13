@@ -4,10 +4,14 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 
 	gin "github.com/gin-gonic/gin"
 	dist "github.com/sarumaj/edu-space-invaders/dist"
 	zapcore "go.uber.org/zap/zapcore"
+	gorm "gorm.io/gorm"
+	clause "gorm.io/gorm/clause"
 )
 
 // CacheControlMiddleware is a middleware that sets the cache control headers.
@@ -66,5 +70,50 @@ func HttpsRedirectMiddleware(enabled bool) gin.HandlerFunc {
 		}
 
 		ctx.Next()
+	}
+}
+
+// MetricsMiddleware is a middleware that logs metrics.
+func MetricsMiddleware[I interface{ ~int | ~uint }](metricsDatabase *gorm.DB, queueSize I) gin.HandlerFunc {
+	queue := make([]MetricsEntry, 0, int(queueSize))
+	var queueLock sync.Mutex
+
+	return func(ctx *gin.Context) {
+		ctx.Next()
+
+		entry := MetricsEntry{
+			Endpoint: ctx.Request.URL.Path,
+			Method:   ctx.Request.Method,
+			Count:    1,
+		}
+
+		queueLock.Lock()
+		queue = append(queue, entry)
+		queueLock.Unlock()
+
+		if len(queue) < cap(queue) {
+			return
+		}
+
+		if err := metricsDatabase.
+			Clauses(clause.Locking{Strength: clause.LockingStrengthUpdate}).
+			Clauses(clause.OnConflict{
+				Columns: []clause.Column{{Name: "endpoint"}, {Name: "method"}},
+				DoUpdates: clause.Assignments(map[string]any{
+					"count":      gorm.Expr("count + ?", 1), // Increment the count.
+					"updated_at": gorm.Expr("?", time.Now()),
+				}),
+				Where: clause.Where{Exprs: []clause.Expression{
+					gorm.Expr("excluded.endpoint = endpoint"),
+					gorm.Expr("excluded.method = method"),
+				}},
+			}).
+			Create(queue).
+			Error; err == nil {
+
+			queue = queue[:0:cap(queue)]
+		} else {
+			logger.Error("Failed to save metrics", zapcore.Field{Key: "error", Interface: err, Type: zapcore.ErrorType})
+		}
 	}
 }

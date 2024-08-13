@@ -11,6 +11,18 @@ import (
 	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 )
 
+// ask is a method that asks the user for input.
+func (h *handler) ask() {
+	if commandant := config.GlobalCall(
+		"prompt",
+		config.Execute(config.Config.MessageBox.Messages.Templates.Prompt),
+		h.spaceship.Commandant,
+	); commandant.Truthy() && commandant.String() != "" {
+
+		h.spaceship.Commandant = commandant.String()
+	}
+}
+
 // monitor is a method that watches the FPS rate of the game.
 func (h *handler) monitor() {
 	if !running.Get(h.ctx) {

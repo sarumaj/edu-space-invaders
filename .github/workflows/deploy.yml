@@ -60,7 +60,14 @@ jobs:
 
       - name: Export app url
         id: export_app_url
-        run: echo "HEROKU_APP_URL=$(heroku apps:info --app=${{ secrets.HEROKU_APP_NAME }} --json | jq -r '.app.web_url | rtrimstr("/")')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "HEROKU_APP_URL=$(heroku apps:info --app=${{ secrets.HEROKU_APP_NAME }} --json | jq -r '.app.web_url | rtrimstr("/")')" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch score board
+        id: fetch_score_board
+        run: |
+          curl -L -X GET "${{ steps.export_app_url.outputs.HEROKU_APP_URL }}/scores.db" -H "Accept: application/json" | sed 's/^[^;]*;//' > scores.json
+        continue-on-error: true
 
       - name: Deploy to Heroku
         uses: akhileshns/heroku-deploy@v3.13.15
@@ -80,3 +87,9 @@ jobs:
 
       - name: Update code documentation
         run: curl -fsSL https://proxy.golang.org/${{ steps.export_module_name.outputs.MODULE_NAME }}/@v/${{ github.ref_name }}.info
+
+      - name: Update score board
+        run: |
+          token=$(./src/jwt.sh -k ./secret/private_key.pem) && \
+          curl -L -X POST "${{ steps.export_app_url.outputs.HEROKU_APP_URL }}/scores.db" -d @scores.json -H "Content-Type: application/json" -H "Authorization: Bearer $token"
+        if: steps.fetch_score_board.outcome == 'success'

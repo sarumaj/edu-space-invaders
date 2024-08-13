@@ -19,7 +19,7 @@ sqlite:
     database:
       - name: space-invaders
         autoCreate: true
-        inMemory: true
+        inMemory: false
     logger:
       level: info
       encoding: console

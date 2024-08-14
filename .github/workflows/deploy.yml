@@ -58,16 +58,16 @@ jobs:
           heroku_email: ${{ secrets.HEROKU_USER_EMAIL }}
           justlogin: true
 
-      - name: Export app url
-        id: export_app_url
+      - name: Export app config
+        id: export_app_config
         run: |
-          echo "HEROKU_APP_URL=$(heroku apps:info --app=${{ secrets.HEROKU_APP_NAME }} --json | jq -r '.app.web_url | rtrimstr("/")')" >> "$GITHUB_OUTPUT"
+          DATABASE_URL="$(heroku config:get SCHEMATOGO_URL --app="${{ secrets.HEROKU_APP_NAME }}")?sslmode=require"
+          HEROKU_APP_URL=$(heroku apps:info --app="${{ secrets.HEROKU_APP_NAME }}" --json | jq -r '.app.web_url | rtrimstr("/")')
 
-      - name: Fetch score board
-        id: fetch_score_board
-        run: |
-          curl -L -X GET "${{ steps.export_app_url.outputs.HEROKU_APP_URL }}/scores.db" -H "Accept: application/json" | sed 's/^[^;]*;//' > scores.json
-        continue-on-error: true
+          cat <<EOF >> "$GITHUB_OUTPUT"
+          DATABASE_URL=$DATABASE_URL
+          HEROKU_APP_URL=$HEROKU_APP_URL
+          EOF
 
       - name: Deploy to Heroku
         uses: akhileshns/heroku-deploy@v3.13.15
@@ -75,21 +75,17 @@ jobs:
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           heroku_app_name: ${{ secrets.HEROKU_APP_NAME }}
           heroku_email: ${{ secrets.HEROKU_USER_EMAIL }}
-          healthcheck: "${{ steps.export_app_url.outputs.HEROKU_APP_URL }}/health"
+          healthcheck: "${{ steps.export_app_config.outputs.HEROKU_APP_URL }}/health"
           rollbackonhealthcheckfailed: true
           usedocker: true
           delay: 5
         env:
           HD_SPACE_INVADERS_COLLISION_DETECTION_VERSION: "3"
+          HD_SPACE_INVADERS_DATABASE_URL: ${{ steps.export_app_config.outputs.DATABASE_URL }}
           HD_SPACE_INVADERS_DEBUG: "false"
           HD_SPACE_INVADERS_FORCE_SECURE: "true"
           HD_SPACE_INVADERS_GOD_MODE: "false"
+          HD_SPACE_INVADERS_METRICS_QUEUE_SIZE: "12"
 
       - name: Update code documentation
         run: curl -fsSL https://proxy.golang.org/${{ steps.export_module_name.outputs.MODULE_NAME }}/@v/${{ github.ref_name }}.info
-
-      - name: Update score board
-        run: |
-          token=$(./src/jwt.sh -k ./secret/private_key.pem) && \
-          curl -L -X POST "${{ steps.export_app_url.outputs.HEROKU_APP_URL }}/scores.db" -d @scores.json -H "Content-Type: application/json" -H "Authorization: Bearer $token"
-        if: steps.fetch_score_board.outcome == 'success'

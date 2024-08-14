@@ -3,10 +3,15 @@ var apiKey = "";
 
 async function envCallback() {
   try {
+    if (!apiKey) {
+      throw new Error("API key not set");
+    }
+
     const response = await fetch(".env", {
       method: "GET",
       headers: {
         Accept: "application/json",
+        Authorization: `Bearer ${apiKey}`,
       },
     });
     const data = await response.json();

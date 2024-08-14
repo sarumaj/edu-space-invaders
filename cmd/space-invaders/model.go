@@ -10,8 +10,8 @@ type BaseModel struct {
 	UpdatedAt *time.Time `yaml:"updated_at,omitempty" json:"updated_at,omitempty" gorm:"autoUpdateTime"`
 }
 
-// MetricsEntry represents a metrics entry.
-type MetricsEntry struct {
+// Metric represents a metrics entry.
+type Metric struct {
 	BaseModel
 	Endpoint string `yaml:"endpoint" json:"endpoint" gorm:"primaryKey"`
 	Method   string `yaml:"method" json:"method" gorm:"primaryKey"`

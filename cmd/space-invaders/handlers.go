@@ -10,6 +10,7 @@ import (
 
 	gin "github.com/gin-gonic/gin"
 	dist "github.com/sarumaj/edu-space-invaders/dist"
+	zap "go.uber.org/zap"
 	zapcore "go.uber.org/zap/zapcore"
 	gorm "gorm.io/gorm"
 	clause "gorm.io/gorm/clause"
@@ -22,7 +23,6 @@ func GetScores(scoreBoardDatabase *gorm.DB) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		scores := make([]Score, 0)
 		if err := scoreBoardDatabase.
-			Clauses(clause.Locking{Strength: clause.LockingStrengthShare}).
 			Order(clause.OrderBy{
 				Columns: []clause.OrderByColumn{
 					{Column: clause.Column{Name: "score"}, Desc: true},
@@ -32,12 +32,12 @@ func GetScores(scoreBoardDatabase *gorm.DB) gin.HandlerFunc {
 			Find(&scores).
 			Error; err != nil {
 
-			logger.Error("Failed to get scores", zapcore.Field{Key: "error", Interface: err, Type: zapcore.ErrorType})
+			logger.Error("Failed to get scores", zap.Error(err))
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
-		logger.Info("Scores retrieved", zapcore.Field{Key: "scores", Interface: scores, Type: zapcore.ReflectType})
+		logger.Debug("Scores retrieved", zap.Any("scores", scores))
 		ctx.SecureJSON(http.StatusOK, scores)
 	}
 }
@@ -64,19 +64,19 @@ func HandleEnv() gin.HandlerFunc {
 
 				if v == nil {
 					_ = os.Unsetenv(k)
-					fields = append(fields, zapcore.Field{Key: k, Type: zapcore.StringType, String: "unset"})
+					fields = append(fields, zap.String(k, "unset"))
 				} else {
 					_ = os.Setenv(k, fmt.Sprintf("%v", v))
-					fields = append(fields, zapcore.Field{Key: k, Type: zapcore.StringType, String: fmt.Sprintf("%v", v)})
+					fields = append(fields, zap.String(k, fmt.Sprintf("%v", v)))
 				}
 			}
 
 			// Update the environment variables if they were altered.
 			if len(fields) > 0 {
-				logger.Info("Environment variables updated", fields...)
+				logger.Debug("Environment variables updated", fields...)
 				environ = os.Environ()
 			} else {
-				logger.Info("No environment variables updated")
+				logger.Debug("No environment variables updated")
 			}
 		}
 
@@ -101,14 +101,13 @@ func HandleHealth(metricsDatabase *gorm.DB) gin.HandlerFunc {
 	bootTime := time.Now()
 
 	return func(ctx *gin.Context) {
-		var metrics []MetricsEntry
+		var metrics []Metric
 		if err := metricsDatabase.
-			Clauses(clause.Locking{Strength: clause.LockingStrengthShare}).
-			Select("endpoint", "method", "count").
+			Omit("created_at", "updated_at").
 			Find(&metrics).
 			Error; err != nil {
 
-			logger.Error("Failed to get metrics", zapcore.Field{Key: "error", Interface: err, Type: zapcore.ErrorType})
+			logger.Error("Failed to get metrics", zap.Error(err))
 			return
 		}
 
@@ -145,15 +144,20 @@ func ServeFileSystem(conflicting map[*regexp.Regexp]gin.HandlersChain) gin.Handl
 		path := ctx.Param("filepath")
 		for pattern, handlers := range conflicting {
 			if pattern.MatchString(path) {
-				logger.Info("Matched conflicting path", zapcore.Field{Key: "path", Type: zapcore.StringType, String: path})
-				for _, handler := range handlers {
-					handler(ctx)
+				logger.Debug("Matched conflicting path", zap.String("path", path))
+				// Execute the middleware handlers.
+				for _, handler := range handlers[:len(handlers)-1] {
+					if handler(ctx); ctx.IsAborted() {
+						return
+					}
 				}
+				// Execute the last handler.
+				handlers.Last()(ctx)
 				return
 			}
 		}
 
-		logger.Info("Serving file", zapcore.Field{Key: "path", Type: zapcore.StringType, String: path})
+		logger.Debug("Serving file", zap.String("path", path))
 		ctx.FileFromFS("/"+strings.TrimLeft(path, "/"), dist.HttpFS)
 	}
 }
@@ -172,20 +176,20 @@ func SaveScores(scoreBoardDatabase *gorm.DB) gin.HandlerFunc {
 			Clauses(clause.OnConflict{
 				Columns: []clause.Column{{Name: "name"}},
 				DoUpdates: clause.Assignments(map[string]any{
-					"score":      gorm.Expr("excluded.score"),
+					"score":      gorm.Expr("EXCLUDED.score"),
 					"updated_at": gorm.Expr("?", time.Now()),
 				}),
-				Where: clause.Where{Exprs: []clause.Expression{gorm.Expr("excluded.score > score")}},
+				Where: clause.Where{Exprs: []clause.Expression{gorm.Expr("EXCLUDED.score > scores.score")}},
 			}).
 			Create(&scores).
 			Error; err != nil {
 
-			logger.Error("Failed to save scores", zapcore.Field{Key: "error", Interface: err, Type: zapcore.ErrorType})
+			logger.Error("Failed to save scores", zap.Error(err))
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
-		logger.Info("Scores saved", zapcore.Field{Key: "scores", Interface: scores, Type: zapcore.ReflectType})
+		logger.Debug("Scores saved", zap.Any("scores", scores))
 		ctx.Status(http.StatusOK)
 	}
 }

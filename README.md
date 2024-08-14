@@ -65,7 +65,6 @@ To setup similar project follow following steps:
     - [game server main.go](cmd/space-invaders/main.go)
     - [game server middleware definitions middlewares.go](cmd/space-invaders/middlewares.go)
     - [scoreboard database model definition model.go](cmd/space-invaders/model.go)
-    - [service config file boot.yaml](cmd/space-invaders/boot.yaml)
 - [module file go.mod](go.mod)
 - [source directory](src)
   - [package pkg](src/pkg)

@@ -48,14 +48,6 @@ self.addEventListener("fetch", (event) => {
             headers.append("If-None-Match", etag);
           }
 
-          // If the cached response contains an Authorization header, include it in the request
-          const auth = cachedResponse.headers.get("Authorization");
-
-          // If the cached response contains an Authorization header, include it in the request
-          if (auth) {
-            headers.append("Authorization", auth);
-          }
-
           return fetch(event.request, { headers }).then((networkResponse) => {
             // If the response status is 304 (Not Modified), return the cached response
             if (networkResponse.status === 304) {

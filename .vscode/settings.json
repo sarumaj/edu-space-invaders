@@ -39,6 +39,7 @@
     "keyevent",
     "Keyhold",
     "Keyup",
+    "KMGTPE",
     "lightgreen",
     "lightyellow",
     "localtime",

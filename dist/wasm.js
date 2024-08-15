@@ -1,17 +1,45 @@
+async function checkHealth(exponentialBackoff = 1) {
+  const delayInMs = 10000;
+
+  try {
+    const response = await fetch("health", {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Health check failed");
+    }
+
+    setTimeout(checkHealth, delayInMs);
+  } catch (err) {
+    console.error("Error checking health:", err);
+
+    setTimeout(
+      checkHealth,
+      delayInMs * exponentialBackoff,
+      exponentialBackoff * 2
+    );
+  }
+}
+
 async function envCallback(exponentialBackoff = 1) {
   const delayInMs = 2500;
 
   try {
-    if (!apiKey) {
-      throw new Error("API key not set");
-    }
-
     const response = await fetch(".env", {
       method: "GET",
       headers: {
         Accept: "application/json",
       },
     });
+
+    if (!response.ok) {
+      throw new Error("Error getting environment variables");
+    }
+
     const data = await response.json();
     const prefix = data["_prefix"];
 
@@ -29,11 +57,10 @@ async function envCallback(exponentialBackoff = 1) {
   } catch (err) {
     console.error("Error getting env:", err);
 
-    let newExponentialBackoff = exponentialBackoff * 2;
     setTimeout(
       envCallback,
       delayInMs * exponentialBackoff,
-      newExponentialBackoff
+      exponentialBackoff * 2
     );
   }
 }
@@ -60,13 +87,7 @@ async function getScoreBoard() {
 }
 
 async function saveScoreBoard(scores) {
-  const apiKey = globalThis.go_apiKey;
-
   try {
-    if (!apiKey) {
-      throw new Error("API key not set");
-    }
-
     const response = await fetch(`/scores.db`, {
       method: "POST",
       headers: {
@@ -86,7 +107,7 @@ async function saveScoreBoard(scores) {
 async function loadWasm() {
   const go = new Go(); // Defined in wasm_exec.js
 
-  // Initialize the environment variables and api key
+  // Initialize the environment variables
   globalThis.go_env = {};
 
   // Expose the functions to the Go code
@@ -101,6 +122,9 @@ async function loadWasm() {
 
   // Run the WebAssembly module
   go.run(wasmModule.instance);
+
+  // Check the health of the server
+  await checkHealth();
 
   // Update the environment variables with actual values
   await envCallback();

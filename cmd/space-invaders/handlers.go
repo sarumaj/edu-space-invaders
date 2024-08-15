@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"regexp"
@@ -19,10 +20,10 @@ import (
 // GetScores returns the scores as a response.
 // It returns the scores in descending order of the score.
 // If the scores have the same score, they are ordered in ascending order of the name.
-func GetScores(scoreBoardDatabase *gorm.DB) gin.HandlerFunc {
+func GetScores(database *gorm.DB) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		scores := make([]Score, 0)
-		if err := scoreBoardDatabase.
+		if err := database.
 			Order(clause.OrderBy{
 				Columns: []clause.OrderByColumn{
 					{Column: clause.Column{Name: "score"}, Desc: true},
@@ -97,12 +98,28 @@ func HandleEnv() gin.HandlerFunc {
 
 // HandleHealth handles the health check.
 // It returns the boot time, build time, current time, status, and uptime as a response.
-func HandleHealth(metricsDatabase *gorm.DB) gin.HandlerFunc {
+// It also returns the database size, database utilization, and table sizes as metrics.
+// If the database size exceeds the threshold, it deletes the oldest scores.
+// The database size is considered to have exceeded the threshold if it is greater than or equal to 1 GB.
+// The threshold is approximately 93% of the maximum size, which is 1 GiB.
+// The top 100 scores are kept in the database.
+func HandleHealth(database *gorm.DB) gin.HandlerFunc {
+	const databaseSizeQuery = "SELECT pg_database_size(current_database())"
+	const tableSizeQuery = "SELECT pg_total_relation_size(?)"
+	const maximumSize = 1 << 30     // 1 GiB
+	const threshold = 1_000_000_000 // 1 GB, approximately 93% of the maximum size
+	const keepTopScores = 100
+
 	bootTime := time.Now()
 
 	return func(ctx *gin.Context) {
+		if ctx.Request.Method == http.MethodHead {
+			ctx.Status(http.StatusOK)
+			return
+		}
+
 		var metrics []Metric
-		if err := metricsDatabase.
+		if err := database.
 			Omit("created_at", "updated_at").
 			Find(&metrics).
 			Error; err != nil {
@@ -111,20 +128,55 @@ func HandleHealth(metricsDatabase *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		if ctx.Request.Method == http.MethodHead {
-			ctx.Status(http.StatusOK)
+		metricsObject := make(map[string]any)
+		for _, metric := range metrics {
+			metricsObject[metric.Method+" "+metric.Endpoint] = metric.Count
+		}
+
+		var size int64
+		if err := database.
+			Raw(databaseSizeQuery).
+			Scan(&size).
+			Error; err != nil {
+
+			logger.Error("Failed to get database size", zap.Error(err))
 			return
 		}
 
-		metricsObject := make(map[string]int)
-		for _, metric := range metrics {
-			switch metric.Endpoint {
-			case "/health":
+		if size >= threshold {
+			if err := database.
+				Where("name IN (?)", database.
+					Model(&Score{}).
+					Select("name").
+					Order(clause.OrderBy{
+						Columns: []clause.OrderByColumn{
+							{Column: clause.Column{Name: "score"}, Desc: true},
+							{Column: clause.Column{Name: "CASE WHEN updated_at > created_at THEN updated_at ELSE created_at END", Raw: true}},
+						},
+					}).
+					Offset(keepTopScores)).
+				Delete(&Score{}).
+				Error; err != nil {
 
-			default:
-				metricsObject[metric.Method+" "+metric.Endpoint] = metric.Count
-
+				ctx.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": fmt.Sprintf("database unavailable, size exceeded: %s, err: %s", Size(size), err.Error())})
+				return
 			}
+		}
+
+		metricsObject["STATS /database/limit"] = Size(maximumSize).String()
+		metricsObject["STATS /database/size"] = Size(size).String()
+		metricsObject["STATS /database/utilization"] = fmt.Sprintf("%.2f%%", float64(size)/float64(maximumSize)*100)
+
+		tables, _ := database.Migrator().GetTables()
+		for _, table := range tables {
+			var tableSize int64
+			if err := database.Raw(tableSizeQuery, table).Scan(&tableSize).Error; err != nil {
+				logger.Error("Failed to get table size", zap.String("table", table), zap.Error(err))
+				return
+			}
+
+			metricsObject["STATS /database/tables/"+table+"/size"] = Size(tableSize).String()
+			metricsObject["STATS /database/tables/"+table+"/utilization"] = fmt.Sprintf("%.2f%%", float64(tableSize)/float64(maximumSize)*100)
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
@@ -163,7 +215,7 @@ func ServeFileSystem(conflicting map[*regexp.Regexp]gin.HandlersChain) gin.Handl
 }
 
 // SaveScores saves the scores to the database.
-func SaveScores(scoreBoardDatabase *gorm.DB) gin.HandlerFunc {
+func SaveScores(database *gorm.DB) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var scores []Score
 		if err := ctx.ShouldBind(&scores); err != nil {
@@ -171,12 +223,23 @@ func SaveScores(scoreBoardDatabase *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		if err := scoreBoardDatabase.
+		if len(scores) == 0 {
+			if err := database.Where("1 = 1").Delete(&Score{}).Error; err != nil {
+				logger.Error("Failed to delete scores", zap.Error(err))
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+
+			ctx.Status(http.StatusOK)
+			return
+		}
+
+		if err := database.
 			Clauses(clause.Locking{Strength: clause.LockingStrengthUpdate}).
 			Clauses(clause.OnConflict{
 				Columns: []clause.Column{{Name: "name"}},
 				DoUpdates: clause.Assignments(map[string]any{
-					"score":      gorm.Expr("EXCLUDED.score"),
+					"score":      gorm.Expr("CASE WHEN EXCLUDED.score < ? THEN EXCLUDED.score ELSE scores.score END", math.MaxInt64),
 					"updated_at": gorm.Expr("?", time.Now()),
 				}),
 				Where: clause.Where{Exprs: []clause.Expression{gorm.Expr("EXCLUDED.score > scores.score")}},

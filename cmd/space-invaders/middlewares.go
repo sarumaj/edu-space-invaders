@@ -4,6 +4,7 @@ import (
 	"crypto/cipher"
 	"crypto/rsa"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -51,7 +52,7 @@ func AuthenticatorMiddleware(publicKey *rsa.PublicKey, cryptKey cipher.AEAD, sou
 			case "cookie":
 				if cookie, _ := ctx.Request.Cookie(key); cookie != nil && cookie.Valid() == nil {
 					var err error
-					jwtToken, err = DecryptWithAES(cryptKey, cookie.Value)
+					jwtToken, err = decodeB64AndDecryptWithAES(cryptKey, cookie.Value)
 					if err != nil {
 						logger.Error("Failed to decrypt cookie", zap.String("source", source+":"+key), zap.Error(err))
 					}
@@ -161,10 +162,10 @@ func LimitMiddleware(rps float64, bursts uint, skip gin.Skipper) gin.HandlerFunc
 			return
 		}
 
-		reservation := limiter.Reserve()
+		now := time.Now()
+		reservation := limiter.ReserveN(now, 1)
 		defer reservation.Cancel()
 
-		now := time.Now()
 		if delay := reservation.DelayFrom(now); delay > 0 {
 			logger.Debug("Rate limit exceeded", zapcore.Field{Key: "delay", Type: zapcore.DurationType, Interface: delay})
 			ctx.Header("Retry-After", now.Add(delay).Format(time.RFC1123))
@@ -177,7 +178,7 @@ func LimitMiddleware(rps float64, bursts uint, skip gin.Skipper) gin.HandlerFunc
 }
 
 // MetricsMiddleware is a middleware that logs metrics.
-func MetricsMiddleware(metricsDatabase *gorm.DB, skip gin.Skipper) gin.HandlerFunc {
+func MetricsMiddleware(database *gorm.DB, skip gin.Skipper) gin.HandlerFunc {
 	queueLock := sync.Mutex{}
 
 	return func(ctx *gin.Context) {
@@ -190,11 +191,11 @@ func MetricsMiddleware(metricsDatabase *gorm.DB, skip gin.Skipper) gin.HandlerFu
 		queueLock.Lock()
 		defer queueLock.Unlock()
 
-		if err := metricsDatabase.
+		if err := database.
 			Clauses(clause.OnConflict{
 				Columns: []clause.Column{{Name: "endpoint"}, {Name: "method"}},
 				DoUpdates: clause.Assignments(map[string]any{
-					"count":      gorm.Expr("metrics.count + ?", 1), // Increment the count.
+					"count":      gorm.Expr("CASE WHEN metrics.count < ? THEN metrics.count + ? ELSE metrics.count END", math.MaxInt64, 1), // Increment the count.
 					"updated_at": gorm.Expr("?", time.Now()),
 				}),
 				Where: clause.Where{Exprs: []clause.Expression{
@@ -248,7 +249,7 @@ func SessionMiddleware(privateKey *rsa.PrivateKey, cryptKey cipher.AEAD, session
 			return
 		}
 
-		encrypted, err := EncryptWithAES(cryptKey, jwtToken)
+		encrypted, err := encryptAndEncodeB64WithAES(cryptKey, jwtToken)
 		if err != nil {
 			logger.Error("Failed to encrypt token", zap.Error(err))
 			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to encrypt token"})

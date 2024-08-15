@@ -27,7 +27,15 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method === "GET") {
+  const isEnvRequest = event.request.url.includes("/.env");
+  const isScoresRequest = event.request.url.includes("/scores.db");
+  const isHealthRequest = event.request.url.includes("/health");
+  if (
+    event.request.method === "GET" &&
+    !isEnvRequest &&
+    !isScoresRequest &&
+    !isHealthRequest
+  ) {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
         if (cachedResponse) {

@@ -3,9 +3,8 @@
 set -e
 
 print_usage() {
-	echo "Usage: $0 [-d target_directory] [--directory target_directory] [-k api_key] [--api-key api_key]"
+	echo "Usage: $0 [-d target_directory] [--directory target_directory]"
 	echo "  -d, --directory target_directory   Directory where the project will be created (default: current directory)"
-	echo "  -k, --api-key api_key              API key to communicate with the frontend application"
 }
 
 log_message() {
@@ -20,17 +19,12 @@ SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
 # Default values
 TARGET_DIR="."
-API_KEY=""
 
 # Parse command line options
 while [[ "$#" -gt 0 ]]; do
 	case $1 in
 	-d | --directory)
 		TARGET_DIR="$2"
-		shift 2
-		;;
-	-k | --api-key)
-		API_KEY="$2"
 		shift 2
 		;;
 	*)
@@ -41,12 +35,6 @@ while [[ "$#" -gt 0 ]]; do
 	esac
 done
 
-if [ -z "$API_KEY" ]; then
-	echo "API key is required"
-	print_usage
-	exit 1
-fi
-
 # Create target directory if it doesn't exist
 log_message "Creating target directory: $TARGET_DIR"
 rm -rf "$TARGET_DIR"
@@ -54,7 +42,7 @@ mkdir -p "$TARGET_DIR"
 
 # Build the Go program
 log_message "Building the Go program"
-GOOS=js GOARCH=wasm go build -trimpath -ldflags="-s -w -X 'main.ApiKey=$API_KEY'" -o "$TARGET_DIR/main.wasm" "$SCRIPT_DIR/main.go"
+GOOS=js GOARCH=wasm go build -trimpath -ldflags="-s -w" -o "$TARGET_DIR/main.wasm" "$SCRIPT_DIR/main.go"
 
 if [ -f "$TARGET_DIR/main.wasm" ]; then
 	log_message "Go program built successfully"

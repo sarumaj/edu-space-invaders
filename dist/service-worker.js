@@ -27,7 +27,15 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method === "GET") {
+  const isEnvRequest = event.request.url.includes("/.env");
+  const isScoresRequest = event.request.url.includes("/scores.db");
+  const isHealthRequest = event.request.url.includes("/health");
+  if (
+    event.request.method === "GET" &&
+    !isEnvRequest &&
+    !isScoresRequest &&
+    !isHealthRequest
+  ) {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
         if (cachedResponse) {
@@ -38,6 +46,14 @@ self.addEventListener("fetch", (event) => {
           const headers = new Headers();
           if (etag) {
             headers.append("If-None-Match", etag);
+          }
+
+          // If the cached response contains an Authorization header, include it in the request
+          const auth = cachedResponse.headers.get("Authorization");
+
+          // If the cached response contains an Authorization header, include it in the request
+          if (auth) {
+            headers.append("Authorization", auth);
           }
 
           return fetch(event.request, { headers }).then((networkResponse) => {

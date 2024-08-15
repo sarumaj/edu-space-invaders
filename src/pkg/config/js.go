@@ -27,7 +27,7 @@ const (
 	audioToggleBtnId = "audioToggle"
 	canvasId         = "gameCanvas"
 	goEnv            = "go_env"
-	goScoreBoard     = "go_scoreBoard"
+	goGetScoreBoard  = "go_getScoreBoard"
 	goSaveScoreBoard = "go_saveScoreBoard"
 	messageBoxId     = "message"
 	refreshButtonId  = "refreshButton"
@@ -43,7 +43,6 @@ var (
 	canvasObjectContext    = canvasObject.Call("getContext", "2d", MakeObject(map[string]any{"willReadFrequently": true}))
 	console                = GlobalGet("console")
 	document               = GlobalGet("document")
-	environ                = GlobalGet(goEnv)
 	fpsDiv                 = document.Call("getElementById", "fps")
 	invisibleCanvas        = document.Call("createElement", "canvas")
 	invisibleCtx           = invisibleCanvas.Call("getContext", "2d")
@@ -78,6 +77,7 @@ type score struct {
 	Score     int       `json:"score"`
 }
 
+// init is a function that initializes the game interface.
 func init() {
 	setupAudioInterface()
 	setupCanvasInterface()
@@ -254,10 +254,19 @@ func setupRefreshInterface() {
 // setupScoreBoard is a function that sets up the score board.
 func setupScoreBoard() {
 	scoreBoardMutex.Lock()
-	defer scoreBoardMutex.Unlock()
 
-	ThrowError(json.Unmarshal([]byte(GlobalGet("JSON").Call("stringify", GlobalGet(goScoreBoard)).String()), &scoreBoard))
-	slices.SortStableFunc(scoreBoard, scoreBoardSortFunc)
+	GlobalCall(goGetScoreBoard).Call("then", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		LogError(json.Unmarshal([]byte(GlobalGet("JSON").Call("stringify", p[0]).String()), &scoreBoard))
+		slices.SortStableFunc(scoreBoard, scoreBoardSortFunc)
+		scoreBoardMutex.Unlock()
+		return nil
+
+	})).Call("catch", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		LogError(fmt.Errorf("failed to save score board: %s", p[0].String()))
+		scoreBoardMutex.Unlock()
+		return nil
+
+	}))
 }
 
 // AddEventListener is a function that adds an event listener to the document.
@@ -479,7 +488,7 @@ func DrawStar(coords [2]float64, spikes int, radius, innerRadius float64, color 
 
 // Getenv is a function that returns the value of the environment variable key.
 func Getenv(key string) string {
-	got := environ.Get(key)
+	got := GlobalGet(goEnv).Get(key)
 	if !got.Truthy() {
 		return ""
 	}
@@ -735,7 +744,9 @@ func SendMessage(msg string, reset bool) {
 
 // Setenv is a function that sets the environment variable key to value.
 func Setenv(key, value string) {
+	environ := GlobalGet(goEnv)
 	environ.Set(key, value)
+	GlobalSet(goEnv, environ)
 }
 
 // SetScore is a function that sets the score.
@@ -853,7 +864,9 @@ func ThrowError(err error) {
 
 // Unsetenv is a function that unsets the environment variable key.
 func Unsetenv(key string) {
+	environ := GlobalGet(goEnv)
 	environ.Delete(key)
+	GlobalSet(goEnv, environ)
 }
 
 // UpdateFPS is a function that updates the frames per second.

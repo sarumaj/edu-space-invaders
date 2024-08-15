@@ -33,10 +33,10 @@ var (
 
 	aesKey      = flag.String("aes-key", "aes_key.pem", "path to the AES key to encrypt and decrypt JWT tokens")
 	databaseURL = flag.String("database-url", getenv("DATABASE_URL", "postgres://postgres:pass@db:5432/postgres"), "database address")
-	port        = flag.Uint("port", getenv[uint]("PORT", 8080), "port to listen on")
 	forceSecure = flag.Bool("force-secure", getenv("FORCE_SECURE", false), "force secure connection over HTTPS")
 	limitRPS    = flag.Float64("limit-rps", 90, "requests per second for rate limiting")
 	limitBurst  = flag.Uint("limit-burst", 12, "burst size for rate limiting")
+	port        = flag.Uint("port", getenv[uint]("PORT", 8080), "port to listen on")
 	rsaKey      = flag.String("rsa-key", "rsa_key.pem", "path to the RSA key to sign and verify JWT tokens")
 )
 

@@ -31,4 +31,4 @@ COPY --from=builder /server /
 COPY --from=builder /secret/*.pem /secret/
 
 ENTRYPOINT ["/server"]
-CMD ["-public-key", "/secret/public_key.pem"]
+CMD ["--rsa-key", "/secret/rsa.pem", "--aes-key", "/secret/aes.pem"]

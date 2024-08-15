@@ -80,12 +80,11 @@ jobs:
           usedocker: true
           delay: 5
         env:
+          HD_DATABASE_URL: ${{ steps.export_app_config.outputs.DATABASE_URL }}
+          HD_FORCE_SECURE: "true"
           HD_SPACE_INVADERS_COLLISION_DETECTION_VERSION: "3"
-          HD_SPACE_INVADERS_DATABASE_URL: ${{ steps.export_app_config.outputs.DATABASE_URL }}
           HD_SPACE_INVADERS_DEBUG: "false"
-          HD_SPACE_INVADERS_FORCE_SECURE: "true"
           HD_SPACE_INVADERS_GOD_MODE: "false"
-          HD_SPACE_INVADERS_METRICS_QUEUE_SIZE: "12"
 
       - name: Update code documentation
         run: curl -fsSL https://proxy.golang.org/${{ steps.export_module_name.outputs.MODULE_NAME }}/@v/${{ github.ref_name }}.info

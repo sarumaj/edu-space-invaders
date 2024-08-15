@@ -115,6 +115,9 @@ func Setenv(key, value string) { _ = os.Setenv(key, value) }
 // SetScore is a function that sets the score.
 func SetScore(name string, score int) (rank int) { return }
 
+// Setup is a function that needs to be called before the game starts.
+func Setup(key string) {}
+
 // StopAudio is a function that stops an audio track.
 func StopAudio(name string) {}
 

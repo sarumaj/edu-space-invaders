@@ -3,10 +3,10 @@
 set -e
 
 print_usage() {
-  echo "Usage: $0 [-k private_key_path] [--priv-key private_key_path] [--ttl duration]"
-  echo "  -k, --private-key private_key_path  Path to the private key file (default: ./private_key.pem)"
-  echo "  -s, --subject subject               Subject of the token (default: sarumaj)"
-  echo "  --ttl duration                      Duration in seconds for which the token will be valid (default: 600)"
+  echo "Usage: $0 [-k key_path] [--rsa-key key_path] [--ttl duration] [-s subject] [--subject subject]"
+  echo "  -k, --rsa-key key_path   Path to the RSA key file (default: ./rsa.pem)"
+  echo "  -s, --subject subject    Subject of the token (default: sarumaj)"
+  echo "  --ttl duration           Duration in seconds for which the token will be valid (default: 600)"
 }
 
 # Function to URL-safe base64 encode
@@ -15,14 +15,14 @@ base64_url_encode() {
 }
 
 # Default values
-KEY_PATH="./private_key.pem"
+KEY_PATH="./rsa.pem"
 TTL="600"
 SUBJECT="sarumaj"
 
 # Parse command line options
 while [[ "$#" -gt 0 ]]; do
   case $1 in
-  -k | --private-key)
+  -k | --rsa-key)
     KEY_PATH="$2"
     shift 2
     ;;
@@ -42,9 +42,9 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
-# Check if the private key file exists
+# Check if the RSA key file exists
 if [ ! -f "$KEY_PATH" ]; then
-  echo "Private key file not found: $KEY_PATH"
+  echo "RSA key file not found: $KEY_PATH"
   print_usage
   exit 1
 fi

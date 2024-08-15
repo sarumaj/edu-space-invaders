@@ -1,7 +1,6 @@
-// The key will be set in the Go code
-var apiKey = "";
+async function envCallback(exponentialBackoff = 1) {
+  const delayInMs = 2500;
 
-async function envCallback() {
   try {
     if (!apiKey) {
       throw new Error("API key not set");
@@ -11,13 +10,12 @@ async function envCallback() {
       method: "GET",
       headers: {
         Accept: "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
     });
     const data = await response.json();
     const prefix = data["_prefix"];
 
-    // Filter out only the environment variables that start with "SPACE_INVADERS_"
+    // Filter out only the environment variables that start with the prefix
     const env = Object.keys(data)
       .filter((key) => key.startsWith(prefix))
       .reduce((obj, key) => {
@@ -25,10 +23,18 @@ async function envCallback() {
         return obj;
       }, {});
 
-    return env;
+    setTimeout(envCallback, delayInMs);
+
+    globalThis.go_env = env;
   } catch (err) {
     console.error("Error getting env:", err);
-    return {};
+
+    let newExponentialBackoff = exponentialBackoff * 2;
+    setTimeout(
+      envCallback,
+      delayInMs * exponentialBackoff,
+      newExponentialBackoff
+    );
   }
 }
 
@@ -54,6 +60,8 @@ async function getScoreBoard() {
 }
 
 async function saveScoreBoard(scores) {
+  const apiKey = globalThis.go_apiKey;
+
   try {
     if (!apiKey) {
       throw new Error("API key not set");
@@ -63,7 +71,6 @@ async function saveScoreBoard(scores) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(scores),
     });
@@ -79,19 +86,24 @@ async function saveScoreBoard(scores) {
 async function loadWasm() {
   const go = new Go(); // Defined in wasm_exec.js
 
-  // Pass the environment variables to the Go code
-  globalThis.go_env = await envCallback();
-  globalThis.go_scoreBoard = await getScoreBoard();
+  // Initialize the environment variables and api key
+  globalThis.go_env = {};
 
   // Expose the functions to the Go code
+  globalThis.go_getScoreBoard = getScoreBoard;
   globalThis.go_saveScoreBoard = saveScoreBoard;
 
+  // Load and instantiate the WebAssembly module
   const wasmModule = await WebAssembly.instantiateStreaming(
     fetch("main.wasm"),
     go.importObject
   );
 
+  // Run the WebAssembly module
   go.run(wasmModule.instance);
+
+  // Update the environment variables with actual values
+  await envCallback();
 }
 
 window.addEventListener("load", loadWasm());

@@ -1,10 +1,16 @@
-//go:generate bash -c "../../src/build.sh --directory \"../../dist\" --api-key $(../../src/jwt.sh --private-key \"../../secret/private_key.pem\" --ttl 0 --subject \"wasm\")"
+//go:generate bash -c "../../src/build.sh --directory \"../../dist\""
 package main
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	_ "embed"
+	"encoding/hex"
+	"encoding/pem"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -34,14 +40,16 @@ var (
 	environ []string
 	logger  *zap.Logger
 
-	databaseURL = flag.String("database-url", getenv("SPACE_INVADERS_DATABASE_URL", "postgres://postgres:pass@db:5432/postgres"), "database address")
+	aesKey      = flag.String("aes-key", "aes_key.pem", "path to the AES key to encrypt and decrypt JWT tokens")
+	databaseURL = flag.String("database-url", getenv("DATABASE_URL", "postgres://postgres:pass@db:5432/postgres"), "database address")
 	port        = flag.Uint("port", getenv[uint]("PORT", 8080), "port to listen on")
-	forceSecure = flag.Bool("force-secure", getenv("SPACE_INVADERS_FORCE_SECURE", false), "force secure connection over HTTPS")
-	publicKey   = flag.String("public-key", "public_key.pem", "path to the public key to verify JWT tokens")
+	forceSecure = flag.Bool("force-secure", getenv("FORCE_SECURE", false), "force secure connection over HTTPS")
 	limitRPS    = flag.Float64("limit-rps", 60, "requests per second for rate limiting")
 	limitBurst  = flag.Uint("limit-burst", 10, "burst size for rate limiting")
+	rsaKey      = flag.String("rsa-key", "rsa_key.pem", "path to the RSA key to sign and verify JWT tokens")
 )
 
+// init runs the initialization code.
 func init() {
 	flag.Parse()
 	gin.SetMode(gin.ReleaseMode)
@@ -64,7 +72,11 @@ func main() {
 		zap.Uintp("port", port),
 		zap.Boolp("forceSecure", forceSecure),
 		zap.Stringp("databaseURL", databaseURL),
-		zap.Stringp("public_key", publicKey))
+		zap.Stringp("aesKey", aesKey),
+		zap.Stringp("rsaKey", rsaKey),
+		zap.Float64p("limitRPS", limitRPS),
+		zap.Uintp("limitBurst", limitBurst),
+	)
 
 	// Load the environment variables.
 	environ = os.Environ()
@@ -89,33 +101,69 @@ func main() {
 		_ = scoreBoardDatabase.AutoMigrate(&Score{})
 	}
 
-	// Register the routes.
+	// Configure router.
+	skipper := func(c *gin.Context) bool {
+		switch {
+		case
+			c.Request.Method == http.MethodGet && c.Request.URL.Path == "/health",
+			c.Request.Method == http.MethodGet && c.Request.URL.Path == "/.env":
+
+			return true
+		}
+
+		return false
+	}
+
 	router := gin.New(func(e *gin.Engine) {
-		e.Use(ginzap.Ginzap(logger, time.RFC3339, true))
-		e.Use(ginzap.RecoveryWithZap(logger, true))
+		e.Use(ginzap.GinzapWithConfig(logger, &ginzap.Config{
+			TimeFormat:   time.RFC3339,
+			UTC:          true,
+			DefaultLevel: zapcore.DebugLevel,
+			Skipper:      skipper,
+			Context:      func(ctx *gin.Context) []zapcore.Field { return []zapcore.Field{zap.Any("headers", ctx.Request.Header)} },
+		}))
+		e.Use(ginzap.CustomRecoveryWithZap(logger, true, func(c *gin.Context, err any) {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("%v", err)})
+		}))
 	})
 
 	// Register the asymmetric JWT validator.
-	raw, err := os.ReadFile(*publicKey)
+	raw, err := os.ReadFile(*rsaKey)
 	if err != nil {
 		logger.Fatal("Failed to read public key", zap.Error(err))
 	}
 
-	key, err := jwt.ParseRSAPublicKeyFromPEM(raw)
+	key, err := jwt.ParseRSAPrivateKeyFromPEM(raw)
 	if err != nil {
-		logger.Fatal("Failed to parse public key", zap.Error(err))
+		logger.Fatal("Failed to parse private key", zap.Error(err))
 	}
 
-	logger.Info("Public RSA key loaded")
-	jwtAuthenticator := AuthenticatorMiddleware(key, map[string]string{"header": "Authorization", "query": "token"})
+	raw, err = os.ReadFile(*aesKey)
+	if err != nil {
+		logger.Fatal("Failed to read encryption key", zap.Error(err))
+	}
+
+	cryptKey, err := ParseAES2GCMKeyFromPem(raw)
+	if err != nil {
+		logger.Fatal("Failed to parse encryption key", zap.Error(err))
+	}
+
+	logger.Info("RSA key loaded")
+	jwtAuthenticator := AuthenticatorMiddleware(&key.PublicKey, cryptKey, map[string]string{
+		"header": "Authorization",
+		"query":  "token",
+		"cookie": "session",
+	})
 
 	// Register the routes.
+
 	router.Use(
+		SessionMiddleware(key, cryptKey, "session", time.Hour),
 		gzip.Gzip(gzip.BestCompression),
-		MetricsMiddleware(scoreBoardDatabase),
+		MetricsMiddleware(scoreBoardDatabase, skipper),
 		HttpsRedirectMiddleware(*forceSecure),
 		CacheControlMiddleware(),
-		LimitMiddleware(*limitRPS, *limitBurst),
+		LimitMiddleware(*limitRPS, *limitBurst, nil),
 	)
 
 	router.POST("/.env", jwtAuthenticator, HandleEnv())
@@ -232,4 +280,57 @@ func parsePostgresURL(databaseUrl string) (string, error) {
 
 	slices.Sort(parts)
 	return strings.Join(parts, " "), nil
+}
+
+// DecryptWithAES decrypts the encrypted message using the AES key.
+// It returns the decrypted message or an error if decryption fails.
+// The encrypted message is expected to be a hex-encoded string.
+func DecryptWithAES(keyCipher cipher.AEAD, encryptedMessage string) (string, error) {
+	ciphertext, err := hex.DecodeString(encryptedMessage)
+	if err != nil {
+		return "", err
+	}
+
+	nonceSize := keyCipher.NonceSize()
+	if len(ciphertext) < nonceSize {
+		return "", fmt.Errorf("ciphertext too short")
+	}
+
+	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
+	plaintext, err := keyCipher.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return "", err
+	}
+
+	return string(plaintext), nil
+}
+
+// EncryptWithAES encrypts the plaintext using the AES key.
+// It returns the encrypted message as a hex-encoded string or an error if encryption fails.
+// The nonce is prepended to the ciphertext.
+func EncryptWithAES(keyCipher cipher.AEAD, plaintext string) (string, error) {
+	nonce := make([]byte, keyCipher.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return "", err
+	}
+
+	ciphertext := keyCipher.Seal(nonce, nonce, []byte(plaintext), nil)
+	return hex.EncodeToString(ciphertext), nil
+}
+
+// ParseAES2GCMKeyFromPem parses the AES key from the PEM-encoded data.
+// It returns the AES GCM cipher or an error if parsing fails.
+// The PEM-encoded data is expected to contain the AES key.
+func ParseAES2GCMKeyFromPem(raw []byte) (cipher.AEAD, error) {
+	decoded, _ := pem.Decode(raw)
+	if decoded == nil || decoded.Type != "AES PRIVATE KEY" {
+		return nil, fmt.Errorf("failed to decode encryption key")
+	}
+
+	block, err := aes.NewCipher(decoded.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return cipher.NewGCM(block)
 }

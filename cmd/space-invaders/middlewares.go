@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/cipher"
 	"crypto/rsa"
 	"fmt"
 	"net/http"
@@ -27,7 +28,7 @@ import (
 // The key is the name of the cookie, header, or query parameter.
 // If the token is not found, the middleware will return a 401 status code.
 // If the token is invalid, the middleware will return a 401 status code.
-func AuthenticatorMiddleware(publicKey *rsa.PublicKey, sources map[string]string) gin.HandlerFunc {
+func AuthenticatorMiddleware(publicKey *rsa.PublicKey, cryptKey cipher.AEAD, sources map[string]string) gin.HandlerFunc {
 	parser := jwt.NewParser(
 		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name}),
 		jwt.WithIssuer("space-invaders"),
@@ -49,7 +50,11 @@ func AuthenticatorMiddleware(publicKey *rsa.PublicKey, sources map[string]string
 			switch source {
 			case "cookie":
 				if cookie, _ := ctx.Request.Cookie(key); cookie != nil && cookie.Valid() == nil {
-					jwtToken = cookie.Value
+					var err error
+					jwtToken, err = DecryptWithAES(cryptKey, cookie.Value)
+					if err != nil {
+						logger.Error("Failed to decrypt cookie", zap.String("source", source+":"+key), zap.Error(err))
+					}
 				}
 
 			case "header":
@@ -116,7 +121,6 @@ func CacheControlMiddleware() gin.HandlerFunc {
 func HttpsRedirectMiddleware(enabled bool) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		if enabled && ctx.Request.URL.Scheme != "https" && ctx.Request.Header.Get("X-Forwarded-Proto") != "https" {
-
 			location := &url.URL{
 				Scheme:      "https",
 				Host:        ctx.Request.Header.Get("X-Forwarded-Host"),
@@ -148,10 +152,15 @@ func HttpsRedirectMiddleware(enabled bool) gin.HandlerFunc {
 // It uses a token bucket algorithm to limit the number of requests.
 // The rate is the number of requests per second and the bursts is the number of requests that can be bursted.
 // If the limit is reached, the middleware will return a 429 status code.
-func LimitMiddleware(rps float64, bursts uint) gin.HandlerFunc {
+func LimitMiddleware(rps float64, bursts uint, skip gin.Skipper) gin.HandlerFunc {
 	limiter := rate.NewLimiter(rate.Limit(rps), int(bursts))
 
 	return func(ctx *gin.Context) {
+		if skip != nil && skip(ctx) {
+			ctx.Next()
+			return
+		}
+
 		reservation := limiter.Reserve()
 		defer reservation.Cancel()
 
@@ -168,11 +177,15 @@ func LimitMiddleware(rps float64, bursts uint) gin.HandlerFunc {
 }
 
 // MetricsMiddleware is a middleware that logs metrics.
-func MetricsMiddleware(metricsDatabase *gorm.DB) gin.HandlerFunc {
+func MetricsMiddleware(metricsDatabase *gorm.DB, skip gin.Skipper) gin.HandlerFunc {
 	queueLock := sync.Mutex{}
 
 	return func(ctx *gin.Context) {
 		ctx.Next()
+
+		if skip != nil && skip(ctx) {
+			return
+		}
 
 		queueLock.Lock()
 		defer queueLock.Unlock()
@@ -200,5 +213,67 @@ func MetricsMiddleware(metricsDatabase *gorm.DB) gin.HandlerFunc {
 		}
 
 		logger.Debug("Metrics saved", zap.String("endpoint", ctx.Request.URL.Path), zap.String("method", ctx.Request.Method))
+	}
+}
+
+// SessionMiddleware is a middleware that creates a session cookie.
+// It uses the private key to sign the JWT token.
+// The session name is the name of the cookie.
+// The session duration is the duration of the session.
+// If the cookie is not found or invalid, the middleware will create a new session.
+// If the token is invalid, the middleware will return a 500 status code.
+func SessionMiddleware(privateKey *rsa.PrivateKey, cryptKey cipher.AEAD, sessionName string, sessionDuration time.Duration) gin.HandlerFunc {
+	claims := jwt.RegisteredClaims{
+		Issuer:   "space-invaders",
+		Audience: jwt.ClaimStrings{"space-invaders"},
+		Subject:  "frontend",
+	}
+
+	return func(ctx *gin.Context) {
+		if cookie, _ := ctx.Request.Cookie(sessionName); cookie != nil && cookie.Valid() == nil {
+			ctx.Next()
+			return
+		}
+
+		jwtToken, err := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.RegisteredClaims{
+			Issuer:    claims.Issuer,
+			Audience:  claims.Audience,
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Subject:   claims.Subject,
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(sessionDuration)),
+		}).SignedString(privateKey)
+		if err != nil {
+			logger.Error("Failed to sign token", zap.Error(err))
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to sign token"})
+			return
+		}
+
+		encrypted, err := EncryptWithAES(cryptKey, jwtToken)
+		if err != nil {
+			logger.Error("Failed to encrypt token", zap.Error(err))
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to encrypt token"})
+			return
+		}
+
+		domain := ctx.Request.URL.Hostname()
+		if domain == "" {
+			domain = ctx.GetHeader("X-Forwarded-Host")
+		}
+
+		scheme := ctx.Request.URL.Scheme
+		if scheme == "" {
+			scheme = ctx.GetHeader("X-Forwarded-Proto")
+		}
+
+		http.SetCookie(ctx.Writer, &http.Cookie{
+			Name:     sessionName,
+			Value:    encrypted,
+			MaxAge:   int(sessionDuration.Seconds()),
+			Path:     "/",
+			Domain:   domain,
+			Secure:   scheme == "https",
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+		})
 	}
 }

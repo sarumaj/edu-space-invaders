@@ -4,7 +4,6 @@ import (
 	"crypto/cipher"
 	"crypto/rsa"
 	"fmt"
-	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -18,7 +17,6 @@ import (
 	zapcore "go.uber.org/zap/zapcore"
 	rate "golang.org/x/time/rate"
 	gorm "gorm.io/gorm"
-	clause "gorm.io/gorm/clause"
 )
 
 // AuthenticatorMiddleware is a middleware that authenticates the request using JWT.
@@ -191,26 +189,13 @@ func MetricsMiddleware(database *gorm.DB, skip gin.Skipper) gin.HandlerFunc {
 		queueLock.Lock()
 		defer queueLock.Unlock()
 
-		if err := database.
-			Clauses(clause.OnConflict{
-				Columns: []clause.Column{{Name: "endpoint"}, {Name: "method"}},
-				DoUpdates: clause.Assignments(map[string]any{
-					"count":      gorm.Expr("CASE WHEN metrics.count < ? THEN metrics.count + ? ELSE metrics.count END", math.MaxInt64, 1), // Increment the count.
-					"updated_at": gorm.Expr("?", time.Now()),
-				}),
-				Where: clause.Where{Exprs: []clause.Expression{
-					gorm.Expr("EXCLUDED.endpoint = metrics.endpoint"),
-					gorm.Expr("EXCLUDED.method = metrics.method"),
-				}},
-			}).
-			Create([]Metric{{
-				Endpoint: ctx.Request.URL.Path,
-				Method:   ctx.Request.Method,
-				Count:    1,
-			}}).
-			Error; err != nil {
-
+		if err := Helper(database).SaveMetric(Metric{
+			Endpoint: ctx.Request.URL.Path,
+			Method:   ctx.Request.Method,
+			Count:    1,
+		}); err != nil {
 			logger.Error("Failed to save metrics", zapcore.Field{Key: "error", Interface: err, Type: zapcore.ErrorType})
+			return
 		}
 
 		logger.Debug("Metrics saved", zap.String("endpoint", ctx.Request.URL.Path), zap.String("method", ctx.Request.Method))

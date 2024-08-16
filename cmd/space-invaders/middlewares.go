@@ -19,6 +19,15 @@ import (
 	gorm "gorm.io/gorm"
 )
 
+// nopWriter is a writer that does not write anything.
+type nopWriter struct{ gin.ResponseWriter }
+
+// Write writes nothing.
+func (*nopWriter) Write([]byte) (n int, err error) { return }
+
+// WriteString writes nothing.
+func (*nopWriter) WriteString(string) (n int, err error) { return }
+
 // AuthenticatorMiddleware is a middleware that authenticates the request using JWT.
 // It uses the public key to verify the JWT token.
 // The sources map contains the sources of the JWT token.
@@ -33,6 +42,7 @@ func AuthenticatorMiddleware(publicKey *rsa.PublicKey, cryptKey cipher.AEAD, sou
 		jwt.WithIssuer("space-invaders"),
 		jwt.WithAudience("space-invaders"),
 		jwt.WithIssuedAt(),
+		jwt.WithPaddingAllowed(),
 	)
 
 	validatorFunc := func(token *jwt.Token) (any, error) {
@@ -89,6 +99,25 @@ func AuthenticatorMiddleware(publicKey *rsa.PublicKey, cryptKey cipher.AEAD, sou
 	}
 }
 
+// BeHeadMiddleware is a middleware that handles the HEAD method.
+// It converts the HEAD method to a GET method and writes the headers.
+// The middleware is useful for APIs that do not support the HEAD method.
+func BeHeadMiddleware() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		if ctx.Request.Method == http.MethodHead {
+			ctx.Request.Method = http.MethodGet
+			ctx.Next()
+			ctx.Request.Method = http.MethodHead
+
+			ctx.Writer.WriteHeaderNow()
+			ctx.Writer = &nopWriter{ctx.Writer}
+			return
+		}
+
+		ctx.Next()
+	}
+}
+
 // CacheControlMiddleware is a middleware that sets the cache control headers.
 // It also handles the ETag header.
 func CacheControlMiddleware() gin.HandlerFunc {
@@ -119,10 +148,10 @@ func CacheControlMiddleware() gin.HandlerFunc {
 // HttpsRedirectMiddleware redirects HTTP requests to HTTPS
 func HttpsRedirectMiddleware(enabled bool) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		if enabled && ctx.Request.URL.Scheme != "https" && ctx.Request.Header.Get("X-Forwarded-Proto") != "https" {
+		if enabled && selectValue(ctx.Request.Header.Get("X-Forwarded-Proto"), ctx.Request.URL.Scheme) != "https" {
 			location := &url.URL{
 				Scheme:      "https",
-				Host:        ctx.Request.Header.Get("X-Forwarded-Host"),
+				Host:        selectValue(ctx.Request.Header.Get("X-Forwarded-Host"), ctx.Request.Host),
 				Path:        ctx.Request.URL.Path,
 				RawPath:     ctx.Request.URL.RawPath,
 				RawQuery:    ctx.Request.URL.RawQuery,
@@ -132,10 +161,6 @@ func HttpsRedirectMiddleware(enabled bool) gin.HandlerFunc {
 				RawFragment: ctx.Request.URL.RawFragment,
 				Opaque:      ctx.Request.URL.Opaque,
 				OmitHost:    false,
-			}
-
-			if location.Host == "" {
-				location.Host = ctx.Request.Host
 			}
 
 			logger.Debug("Redirecting to HTTPS", zap.String("location", location.String()))
@@ -210,24 +235,19 @@ func MetricsMiddleware(database *gorm.DB, skip gin.Skipper) gin.HandlerFunc {
 // If the cookie is not found or invalid, the middleware will create a new session.
 // If the token is invalid, the middleware will return a 500 status code.
 func SessionMiddleware(privateKey *rsa.PrivateKey, cryptKey cipher.AEAD, sessionName string, sessionDuration time.Duration) gin.HandlerFunc {
-	claims := jwt.RegisteredClaims{
-		Issuer:   "space-invaders",
-		Audience: jwt.ClaimStrings{"space-invaders"},
-		Subject:  "frontend",
-	}
-
 	return func(ctx *gin.Context) {
 		if cookie, _ := ctx.Request.Cookie(sessionName); cookie != nil && cookie.Valid() == nil {
 			ctx.Next()
 			return
 		}
 
+		now := time.Now()
 		jwtToken, err := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.RegisteredClaims{
-			Issuer:    claims.Issuer,
-			Audience:  claims.Audience,
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Subject:   claims.Subject,
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(sessionDuration)),
+			Issuer:    "space-invaders",
+			Audience:  jwt.ClaimStrings{"space-invaders"},
+			IssuedAt:  jwt.NewNumericDate(now),
+			Subject:   "internal",
+			ExpiresAt: jwt.NewNumericDate(now.Add(sessionDuration)),
 		}).SignedString(privateKey)
 		if err != nil {
 			logger.Error("Failed to sign token", zap.Error(err))
@@ -242,23 +262,13 @@ func SessionMiddleware(privateKey *rsa.PrivateKey, cryptKey cipher.AEAD, session
 			return
 		}
 
-		domain := ctx.Request.URL.Hostname()
-		if domain == "" {
-			domain = ctx.GetHeader("X-Forwarded-Host")
-		}
-
-		scheme := ctx.Request.URL.Scheme
-		if scheme == "" {
-			scheme = ctx.GetHeader("X-Forwarded-Proto")
-		}
-
 		http.SetCookie(ctx.Writer, &http.Cookie{
 			Name:     sessionName,
 			Value:    encrypted,
-			MaxAge:   int(sessionDuration.Seconds()),
+			MaxAge:   int((sessionDuration - time.Since(now)).Seconds()),
 			Path:     "/",
-			Domain:   domain,
-			Secure:   scheme == "https",
+			Domain:   selectValue(ctx.GetHeader("X-Forwarded-Host"), ctx.Request.URL.Hostname()),
+			Secure:   selectValue(ctx.GetHeader("X-Forwarded-Proto"), ctx.Request.URL.Scheme) == "https",
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,
 		})

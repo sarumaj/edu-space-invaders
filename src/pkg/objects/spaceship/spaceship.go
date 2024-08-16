@@ -9,24 +9,28 @@ import (
 	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/bullet"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/planet"
 )
 
 // Spaceship represents the player's spaceship.
 type Spaceship struct {
-	Commandant          string           // Commandant is the name of the spaceship's commander.
-	Position            numeric.Position // Position of the spaceship
-	Speed               numeric.Position // Speed of the spaceship in both directions
-	Cooldown            time.Duration    // Time between shots
-	Directions          Directions       // Directions the spaceship can move
-	Size                numeric.Size     // Size of the
-	CurrentScale        numeric.Position // Scale of the spaceship
-	Bullets             bullet.Bullets   // Bullets fired by the spaceship
-	Level               *SpaceshipLevel  // Spaceship level
-	State               SpaceshipState   // Spaceship state
-	HighScore           int              // HighScore is the high score of the spaceship.
-	lastFired           time.Time        // Last time the spaceship fired
-	lastStateTransition time.Time        // Last time the spaceship changed state
-	lastThrottledLog    time.Time        // Last time the spaceship throttled log messages
+	IsAdmiral           bool                       // IsAdmiral is true if the spaceship is the admiral.
+	Commandant          string                     // Commandant is the name of the spaceship's commander.
+	Position            numeric.Position           // Position of the spaceship
+	Speed               numeric.Position           // Speed of the spaceship in both directions
+	Cooldown            time.Duration              // Time between shots
+	Directions          Directions                 // Directions the spaceship can move
+	Size                numeric.Size               // Size of the
+	CurrentScale        numeric.Position           // Scale of the spaceship
+	Bullets             bullet.Bullets             // Bullets fired by the spaceship
+	Level               *SpaceshipLevel            // Spaceship level
+	State               SpaceshipState             // Spaceship state
+	HighScore           int                        // HighScore is the high score of the spaceship.
+	lastFired           time.Time                  // Last time the spaceship fired
+	lastStateTransition time.Time                  // Last time the spaceship changed state
+	lastThrottledLog    time.Time                  // Last time the spaceship throttled log messages
+	lastDiscovery       time.Time                  // Last time the spaceship discovered a planet
+	discoveredPlanets   map[planet.PlanetType]bool // Discovered planets
 }
 
 // isFrozen checks if the spaceship can move or shoot.
@@ -112,6 +116,40 @@ func (spaceship Spaceship) DetectCollisionV3(e enemy.Enemy) bool {
 		GetSpaceshipVerticesV2(spaceship.Position, spaceship.Size, true).
 		Vertices().
 		HasSeparatingAxis(numeric.GetSpaceshipVerticesV2(e.Position, e.Size, false).Vertices())
+}
+
+// Discover discovers the planet.
+// If the spaceship is close to the planet, the planet has not been discovered,
+// the planet has not been discovered recently, and the planet is discovered based on the probability,
+// the planet will be discovered.
+// If all planets have been discovered, the spaceship will promote its commander to admiral.
+func (spaceship *Spaceship) Discover(planet *planet.Planet) {
+	switch {
+	case
+		spaceship.Position.Sub(planet.Position).Magnitude() > planet.Radius,                                                          // If the spaceship is not close to the planet
+		spaceship.discoveredPlanets[planet.Type],                                                                                     // If the planet has been discovered
+		time.Since(spaceship.lastDiscovery) < config.Config.Planet.DiscoveryCooldown*time.Duration(len(spaceship.discoveredPlanets)), // If a planet has been discovered recently
+		!numeric.SampleUniform(config.Config.Planet.DiscoveryProbability):                                                            // If the planet is not discovered based on the probability
+
+		return
+	}
+
+	spaceship.lastDiscovery = time.Now()
+	spaceship.discoveredPlanets[planet.Type] = true
+
+	if len(spaceship.discoveredPlanets) == 8 {
+		spaceship.IsAdmiral = true
+		config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.AllPlanetsDiscovered, config.Template{
+			"PlanetName": planet.Type.String(),
+		}), false)
+		return
+	}
+
+	config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.PlanetDiscovered, config.Template{
+		"PlanetName":       planet.Type.String(),
+		"RemainingPlanets": 8 - len(spaceship.discoveredPlanets),
+		"TotalPlanets":     8,
+	}), false)
 }
 
 // Draw draws the spaceship on the canvas.
@@ -465,6 +503,7 @@ func Embark(commandant string) *Spaceship {
 			Progress:       1,
 			Cannons:        1,
 		},
+		discoveredPlanets: make(map[planet.PlanetType]bool),
 	}
 
 	if spaceship.Commandant == "" {

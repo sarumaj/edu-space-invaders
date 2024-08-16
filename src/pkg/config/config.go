@@ -99,12 +99,14 @@ type config struct {
 			WaitForScoreBoardUpdate   string
 
 			Templates struct {
+				AllPlanetsDiscovered         templateString
 				EnemyDestroyed               templateString
 				EnemyHit                     templateString
 				GameOver                     templateString
 				Greeting                     templateString
 				PerformanceDropped           templateString
 				PerformanceImproved          templateString
+				PlanetDiscovered             templateString
 				Prompt                       templateString
 				SpaceshipDowngradedByEnemy   templateString
 				SpaceshipFrozen              templateString
@@ -113,6 +115,14 @@ type config struct {
 				SpaceshipUpgradedByGoodie    templateString
 			} `ini:"MessageBox.Messages.Templates"`
 		} `ini:"MessageBox.Messages"`
+	}
+
+	Planet struct {
+		DiscoveryCooldown    time.Duration
+		DiscoveryProbability float64
+		MaximumRadius        float64
+		MinimumRadius        float64
+		SpeedRatio           float64
 	}
 
 	Spaceship struct {
@@ -124,7 +134,7 @@ type config struct {
 		Cooldown           time.Duration
 		DamageDuration     time.Duration
 		DefaultPenalty     int
-		ExperienceFactor   float64
+		ExperienceScaler   float64
 		FreezeDuration     time.Duration
 		FreezerPenalty     int
 		Height             float64

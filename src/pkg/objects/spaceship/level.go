@@ -68,8 +68,9 @@ func (lvl *SpaceshipLevel) GainExperience(e enemy.Enemy) bool {
 	gain := (base * numeric.Number(e.Level.Progress)).Int()
 
 	// Formula for the required experience
+	// y = exp(progress/experience_factor)
 	formula := func() int {
-		return (numeric.Number(lvl.Progress+1).Log() * numeric.Number(config.Config.Spaceship.ExperienceFactor)).Int()
+		return (numeric.E.Pow(numeric.Number(lvl.Progress) / numeric.Number(config.Config.Spaceship.ExperienceScaler))).Int()
 	}
 
 	// Increase the experience

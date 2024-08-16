@@ -96,11 +96,6 @@ func HandleHealth(database *gorm.DB) gin.HandlerFunc {
 	bootTime := time.Now()
 
 	return func(ctx *gin.Context) {
-		if ctx.Request.Method == http.MethodHead {
-			ctx.Status(http.StatusOK)
-			return
-		}
-
 		var metrics []Metric
 		if err := database.Omit("created_at", "updated_at").Find(&metrics).Error; err != nil {
 			logger.Error("Failed to get metrics", zap.Error(err))

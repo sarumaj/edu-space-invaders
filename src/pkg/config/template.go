@@ -36,8 +36,12 @@ var funcsMap = template.FuncMap{
 	"italic": func(args ...any) string {
 		return fmt.Sprintf(`<i>%s</i>`, fmt.Sprint(args...))
 	},
-	"inc": func(n int) int {
-		return n + 1
+	"inc": func(n any) int {
+		num, ok := n.(int)
+		if !ok {
+			return 0
+		}
+		return num + 1
 	},
 	"printf": printer.Sprintf,
 	"strike": func(args ...any) string {

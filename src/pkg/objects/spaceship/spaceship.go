@@ -123,11 +123,12 @@ func (spaceship Spaceship) DetectCollisionV3(e enemy.Enemy) bool {
 // the planet has not been discovered recently, and the planet is discovered based on the probability,
 // the planet will be discovered.
 // If all planets have been discovered, the spaceship will promote its commander to admiral.
-func (spaceship *Spaceship) Discover(planet *planet.Planet) {
+func (spaceship *Spaceship) Discover(p *planet.Planet) {
 	switch {
 	case
-		spaceship.Position.Sub(planet.Position).Magnitude() > planet.Radius,                                                          // If the spaceship is not close to the planet
-		spaceship.discoveredPlanets[planet.Type],                                                                                     // If the planet has been discovered
+		!p.Type.IsPlanet(), // If the celestial object is not an actual planet
+		!p.WithinRange(spaceship.Position.Add(spaceship.Size.Center())), // If the spaceship is not within range of the planet
+		spaceship.discoveredPlanets[p.Type],                             // If the planet has been discovered
 		time.Since(spaceship.lastDiscovery) < config.Config.Planet.DiscoveryCooldown*time.Duration(len(spaceship.discoveredPlanets)), // If a planet has been discovered recently
 		!numeric.SampleUniform(config.Config.Planet.DiscoveryProbability):                                                            // If the planet is not discovered based on the probability
 
@@ -135,20 +136,21 @@ func (spaceship *Spaceship) Discover(planet *planet.Planet) {
 	}
 
 	spaceship.lastDiscovery = time.Now()
-	spaceship.discoveredPlanets[planet.Type] = true
+	spaceship.discoveredPlanets[p.Type] = true
+	const expectedNumberOfPlanets = int(planet.Neptune) + 1
 
-	if len(spaceship.discoveredPlanets) == 8 {
-		spaceship.IsAdmiral = true
+	if len(spaceship.discoveredPlanets) == expectedNumberOfPlanets {
+		spaceship.IsAdmiral = true // Promote the commander to admiral
 		config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.AllPlanetsDiscovered, config.Template{
-			"PlanetName": planet.Type.String(),
+			"PlanetName": p.Type.String(),
 		}), false)
 		return
 	}
 
 	config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.PlanetDiscovered, config.Template{
-		"PlanetName":       planet.Type.String(),
-		"RemainingPlanets": 8 - len(spaceship.discoveredPlanets),
-		"TotalPlanets":     8,
+		"PlanetName":       p.Type.String(),
+		"RemainingPlanets": expectedNumberOfPlanets - len(spaceship.discoveredPlanets),
+		"TotalPlanets":     expectedNumberOfPlanets,
 	}), false)
 }
 

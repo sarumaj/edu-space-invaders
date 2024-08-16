@@ -2,11 +2,50 @@ package numeric
 
 import (
 	"fmt"
+	"math"
 )
+
+// Circle represents a circle.
+type Circle struct {
+	Position Position
+	Radius   Number
+}
+
+// String returns the string representation of the circle.
+func (circle Circle) String() string {
+	return fmt.Sprintf("Circle{%s, R:%f}", circle.Position, circle.Radius)
+}
+
+// Vertices returns the vertices of the circle by approximating it as a polygon.
+func (circle Circle) Vertices() Vertices {
+	var edges int
+	if circle.Radius <= 3 {
+		edges = 30
+
+	} else if circle.Radius <= 10 {
+		edges = circle.Radius.Int() * 10
+
+	} else if circle.Radius <= 50 {
+		edges = circle.Radius.Int() * 2
+
+	} else {
+		edges = 100
+
+	}
+
+	var vertices Vertices
+	for i := 0; i < edges; i++ {
+		angle := (2 * Pi * Number(i) / Number(edges)).Float()
+		vertices = append(vertices, circle.Position.Add(Locate(math.Cos(angle), math.Sin(angle)).Mul(circle.Radius)))
+	}
+
+	return vertices
+}
 
 // Rectangle represents a rectangle.
 type Rectangle [4]Position
 
+// String returns the string representation of the rectangle.
 func (rect Rectangle) String() string {
 	return fmt.Sprintf("Rectangle{%v, %v, %v, %v}", rect[0], rect[1], rect[2], rect[3])
 }

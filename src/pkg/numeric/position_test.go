@@ -80,7 +80,6 @@ func TestPosition(t *testing.T) {
 	testPosition(t, "DivX", Position{X: 4, Y: 6}, Position{X: 2, Y: 3}, Position{X: 2, Y: 2})
 	testPosition(t, "DivX", Position{X: 4, Y: 6}, Position{X: 0, Y: 3}, Position{X: 0, Y: 2})
 	testPosition(t, "Dot", Position{X: 1, Y: 2}, Position{X: 3, Y: 4}, Number(11))
-	testPosition(t, "Equal", Position{X: 1, Y: 2}, Position{X: 1, Y: 2}, true)
 	testPosition(t, "Greater", Position{X: 4, Y: 6}, Position{X: 1, Y: 2}, true)
 	testPosition(t, "GreaterOrEqual", Position{X: 4, Y: 6}, Position{X: 4, Y: 6}, true)
 	testPosition(t, "IsZero", Position{X: 0, Y: 0}, any(nil), true)

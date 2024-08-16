@@ -30,6 +30,7 @@ var Config config = func() (config config) {
 type config struct {
 	Bullet struct {
 		CriticalHitChance    float64
+		GravityAmplifier     float64
 		Height               float64
 		InitialDamage        int
 		ModifierProgressStep int
@@ -107,6 +108,7 @@ type config struct {
 				PerformanceDropped           templateString
 				PerformanceImproved          templateString
 				PlanetDiscovered             templateString
+				PlanetImpactsSystem          templateString
 				Prompt                       templateString
 				SpaceshipDowngradedByEnemy   templateString
 				SpaceshipFrozen              templateString
@@ -118,11 +120,13 @@ type config struct {
 	}
 
 	Planet struct {
-		DiscoveryCooldown    time.Duration
-		DiscoveryProbability float64
-		MaximumRadius        float64
-		MinimumRadius        float64
-		SpeedRatio           float64
+		AnomalyGravityModifier float64
+		DiscoveryCooldown      time.Duration
+		DiscoveryProbability   float64
+		GravityStrength        float64
+		MaximumRadius          float64
+		MinimumRadius          float64
+		SpeedRatio             float64
 	}
 
 	Spaceship struct {

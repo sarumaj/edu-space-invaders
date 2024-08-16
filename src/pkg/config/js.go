@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/rand"
 	"net/http"
 	"slices"
 	"strings"
@@ -493,6 +494,77 @@ func DrawBackground(speed float64) {
 	canvasObjectContext.Call("drawImage", invisibleCanvas, 0, invisibleCanvasScrollY-canvasDimensions.OriginalHeight)
 }
 
+// DrawAnomalyBlackHole is a function that draws a black hole on the document.
+func DrawAnomalyBlackHole(coords [2]float64, radius float64) {
+	cx, cy := coords[0], coords[1]
+
+	// Function to draw the black hole with a given scale
+	draw := func(scale float64) {
+		// Clear the area occupied by the black hole
+		clearRadius := radius * 1.1 // Slightly larger than the maximum size of the black hole
+		canvasObjectContext.Call("clearRect", cx-clearRadius, cy-clearRadius, clearRadius*2, clearRadius*2)
+
+		// Draw the dark core of the black hole
+		canvasObjectContext.Call("beginPath")
+		canvasObjectContext.Call("arc", cx, cy, radius*0.6*scale, 0, 2*math.Pi, false)
+		canvasObjectContext.Call("closePath")
+		canvasObjectContext.Set("fillStyle", "black")
+		canvasObjectContext.Call("fill")
+
+		// Draw the accretion disk using a radial gradient
+		gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.6*scale, cx, cy, radius*scale)
+		gradient.Call("addColorStop", 0, "rgba(0, 0, 0, 0.0)")        // Fully transparent at the center
+		gradient.Call("addColorStop", 0.5, "rgba(139, 69, 19, 0.8)")  // Dark brown/orange glow
+		gradient.Call("addColorStop", 0.75, "rgba(165, 42, 42, 0.7)") // Darker red at the middle
+		gradient.Call("addColorStop", 1, "rgba(105, 10, 10, 0.9)")    // Dark red/brown at the edges
+
+		canvasObjectContext.Set("fillStyle", gradient)
+		canvasObjectContext.Call("beginPath")
+		canvasObjectContext.Call("arc", cx, cy, radius*scale, 0, 2*math.Pi, false)
+		canvasObjectContext.Call("closePath")
+		canvasObjectContext.Call("fill")
+	}
+
+	draw(1.0 + rand.Float64()/10)
+}
+
+// DrawAnomalySupernova is a function that draws a supernova on the document.
+func DrawAnomalySupernova(coords [2]float64, radius float64) {
+	cx, cy := coords[0], coords[1]
+
+	// Function to draw the supernova with a given shockwave scale
+	draw := func(scale float64) {
+		// Draw the core explosion using a radial gradient
+		coreGradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.1, cx, cy, radius)
+		coreGradient.Call("addColorStop", 0, "rgba(255, 255, 255, 1)")   // Bright white center
+		coreGradient.Call("addColorStop", 0.3, "rgba(255, 215, 0, 0.9)") // Golden yellow
+		coreGradient.Call("addColorStop", 0.6, "rgba(255, 165, 0, 0.7)") // Orange middle
+		coreGradient.Call("addColorStop", 0.8, "rgba(255, 69, 0, 0.5)")  // Red
+		coreGradient.Call("addColorStop", 1, "rgba(128, 0, 128, 0.3)")   // Fading to purple
+
+		canvasObjectContext.Set("fillStyle", coreGradient)
+		canvasObjectContext.Call("beginPath")
+		canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
+		canvasObjectContext.Call("closePath")
+		canvasObjectContext.Call("fill")
+
+		// Draw the pulsating shockwave using a larger, fading gradient
+		shockwaveGradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.8*scale, cx, cy, radius*1.5*scale)
+		shockwaveGradient.Call("addColorStop", 0, "rgba(255, 69, 0, 0.5)")    // Red with some transparency
+		shockwaveGradient.Call("addColorStop", 0.5, "rgba(255, 140, 0, 0.3)") // Orange more transparent
+		shockwaveGradient.Call("addColorStop", 0.8, "rgba(255, 215, 0, 0.2)") // Yellow very transparent
+		shockwaveGradient.Call("addColorStop", 1, "rgba(255, 255, 255, 0)")   // Fully transparent outer edge
+
+		canvasObjectContext.Set("fillStyle", shockwaveGradient)
+		canvasObjectContext.Call("beginPath")
+		canvasObjectContext.Call("arc", cx, cy, radius*1.5*scale, 0, 2*math.Pi, false)
+		canvasObjectContext.Call("closePath")
+		canvasObjectContext.Call("fill")
+	}
+
+	draw(1.0 + rand.Float64()/10)
+}
+
 // DrawLine is a function that draws a line on the document.
 func DrawLine(start, end [2]float64, color string, thickness float64) {
 	defaultLineWidth := canvasObjectContext.Get("lineWidth")
@@ -550,6 +622,48 @@ func DrawPlanetEarth(coords [2]float64, radius float64) {
 		canvasObjectContext.Set("fillStyle", "rgba(255, 255, 255, 0.6)")
 		canvasObjectContext.Call("fill")
 	}
+
+	// Draw the Moon orbiting Earth
+	moonRadius := radius * 0.27  // The Moon is about 27% the size of Earth
+	moonDistance := radius * 1.5 // Distance from Earth center to Moon center
+
+	// Define the sidereal month (in days)
+	const siderealMonth = 27.321661
+
+	// Reference time: let's assume it's the last new moon (January 1, 2024, 00:00:00 UTC)
+	referenceTime := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Current time
+	currentTime := time.Now().UTC()
+
+	// Calculate the time difference in hours
+	elapsedDays := currentTime.Sub(referenceTime).Hours() / 24
+
+	// Calculate the phase as a fraction of the sidereal month
+	phase := (elapsedDays / siderealMonth) * 2 * math.Pi
+
+	// Ensure phase is within the range [0, 2π]
+	phase = math.Mod(phase, 2*math.Pi)
+
+	moonX := cx + moonDistance*math.Cos(phase)
+	moonY := cy + moonDistance*math.Sin(phase)
+
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("arc", moonX, moonY, moonRadius, 0, 2*math.Pi, false)
+	canvasObjectContext.Call("closePath")
+	canvasObjectContext.Set("fillStyle", "#F0F0F0") // Light gray for the Moon
+	canvasObjectContext.Call("fill")
+
+	// Add a crater to the Moon
+	craterX := moonX + moonRadius*0.2 // Position the crater slightly offset from the Moon's center
+	craterY := moonY + moonRadius*0.1
+	craterRadius := moonRadius * 0.3 // Crater is 30% the size of the Moon
+
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("arc", craterX, craterY, craterRadius, 0, 2*math.Pi, false)
+	canvasObjectContext.Call("closePath")
+	canvasObjectContext.Set("fillStyle", "#A9A9A9") // Darker gray for the crater
+	canvasObjectContext.Call("fill")
 }
 
 // DrawPlanetJupiter is a function that draws Jupiter on the document.
@@ -907,6 +1021,24 @@ func DrawStar(coords [2]float64, spikes int, radius, innerRadius float64, color 
 		invisibleCtx.Call("closePath")
 		invisibleCtx.Call("fill")
 	}
+}
+
+// DrawSun is a function that draws the Sun on the document.
+func DrawSun(coords [2]float64, radius float64) {
+	cx, cy := coords[0], coords[1]
+
+	// Create a circular path for the Sun
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
+	canvasObjectContext.Call("closePath")
+
+	// Use a radial gradient to represent the Sun's glowing appearance
+	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.3, cx, cy, radius)
+	gradient.Call("addColorStop", 0, "#FFFF00") // Bright yellow at the center
+	gradient.Call("addColorStop", 1, "#FFA500") // Orange towards the edges
+
+	canvasObjectContext.Set("fillStyle", gradient)
+	canvasObjectContext.Call("fill")
 }
 
 // Getenv is a function that returns the value of the environment variable key.

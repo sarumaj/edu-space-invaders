@@ -88,11 +88,6 @@ func (pos Position) Dot(other Position) Number {
 	return pos.X*other.X + pos.Y*other.Y
 }
 
-// Equal checks if two positions are equal within a tolerance (1e-9).
-func (pos Position) Equal(other Position) bool {
-	return Equal(pos, other, 1e-9)
-}
-
 // Greater checks if a position is greater than another.
 func (pos Position) Greater(other Position) bool {
 	return pos.X > other.X && pos.Y > other.Y

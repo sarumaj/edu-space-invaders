@@ -48,6 +48,12 @@ func ConvertObjectToMap(obj any) map[string]any { return nil }
 // The background is drawn with the specified speed.
 func DrawBackground(speed float64) {}
 
+// DrawAnomalyBlackHole is a function that draws a black hole on the document.
+func DrawAnomalyBlackHole(coords [2]float64, radius float64) {}
+
+// DrawAnomalySupernova is a function that draws a supernova on the document.
+func DrawAnomalySupernova(coords [2]float64, radius float64) {}
+
 // DrawLine is a function that draws a line on the canvas.
 func DrawLine(start, end [2]float64, color string, thickness float64) {}
 
@@ -89,6 +95,9 @@ func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color, label 
 // The star is filled with the specified color.
 func DrawStar(coords [2]float64, spikes int, radius, innerRadius float64, color string, brightness float64) {
 }
+
+// DrawSun is a function that draws the Sun on the document.
+func DrawSun(coords [2]float64, radius float64) {}
 
 // Getenv is a function that returns the value of the environment variable key.
 func Getenv(key string) string { return os.Getenv(key) }

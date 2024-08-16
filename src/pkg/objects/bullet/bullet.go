@@ -10,13 +10,12 @@ import (
 
 // Bullet represents a bullet shot by the spaceship.
 type Bullet struct {
-	Position     numeric.Position // Position of the bullet
-	Size         numeric.Size     // Size of the bullet
-	CurrentScale numeric.Position // Scale of the bullet
-	Speed        float64          // Speed and damage of the bullet
-	Damage       int              // Damage is the amount of health points the bullet takes from the enemy
-	skew         float64          // Skew of the bullet
-	Exhausted    bool             // Exhausted is true if the bullet is out of the screen or has hit an enemy
+	Position  numeric.Position // Position of the bullet
+	Size      numeric.Size     // Size of the bullet
+	Speed     float64          // Speed and damage of the bullet
+	Damage    int              // Damage is the amount of health points the bullet takes from the enemy
+	skew      float64          // Skew of the bullet
+	Exhausted bool             // Exhausted is true if the bullet is out of the screen or has hit an enemy
 }
 
 // Draw draws the bullet.
@@ -103,12 +102,11 @@ func (bullet Bullet) String() string {
 // Craft creates a new bullet at the specified position.
 func Craft(position numeric.Position, damage int, ratio, speedBoost float64) *Bullet {
 	bullet := Bullet{
-		Position:     position,
-		Size:         numeric.Locate(config.Config.Bullet.Width, config.Config.Bullet.Height).ToBox(),
-		CurrentScale: numeric.Ones(),
-		Speed:        config.Config.Bullet.Speed + speedBoost,
-		Damage:       damage,
-		skew:         ratio - 0.5,
+		Position: position,
+		Size:     numeric.Locate(config.Config.Bullet.Width, config.Config.Bullet.Height).ToBox(),
+		Speed:    config.Config.Bullet.Speed + speedBoost,
+		Damage:   damage,
+		skew:     ratio - 0.5,
 	}
 
 	return &bullet

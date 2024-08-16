@@ -13,7 +13,6 @@ type Enemy struct {
 	Name                string           // Name is the name of the enemy.
 	Position            numeric.Position // Position is the position of the enemy.
 	Size                numeric.Size     // Size is the size of the enemy.
-	CurrentScale        numeric.Position // CurrentScale is the scale of the enemy.
 	SpecialtyLikeliness float64          // SpecialtyLikeliness is the likelihood of the enemy being a goodie or a freezer (expected to be lower than 1).
 	Level               *EnemyLevel      // Level is the level of the enemy.
 	Type                EnemyType        // Type is the type of the enemy.
@@ -274,7 +273,6 @@ func Challenge(name string, randomY bool) *Enemy {
 	enemy := Enemy{
 		Position:            numeric.Locate(numeric.RandomRange(0, canvasDimensions.OriginalWidth), y),
 		Size:                numeric.Locate(config.Config.Enemy.Width, config.Config.Enemy.Height).ToBox(),
-		CurrentScale:        numeric.Ones(),
 		SpecialtyLikeliness: config.Config.Enemy.SpecialtyLikeliness,
 		Level: &EnemyLevel{
 			Progress:          1,

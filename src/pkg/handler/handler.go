@@ -9,6 +9,7 @@ import (
 	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/bullet"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/planet"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/spaceship"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/star"
 )
@@ -22,6 +23,7 @@ type handler struct {
 	keysHeld   map[keyBinding]bool  // keysHeld is the map of keys held
 	mouseEvent chan mouseEvent      // mouseEvent is the channel for mouse events
 	once       sync.Once            // once is meant to register the keydown event only once
+	planet     *planet.Planet       // planet is the planet to be drawn
 	spaceship  *spaceship.Spaceship // spaceship is the player's spaceship
 	stars      star.Stars           // stars is the list of stars
 	touchEvent chan touchEvent      // touchEvent is the channel for touch events
@@ -59,6 +61,8 @@ func (h *handler) checkCollisions() {
 		bulletHitDetector = func(b bullet.Bullet) func(enemy.Enemy) bool { return b.HasHitV3 }
 
 	}
+
+	h.spaceship.Discover(h.planet)
 
 	for j, e := range h.enemies {
 		if e.Level.HitPoints > 0 && collisionDetector(e) {
@@ -159,10 +163,10 @@ func (h *handler) checkCollisions() {
 		for i, b := range h.spaceship.Bullets {
 			switch {
 			case
-				e.Level.HitPoints <= 0,
-				e.Type == enemy.Goodie,
-				e.Type == enemy.Freezer,
-				!bulletHitDetector(b)(e):
+				e.Level.HitPoints <= 0,                            // If the enemy has no health points, do nothing.
+				e.Type == enemy.Goodie,                            // If the enemy is a goodie, do nothing.
+				e.Type == enemy.Freezer && !h.spaceship.IsAdmiral, // If the enemy is a freezer and the spaceship is not an admiral, do nothing.
+				!bulletHitDetector(b)(e):                          // If the bullet has not hit the enemy, do nothing.
 
 			default: // The bullet has hit the enemy.
 				h.spaceship.Bullets[i].Exhaust()
@@ -210,6 +214,9 @@ func (h *handler) draw() {
 
 	// Draw background
 	config.DrawBackground(h.spaceship.Level.AccelerateRate.Float() * config.Config.Star.SpeedRatio)
+
+	// Draw planet
+	h.planet.Draw()
 
 	// Draw spaceship
 	h.spaceship.Draw()
@@ -437,6 +444,7 @@ func (h *handler) refresh() {
 	}
 
 	h.enemies.Update(h.spaceship.Position)
+	h.planet.Update(h.spaceship.Level.AccelerateRate * numeric.Number(config.Config.Planet.SpeedRatio))
 	h.spaceship.UpdateState()
 	h.spaceship.Bullets.Update()
 	h.checkCollisions()
@@ -575,6 +583,7 @@ func New() *handler {
 		keysHeld:   make(map[keyBinding]bool),
 		mouseEvent: make(chan mouseEvent),
 		touchEvent: make(chan touchEvent),
+		planet:     planet.Reveal(true),
 		spaceship:  spaceship.Embark(""),
 		stars:      star.Explode(config.Config.Star.Count),
 	}

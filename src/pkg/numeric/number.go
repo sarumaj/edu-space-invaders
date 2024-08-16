@@ -5,6 +5,11 @@ import (
 	"math"
 )
 
+const (
+	E  = Number(math.E)
+	Pi = Number(math.Pi)
+)
+
 // Number represents a number.
 type Number float64
 
@@ -35,6 +40,11 @@ func (n Number) Log() Number {
 // Root returns the square root of the number.
 func (n Number) Root() Number {
 	return Number(math.Sqrt(float64(n)))
+}
+
+// Pow returns the number raised to the power of the other number.
+func (n Number) Pow(other Number) Number {
+	return Number(math.Pow(float64(n), float64(other)))
 }
 
 // String returns the string representation of the number.

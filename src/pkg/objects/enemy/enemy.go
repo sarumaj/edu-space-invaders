@@ -120,7 +120,7 @@ func (enemy Enemy) Draw() {
 	config.DrawSpaceship(
 		enemy.Position.Pack(),
 		enemy.Size.Pack(),
-		false,
+		enemy.Type == Goodie, // Face up if the enemy is a goodie
 		map[EnemyType]string{
 			Goodie:      "Chartreuse",
 			Freezer:     "DeepSkyBlue",

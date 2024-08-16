@@ -178,3 +178,14 @@ func parsePostgresURL(databaseUrl string) (string, error) {
 	slices.Sort(parts)
 	return strings.Join(parts, " "), nil
 }
+
+// selectValue returns the first non-zero value from the given list.
+func selectValue[T comparable](values ...T) (zero T) {
+	for _, value := range values {
+		if value != zero {
+			return value
+		}
+	}
+
+	return
+}

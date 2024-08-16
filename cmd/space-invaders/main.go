@@ -158,8 +158,8 @@ func main() {
 	)
 
 	router.POST("/.env", jwtAuthenticator, HandleEnv())
-	router.POST("/scores.db", jwtAuthenticator, SaveScores(scoreBoardDatabase))
-	router.Match([]string{http.MethodHead, http.MethodGet}, "/*filepath", ServeFileSystem(map[*regexp.Regexp]gin.HandlersChain{
+	router.PUT("/scores.db", jwtAuthenticator, SaveScores(scoreBoardDatabase))
+	router.Match([]string{http.MethodHead, http.MethodGet}, "/*filepath", BeHeadMiddleware(), ServeFileSystem(map[*regexp.Regexp]gin.HandlersChain{
 		regexp.MustCompile(`^/?health/?$`):     {HandleHealth(scoreBoardDatabase)},
 		regexp.MustCompile(`^/?\.env/?$`):      {jwtAuthenticator, HandleEnv()},
 		regexp.MustCompile(`^/?scores\.db/?$`): {GetScores(scoreBoardDatabase)},

@@ -38,12 +38,42 @@ func ClearBackground() {}
 // ClearCanvas is a function that clears the canvas.
 func ClearCanvas() {}
 
+// ConvertArrayToSlice is a function that converts an array to a slice.
+func ConvertArrayToSlice(array any) []any { return nil }
+
+// ConvertObjectToMap is a function that converts an object to a map.
+func ConvertObjectToMap(obj any) map[string]any { return nil }
+
 // DrawBackground is a function that draws the background of the canvas.
 // The background is drawn with the specified speed.
 func DrawBackground(speed float64) {}
 
 // DrawLine is a function that draws a line on the canvas.
 func DrawLine(start, end [2]float64, color string, thickness float64) {}
+
+// DrawPlanetEarth is a function that draws Earth on the document.
+func DrawPlanetEarth(coords [2]float64, radius float64) {}
+
+// DrawPlanetJupiter is a function that draws Jupiter on the document.
+func DrawPlanetJupiter(coords [2]float64, radius float64) {}
+
+// DrawPlanetMars is a function that draws Mars on the document.
+func DrawPlanetMars(coords [2]float64, radius float64) {}
+
+// DrawPlanetMercury is a function that draws Mercury on the document.
+func DrawPlanetMercury(coords [2]float64, radius float64) {}
+
+// DrawPlanetNeptune is a function that draws Neptune on the document.
+func DrawPlanetNeptune(coords [2]float64, radius float64) {}
+
+// DrawPlanetSaturn is a function that draws Saturn on the document.
+func DrawPlanetSaturn(coords [2]float64, radius float64) {}
+
+// DrawPlanetUranus is a function that draws Uranus on the document.
+func DrawPlanetUranus(coords [2]float64, radius float64) {}
+
+// DrawPlanetVenus is a function that draws Venus on the document.
+func DrawPlanetVenus(coords [2]float64, radius float64) {}
 
 // DrawRect is a function that draws a rectangle on the canvas.
 func DrawRect(coords [2]float64, size [2]float64, color string, cornerRadius float64) {}
@@ -114,9 +144,6 @@ func Setenv(key, value string) { _ = os.Setenv(key, value) }
 
 // SetScore is a function that sets the score.
 func SetScore(name string, score int) (rank int) { return }
-
-// Setup is a function that needs to be called before the game starts.
-func Setup(key string) {}
 
 // StopAudio is a function that stops an audio track.
 func StopAudio(name string) {}

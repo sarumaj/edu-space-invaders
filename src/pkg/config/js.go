@@ -27,8 +27,6 @@ const (
 	audioToggleBtnId = "audioToggle"
 	canvasId         = "gameCanvas"
 	goEnv            = "go_env"
-	goGetScoreBoard  = "go_getScoreBoard"
-	goSaveScoreBoard = "go_saveScoreBoard"
 	messageBoxId     = "message"
 	refreshButtonId  = "refreshButton"
 )
@@ -79,11 +77,98 @@ type score struct {
 
 // init is a function that initializes the game interface.
 func init() {
+	// Set up the game interface
 	setupAudioInterface()
 	setupCanvasInterface()
 	setupMessageBoxInterface()
 	setupRefreshInterface()
 	setupScoreBoard()
+
+	// Detach the watchdogs
+	checkHealth(1)
+	envCallback(1)
+}
+
+// checkHealth is a function that checks the health of the game.
+// The health check is performed every 10 seconds.
+// The health check is performed by fetching the health endpoint.
+// If the health check fails, the next health check is scheduled with exponential backoff.
+func checkHealth(exponentialBackoff float64) {
+	delayInMs := 10_000 * time.Millisecond
+
+	go func() {
+		GlobalCall("fetch", "health", MakeObject(map[string]any{
+			"method":  http.MethodGet,
+			"headers": MakeObject(map[string]any{"Accept": "application/json"}),
+		})).Call("then", js.FuncOf(func(_ js.Value, p []js.Value) any {
+			if response := p[0]; !response.Get("ok").Bool() {
+				return response.Call("text").Call("then", js.FuncOf(func(_ js.Value, p []js.Value) any {
+					return GlobalGet("Promise").Call("reject", GlobalGet("Error").New(p[0].String()))
+				}))
+			}
+
+			time.AfterFunc(delayInMs, func() { checkHealth(exponentialBackoff) })
+			return nil
+
+		})).Call("catch", js.FuncOf(func(_ js.Value, p []js.Value) interface{} {
+			LogError(fmt.Errorf("Error checking health: %s", p[0].String()))
+
+			time.AfterFunc(delayInMs*time.Duration(exponentialBackoff), func() {
+				checkHealth(exponentialBackoff * 2)
+			})
+			return nil
+
+		}))
+	}()
+}
+
+// envCallback is a function that fetches the environment variables.
+func envCallback(exponentialBackoff float64) {
+	delayInMs := 2_500 * time.Millisecond
+
+	go func() {
+		js.Global().Call("fetch", ".env", MakeObject(map[string]any{
+			"method":  http.MethodGet,
+			"headers": MakeObject(map[string]any{"Accept": "application/json"}),
+		})).Call("then", js.FuncOf(func(_ js.Value, p []js.Value) any {
+			response := p[0]
+			if !response.Get("ok").Bool() {
+				return response.Call("text").Call("then", js.FuncOf(func(_ js.Value, p []js.Value) any {
+					return GlobalGet("Promise").Call("reject", GlobalGet("Error").New(p[0].String()))
+				}))
+			}
+
+			return response.Call("json")
+
+		})).Call("then", js.FuncOf(func(_ js.Value, p []js.Value) any {
+			envData := ConvertObjectToMap(p[0])
+			prefix, _ := envData["_prefix"].(string)
+			env := make(map[string]any)
+			for key, value := range envData {
+				if key != "_prefix" && len(prefix) > 0 && strings.HasPrefix(key, prefix) {
+					env[key] = value
+				}
+			}
+
+			Log(fmt.Sprintf("Retrieved environment variables: %#v", env))
+			GlobalSet(goEnv, MakeObject(env))
+
+			time.AfterFunc(delayInMs, func() {
+				envCallback(exponentialBackoff)
+			})
+
+			return nil
+
+		})).Call("catch", js.FuncOf(func(_ js.Value, p []js.Value) interface{} {
+			LogError(fmt.Errorf("Error getting env: %s", p[0].String()))
+
+			time.AfterFunc(delayInMs*time.Duration(exponentialBackoff), func() {
+				envCallback(exponentialBackoff * 2)
+			})
+
+			return nil
+		}))
+	}()
 }
 
 // getAudioContext is a function that returns the audio context.
@@ -255,15 +340,34 @@ func setupRefreshInterface() {
 func setupScoreBoard() {
 	scoreBoardMutex.Lock()
 
-	GlobalCall(goGetScoreBoard).Call("then", js.FuncOf(func(_ js.Value, p []js.Value) any {
-		LogError(json.Unmarshal([]byte(GlobalGet("JSON").Call("stringify", p[0]).String()), &scoreBoard))
+	GlobalCall("fetch", "scores.db", MakeObject(map[string]any{
+		"method":  http.MethodGet,
+		"headers": MakeObject(map[string]any{"Content-Type": "application/json"}),
+	})).Call("then", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		if !p[0].Get("ok").Bool() {
+			return p[0].Call("text").Call("then", js.FuncOf(func(_ js.Value, p []js.Value) any {
+				return GlobalGet("Promise").Call("reject", GlobalGet("Error").New(p[0].String()))
+			}))
+		}
+
+		return p[0].Call("text")
+
+	})).Call("then", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		defer scoreBoardMutex.Unlock()
+
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(p[0].String(), "while(1);")), &scoreBoard); err != nil {
+			return GlobalGet("Promise").Call("reject", GlobalGet("Error").New(err.Error()))
+		}
+
 		slices.SortStableFunc(scoreBoard, scoreBoardSortFunc)
-		scoreBoardMutex.Unlock()
+		Log(fmt.Sprintf("Fetched score board: %#v", scoreBoard))
+
 		return nil
 
 	})).Call("catch", js.FuncOf(func(_ js.Value, p []js.Value) any {
-		LogError(fmt.Errorf("failed to save score board: %s", p[0].String()))
-		scoreBoardMutex.Unlock()
+		defer scoreBoardMutex.Unlock()
+
+		LogError(fmt.Errorf("failed to load score board: %s", p[0].String()))
 		return nil
 
 	}))
@@ -310,6 +414,65 @@ func ClearCanvas() {
 	canvasObjectContext.Call("clearRect", 0, 0, canvasObject.Get("width"), canvasObject.Get("height"))
 }
 
+// ConvertArrayToSlice is a function that converts an array to a slice.
+func ConvertArrayToSlice(array js.Value) []any {
+	length := array.Length()
+	result := make([]any, length)
+	for i := 0; i < length; i++ {
+		element := array.Index(i)
+		switch element.Type() {
+		case js.TypeObject:
+			if element.InstanceOf(js.Global().Get("Array")) {
+				result[i] = ConvertArrayToSlice(element)
+			} else {
+				result[i] = ConvertObjectToMap(element)
+			}
+		case js.TypeString:
+			result[i] = element.String()
+		case js.TypeNumber:
+			result[i] = element.Float()
+		case js.TypeBoolean:
+			result[i] = element.Bool()
+		case js.TypeNull, js.TypeUndefined:
+			result[i] = nil
+		default:
+			result[i] = element
+		}
+	}
+	return result
+}
+
+// ConvertObjectToMap is a function that converts an object to a map.
+func ConvertObjectToMap(obj js.Value) map[string]any {
+	result := make(map[string]any)
+	keys := GlobalGet("Object").Call("keys", obj)
+	for i := 0; i < keys.Length(); i++ {
+		key := keys.Index(i).String()
+		value := obj.Get(key)
+
+		switch value.Type() {
+		case js.TypeObject:
+			if value.InstanceOf(GlobalGet("Array")) {
+				result[key] = ConvertArrayToSlice(value)
+			} else {
+				result[key] = ConvertObjectToMap(value)
+			}
+		case js.TypeString:
+			result[key] = value.String()
+		case js.TypeNumber:
+			result[key] = value.Float()
+		case js.TypeBoolean:
+			result[key] = value.Bool()
+		case js.TypeNull, js.TypeUndefined:
+			result[key] = nil
+		default:
+			result[key] = value
+		}
+	}
+
+	return result
+}
+
 // DrawBackground is a function that draws the background of the document.
 // The background is drawn with the specified speed.
 func DrawBackground(speed float64) {
@@ -341,6 +504,262 @@ func DrawLine(start, end [2]float64, color string, thickness float64) {
 	canvasObjectContext.Call("moveTo", start[0], start[1])
 	canvasObjectContext.Call("lineTo", end[0], end[1])
 	canvasObjectContext.Call("stroke")
+}
+
+// DrawPlanetEarth is a function that draws Earth on the document.
+func DrawPlanetEarth(coords [2]float64, radius float64) {
+	cx, cy := coords[0], coords[1]
+
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
+	canvasObjectContext.Call("closePath")
+
+	// Use a blue gradient to represent the oceans
+	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.2, cx, cy, radius)
+	gradient.Call("addColorStop", 0, "#00BFFF") // Light blue at the center
+	gradient.Call("addColorStop", 1, "#1E90FF") // Darker blue at the edges
+
+	canvasObjectContext.Set("fillStyle", gradient)
+	canvasObjectContext.Call("fill")
+
+	// Add some green/brown patches for land
+	landColors := []string{"#228B22", "#8B4513"} // Green for forests, brown for deserts/mountains
+	landPatches := [][3]float64{
+		{cx - radius*0.2, cy - radius*0.3, radius * 0.4},
+		{cx + radius*0.1, cy + radius*0.2, radius * 0.3},
+	}
+
+	for i, patch := range landPatches {
+		canvasObjectContext.Call("beginPath")
+		canvasObjectContext.Call("arc", patch[0], patch[1], patch[2], 0, 2*math.Pi, false)
+		canvasObjectContext.Call("closePath")
+		canvasObjectContext.Set("fillStyle", landColors[i%len(landColors)])
+		canvasObjectContext.Call("fill")
+	}
+
+	// Add white patches for clouds
+	clouds := [][3]float64{
+		{cx - radius*0.4, cy - radius*0.1, radius * 0.6},
+		{cx + radius*0.3, cy + radius*0.2, radius * 0.5},
+	}
+
+	for _, cloud := range clouds {
+		canvasObjectContext.Call("beginPath")
+		canvasObjectContext.Call("arc", cloud[0], cloud[1], cloud[2], 0, 2*math.Pi, false)
+		canvasObjectContext.Call("closePath")
+		canvasObjectContext.Set("fillStyle", "rgba(255, 255, 255, 0.6)")
+		canvasObjectContext.Call("fill")
+	}
+}
+
+// DrawPlanetJupiter is a function that draws Jupiter on the document.
+func DrawPlanetJupiter(coords [2]float64, radius float64) {
+	cx, cy := coords[0], coords[1] // Center position
+
+	// Draw the main body of Jupiter (a sphere)
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
+	canvasObjectContext.Call("closePath")
+
+	// Create a radial gradient to simulate the planet's lighting
+	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.3, cx, cy, radius)
+	gradient.Call("addColorStop", 0, "#FFF4C3") // Lighter central color
+	gradient.Call("addColorStop", 1, "#E2B56D") // Darker edge color
+
+	canvasObjectContext.Set("fillStyle", gradient)
+	canvasObjectContext.Call("fill")
+
+	// Clip the drawing area to the circle of the planet
+	canvasObjectContext.Call("save") // Save the current drawing state
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
+	canvasObjectContext.Call("closePath")
+	canvasObjectContext.Call("clip") // Clip to the planet's circle
+
+	// Add bands to simulate Jupiter's gas bands
+	bandColors := []string{
+		"#F3D29E", "#EAB277", "#E5AA66", "#DF9A55", "#D98A44",
+		"#D07A33", "#C96922", "#C25811", "#BB4700",
+	}
+
+	numBands := len(bandColors)
+	bandHeight := (radius * 2) / float64(numBands)
+
+	for i, color := range bandColors {
+		y := cy - radius + float64(i)*bandHeight
+
+		canvasObjectContext.Call("beginPath")
+		canvasObjectContext.Call("rect", cx-radius, y, radius*2, bandHeight)
+		canvasObjectContext.Set("fillStyle", color)
+		canvasObjectContext.Call("fill")
+		canvasObjectContext.Call("closePath")
+	}
+
+	canvasObjectContext.Call("restore") // Restore the drawing state to remove the clipping
+
+	// Add the Great Red Spot (simply a circle here)
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("arc", cx+radius*0.5, cy+radius*0.4, radius*0.3, 0, 2*math.Pi, false)
+	canvasObjectContext.Call("closePath")
+	canvasObjectContext.Set("fillStyle", "#D66B41")
+	canvasObjectContext.Call("fill")
+}
+
+// DrawPlanetMars is a function that draws Mars on the document.
+func DrawPlanetMars(coords [2]float64, radius float64) {
+	cx, cy := coords[0], coords[1]
+
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
+	canvasObjectContext.Call("closePath")
+
+	// Use a reddish color to represent Mars
+	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.2, cx, cy, radius)
+	gradient.Call("addColorStop", 0, "#FF6347") // Lighter red at the center
+	gradient.Call("addColorStop", 1, "#B22222") // Darker red at the edges
+
+	canvasObjectContext.Set("fillStyle", gradient)
+	canvasObjectContext.Call("fill")
+
+	// Darker patches representing regions like Syrtis Major
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("arc", cx-radius*0.2, cy-radius*0.1, radius*0.3, 0, 2*math.Pi, false)
+	canvasObjectContext.Call("closePath")
+	canvasObjectContext.Set("fillStyle", "#8B0000")
+	canvasObjectContext.Call("fill")
+
+	// Draw crater-like features on Mars
+	radius *= 0.8
+	for _, crater := range [][3]float64{
+		{cx - radius*0.3, cy - radius*0.3, radius * 0.1},
+		{cx + radius*0.2, cy - radius*0.1, radius * 0.15},
+		{cx, cy + radius*0.3, radius * 0.05},
+	} {
+		canvasObjectContext.Call("beginPath")
+		canvasObjectContext.Call("arc", crater[0], crater[1], crater[2], 0, 2*math.Pi, false)
+		canvasObjectContext.Call("closePath")
+		canvasObjectContext.Set("fillStyle", "#A0A0A0")
+		canvasObjectContext.Call("fill")
+	}
+}
+
+// DrawPlanetMercury is a function that draws Mercury on the document.
+func DrawPlanetMercury(coords [2]float64, radius float64) {
+	cx, cy := coords[0], coords[1]
+
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
+	canvasObjectContext.Call("closePath")
+
+	// Use a simple gray color to represent Mercury
+	canvasObjectContext.Set("fillStyle", "#B1B1B1")
+	canvasObjectContext.Call("fill")
+
+	// Draw crater-like features on Mercury
+	for _, crater := range [][3]float64{
+		{cx - radius*0.3, cy - radius*0.3, radius * 0.1},
+		{cx + radius*0.2, cy - radius*0.1, radius * 0.15},
+		{cx, cy + radius*0.3, radius * 0.05},
+	} {
+		canvasObjectContext.Call("beginPath")
+		canvasObjectContext.Call("arc", crater[0], crater[1], crater[2], 0, 2*math.Pi, false)
+		canvasObjectContext.Call("closePath")
+		canvasObjectContext.Set("fillStyle", "#A0A0A0")
+		canvasObjectContext.Call("fill")
+	}
+}
+
+// DrawPlanetNeptune is a function that draws Neptune on the document.
+func DrawPlanetNeptune(coords [2]float64, radius float64) {
+	cx, cy := coords[0], coords[1]
+
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
+	canvasObjectContext.Call("closePath")
+
+	// Deep blue color for Neptune
+	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.3, cx, cy, radius)
+	gradient.Call("addColorStop", 0, "#4169E1")
+	gradient.Call("addColorStop", 1, "#00008B")
+
+	canvasObjectContext.Set("fillStyle", gradient)
+	canvasObjectContext.Call("fill")
+}
+
+// DrawPlanetSaturn is a function that draws Saturn on the document.
+func DrawPlanetSaturn(coords [2]float64, radius float64) {
+	cx, cy := coords[0], coords[1]
+
+	// Draw Saturn's body
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
+	canvasObjectContext.Call("closePath")
+
+	// Pale yellow color for Saturn
+	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.3, cx, cy, radius)
+	gradient.Call("addColorStop", 0, "#F5DEB3")
+	gradient.Call("addColorStop", 1, "#DAA520")
+
+	canvasObjectContext.Set("fillStyle", gradient)
+	canvasObjectContext.Call("fill")
+
+	// Draw Saturn's rings
+	innerRadius := radius * 1.2
+	outerRadius := radius * 2
+
+	// Draw the rings as ellipses
+	for i := 0; i < 3; i++ {
+		canvasObjectContext.Call("beginPath")
+		canvasObjectContext.Call("ellipse", cx, cy, outerRadius, innerRadius*0.6, 0, 0, 2*math.Pi)
+		canvasObjectContext.Call("closePath")
+		canvasObjectContext.Set("fillStyle", "rgba(210, 180, 140, 0.6)")
+		canvasObjectContext.Call("fill")
+
+		innerRadius += radius * 0.1
+		outerRadius += radius * 0.2
+	}
+}
+
+// DrawPlanetUranus is a function that draws Uranus on the document.
+func DrawPlanetUranus(coords [2]float64, radius float64) {
+	cx, cy := coords[0], coords[1]
+
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
+	canvasObjectContext.Call("closePath")
+
+	// Cyan color for Uranus
+	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.3, cx, cy, radius)
+	gradient.Call("addColorStop", 0, "#AFEEEE")
+	gradient.Call("addColorStop", 1, "#5F9EA0")
+
+	canvasObjectContext.Set("fillStyle", gradient)
+	canvasObjectContext.Call("fill")
+}
+
+// DrawPlanetVenus is a function that draws Venus on the document.
+func DrawPlanetVenus(coords [2]float64, radius float64) {
+	cx, cy := coords[0], coords[1]
+
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
+	canvasObjectContext.Call("closePath")
+
+	// Use a gradient to simulate the thick atmosphere
+	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.2, cx, cy, radius)
+	gradient.Call("addColorStop", 0, "#F0E68C") // Lighter yellow at the center
+	gradient.Call("addColorStop", 1, "#E3C16F") // Darker yellow at the edges
+
+	canvasObjectContext.Set("fillStyle", gradient)
+	canvasObjectContext.Call("fill")
+
+	// Add some cloud patterns or swirls
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("arc", cx-radius*0.2, cy-radius*0.1, radius*0.6, 0, math.Pi*2, false)
+	canvasObjectContext.Call("arc", cx+radius*0.2, cy+radius*0.1, radius*0.7, 0, math.Pi*2, false)
+	canvasObjectContext.Call("closePath")
+	canvasObjectContext.Set("fillStyle", "rgba(255, 255, 255, 0.1)")
+	canvasObjectContext.Call("fill")
 }
 
 // DrawRect is a function that draws a rectangle on the document.
@@ -424,7 +843,6 @@ func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color, label 
 
 	// Draw the label above or below the spaceship
 	if label != "" {
-		canvasObjectContext.Set("fillStyle", color)   // Set text color
 		canvasObjectContext.Set("font", "16px Arial") // Set font
 
 		// Shorten the label if it is too long
@@ -445,6 +863,11 @@ func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color, label 
 			labelY = y - 5 // Above the spaceship
 		}
 
+		// Draw the label text with a black stroke and fill
+		canvasObjectContext.Set("strokeStyle", "black")
+		canvasObjectContext.Call("strokeText", label, labelX, labelY)
+
+		canvasObjectContext.Set("fillStyle", color) // Set text color
 		canvasObjectContext.Call("fillText", label, labelX, labelY)
 	}
 }
@@ -702,28 +1125,41 @@ func PlayAudio(name string, loop bool) {
 
 // SaveScores is a function that saves the score board persistently.
 func SaveScores() {
-	// Transform the score board into an array of objects
-	var scores []any
 	scoreBoardMutex.RLock()
-	for _, s := range scoreBoard {
-		scores = append(scores, MakeObject(map[string]any{"name": s.Name, "score": s.Score}))
-	}
+	serialized, err := json.Marshal(scoreBoard)
 	scoreBoardMutex.RUnlock()
+
+	if err != nil {
+		LogError(fmt.Errorf("failed to serialize score board: %v", err))
+		return
+	}
 
 	// Save the score board
 	SendMessage(Config.MessageBox.Messages.WaitForScoreBoardUpdate, false)
 	scoreBoardMutex.Lock()
 
-	GlobalCall(goSaveScoreBoard, js.ValueOf(scores)).Call("then", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+	GlobalCall("fetch", "scores.db", MakeObject(map[string]any{
+		"method":  http.MethodPut,
+		"headers": MakeObject(map[string]any{"Content-Type": "application/json"}),
+		"body":    string(serialized),
+	})).Call("then", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		defer scoreBoardMutex.Unlock()
+
+		if !p[0].Get("ok").Bool() {
+			return p[0].Call("text").Call("then", js.FuncOf(func(_ js.Value, p []js.Value) any {
+				LogError(fmt.Errorf("server responded with error: %s", p[0].String()))
+				return nil
+			}))
+		}
+
+		// Send success message
 		SendMessage(Config.MessageBox.Messages.ScoreBoardUpdated, false)
-		scoreBoardMutex.Unlock()
 		return nil
-
 	})).Call("catch", js.FuncOf(func(_ js.Value, p []js.Value) any {
-		LogError(fmt.Errorf("failed to save score board: %s", p[0].String()))
-		scoreBoardMutex.Unlock()
-		return nil
+		defer scoreBoardMutex.Unlock()
 
+		LogError(fmt.Errorf("failed to save score board: %s", p[0].String()))
+		return nil
 	}))
 }
 
@@ -759,7 +1195,7 @@ func SetScore(name string, newScore int) (rank int) {
 		if s.Name == name {
 			if newScore <= s.Score {
 				scoreBoardMutex.Unlock()
-				return len(scoreBoard)
+				return len(scoreBoard) + 1
 			}
 
 			scoreBoard[i].Score = newScore

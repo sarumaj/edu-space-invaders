@@ -137,9 +137,8 @@ func (spaceship *Spaceship) Discover(p *planet.Planet) {
 
 	spaceship.lastDiscovery = time.Now()
 	spaceship.discoveredPlanets[p.Type] = true
-	const expectedNumberOfPlanets = int(planet.Neptune) + 1
 
-	if len(spaceship.discoveredPlanets) == expectedNumberOfPlanets {
+	if len(spaceship.discoveredPlanets) == planet.PlanetsCount {
 		spaceship.IsAdmiral = true // Promote the commander to admiral
 		config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.AllPlanetsDiscovered, config.Template{
 			"PlanetName": p.Type.String(),
@@ -149,8 +148,8 @@ func (spaceship *Spaceship) Discover(p *planet.Planet) {
 
 	config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.PlanetDiscovered, config.Template{
 		"PlanetName":       p.Type.String(),
-		"RemainingPlanets": expectedNumberOfPlanets - len(spaceship.discoveredPlanets),
-		"TotalPlanets":     expectedNumberOfPlanets,
+		"RemainingPlanets": planet.PlanetsCount - len(spaceship.discoveredPlanets),
+		"TotalPlanets":     planet.PlanetsCount,
 	}), false)
 }
 

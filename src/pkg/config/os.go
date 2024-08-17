@@ -72,6 +72,9 @@ func DrawPlanetMercury(coords [2]float64, radius float64) {}
 // DrawPlanetNeptune is a function that draws Neptune on the document.
 func DrawPlanetNeptune(coords [2]float64, radius float64) {}
 
+// DrawPlanetPluto is a function that draws Pluto on the document.
+func DrawPlanetPluto(coords [2]float64, radius float64) {}
+
 // DrawPlanetSaturn is a function that draws Saturn on the document.
 func DrawPlanetSaturn(coords [2]float64, radius float64) {}
 

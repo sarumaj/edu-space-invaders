@@ -20,7 +20,7 @@ type Planet struct {
 // Again reveals the planet yet again as new planet.
 // The planet will be revealed at the top of the canvas.
 func (planet *Planet) Again() {
-	newPlanet := Reveal(false)
+	newPlanet := Reveal(false, false)
 	planet.Position = newPlanet.Position
 	planet.Radius = newPlanet.Radius
 	planet.Type = newPlanet.Type
@@ -105,13 +105,17 @@ func (planet Planet) WithinRange(center numeric.Position) bool {
 // If randomY is true, the planet will be revealed at a random Y position.
 // Otherwise, the planet will be revealed at the top of the canvas.
 // The planet will have a random radius and type.
-func Reveal(randomY bool) *Planet {
+func Reveal(randomY, planetsOnly bool) *Planet {
 	canvasDimensions := config.CanvasBoundingBox()
 	planet := &Planet{
 		Position: numeric.Locate(numeric.RandomRange(0, canvasDimensions.OriginalWidth), 0),
 		Radius:   numeric.RandomRange(config.Config.Planet.MinimumRadius, config.Config.Planet.MaximumRadius),
-		Type:     PlanetType(numeric.RandomRange(Mercury, Sun).Int()),
+		Type:     PlanetType(numeric.RandomRange(Mercury, Supernova).Int()),
 		once:     &sync.Once{},
+	}
+
+	if planetsOnly && !planet.Type.IsPlanet() {
+		planet.Type = PlanetType(numeric.RandomRange(Mercury, Neptune).Int())
 	}
 
 	planet.Position.Y = -planet.Radius

@@ -31,8 +31,7 @@ type handler struct {
 
 // applyGravityOnEnemies applies gravity to the enemies.
 // It applies gravity to the enemies, each enemy trapped in the planet's gravity is increasing the planet's mass.
-// If the planet is a black hole, it pulls the enemies away, unless they are annihilators.
-// If the planet is a sun, it destroys the freezers that are too close to the sun.
+// If the planet is a black hole, it pulls the enemies away, if the spaceship is not within the range of the planet.
 func (h *handler) applyGravityOnEnemies() {
 	// Apply gravity to the enemies, each enemy trapped in the planet's gravity is increasing the planet's mass.
 	for i, e := range h.enemies {
@@ -40,16 +39,10 @@ func (h *handler) applyGravityOnEnemies() {
 			e.Position.Add(e.Size.Center()),
 			e.Size.Area(),
 			true, // Increase the planet's mass
-			h.planet.Type == planet.BlackHole && // If the planet is a black hole, pull the enemies away,
-				e.Type != enemy.Annihilator, // unless they are annihilators
+			h.planet.Type == planet.BlackHole && // Reverse gravity field, if the planet is a black hole,
+				!h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Center())) && // the spaceship is not within the range of the planet,
+				!h.planet.WithinRange(e.Position.Add(e.Size.Center())), // and the enemy is not within the range of the planet.
 		).Sub(e.Size.Center())
-
-		if h.planet.Type == planet.Sun &&
-			e.Type == enemy.Freezer &&
-			h.planet.WithinRange(h.enemies[i].Position.Add(e.Size.Center())) {
-
-			h.enemies[i].Destroy()
-		}
 	}
 }
 
@@ -57,7 +50,6 @@ func (h *handler) applyGravityOnEnemies() {
 // It applies gravity to the spaceship.
 // The spaceship's mass should not increase the planet's mass.
 // If the planet is a black hole or a supernova, it applies gravity to the bullets.
-// If the spaceship is within range of the sun, it unfreezes the spaceship.
 func (h *handler) applyGravityOnSpaceship() {
 	// Apply gravity to the spaceship.
 	// The spaceship's mass should not increase the planet's mass.
@@ -81,14 +73,6 @@ func (h *handler) applyGravityOnSpaceship() {
 	}
 
 	switch h.planet.Type {
-	case planet.Sun:
-		// If the spaceship is within range of the sun,unfreeze the spaceship.
-		if h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Center())) &&
-			h.spaceship.State == spaceship.Frozen {
-
-			h.spaceship.ChangeState(spaceship.Neutral)
-		}
-
 	case planet.BlackHole, planet.Supernova:
 		// Apply gravity to the bullets.
 		for i, bullet := range h.spaceship.Bullets {
@@ -106,24 +90,38 @@ func (h *handler) applyGravityOnSpaceship() {
 	}
 }
 
-// applySystemImpact applies the system impact of the planet on the game objects.
-// If the planet is a black hole, it applies the gravity of the planet to the bullets.
-// If the planet is a supernova, it unfreezes the spaceship.
-// If the planet is Uranus or Neptune, it increases the specialty likeliness of the enemies for freezers.
-// If the planet is Mercury or Mars, it increases the berserk likeliness of the enemies.
+// applyPlanetImpact applies the impact of the planet, anomaly, or the sun on the game objects.
+// If the planet is Uranus, Neptune, or Pluto, it increases the specialty likeliness of the enemies for freezers.
+// If the planet is Mercury, Mars, or Pluto, it increases the berserk likeliness of the enemies.
 // If the planet is Jupiter or Saturn, it increases the defense and hitpoints of the enemies.
 // If the planet is Venus or Earth, it slows down the spaceship and increases the specialty likeliness of the enemies for goodies.
-func (h *handler) applySystemImpact() {
-	h.applyGravityOnEnemies()
-	h.applyGravityOnSpaceship()
+// If the spaceship is within range of the sun, it unfreezes the spaceship.
+// If a freezer is within range of the sun, it destroys the freezer.
+// If the anomaly is a black hole, it sucks in the bullets and other objects.
+// If the anomaly is a supernova, it distorts the bullets and other objects and disables the freezers.
+func (h *handler) applyPlanetImpact() {
+	defer h.applyGravityOnEnemies()
+	defer h.applyGravityOnSpaceship()
 
 	switch h.planet.Type {
 	case planet.Sun:
+		// If the spaceship is within range of the sun,unfreeze the spaceship.
+		if h.spaceship.State == spaceship.Frozen && h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Center())) {
+			h.spaceship.ChangeState(spaceship.Neutral)
+		}
+
+		for i, e := range h.enemies {
+			// If a freezer is within range of the sun, destroy it.
+			if e.Type == enemy.Freezer && h.planet.WithinRange(h.enemies[i].Position.Add(e.Size.Center())) {
+				h.enemies[i].Destroy()
+			}
+		}
+
 		h.planet.DoOnce(func() {
 			config.SendMessage(config.Execute(
 				config.Config.MessageBox.Messages.Templates.PlanetImpactsSystem,
 				config.Template{"PlanetName": h.planet.Type.String()},
-			)+" It destroys all freezers and unfreezes your spaceship within its range.", false)
+			)+" It destroys all freezers within its range and unfreezes your spaceship when it happens to be close enough.", false)
 		})
 
 	case planet.BlackHole:
@@ -148,60 +146,90 @@ func (h *handler) applySystemImpact() {
 		})
 
 	case planet.Uranus, planet.Neptune:
-		// Double the specialty likeliness of the enemies for freezers.
 		h.planet.DoOnce(func() {
+			// Increases the specialty likeliness of the enemies for freezers.
 			for i := range h.enemies {
-				h.enemies[i].SpecialtyLikeliness *= 2
+				h.enemies[i].SpecialtyLikeliness *= map[planet.PlanetType]float64{
+					planet.Uranus:  2,
+					planet.Neptune: 4,
+				}[h.planet.Type]
 				h.enemies[i].Surprise(map[enemy.EnemyType]int{enemy.Goodie: 100, enemy.Freezer: 0})
 			}
 
 			config.SendMessage(config.Execute(
 				config.Config.MessageBox.Messages.Templates.PlanetImpactsSystem,
 				config.Template{"PlanetName": h.planet.Type.String()},
-			)+" It doubles the likeliness for freezers to appear.", false)
+			)+" It increases the likeliness for freezers to appear.", false)
 		})
 
 	case planet.Mercury, planet.Mars:
-		// Double the berserk likeliness of the enemies.
 		h.planet.DoOnce(func() {
+			// Double the berserk likeliness of the enemies.
 			for i := range h.enemies {
-				h.enemies[i].Level.BerserkLikeliness *= 2
+				h.enemies[i].Level.BerserkLikeliness *= map[planet.PlanetType]float64{
+					planet.Mercury: 2,
+					planet.Mars:    4,
+				}[h.planet.Type]
 				h.enemies[i].Berserk()
 			}
 
 			config.SendMessage(config.Execute(
 				config.Config.MessageBox.Messages.Templates.PlanetImpactsSystem,
 				config.Template{"PlanetName": h.planet.Type.String()},
-			)+" It doubles the berserk likeliness of the enemies.", false)
+			)+" It increases the berserk likeliness of the enemies.", false)
 		})
 
-	case planet.Jupiter, planet.Saturn:
-		// Double the defense and hitpoints of the enemies.
+	case planet.Pluto:
 		h.planet.DoOnce(func() {
+			// Increases the specialty likeliness of the enemies for freezers and going on a berserk.
 			for i := range h.enemies {
-				h.enemies[i].Level.Defense *= 2
-				h.enemies[i].Level.HitPoints *= 2
+				h.enemies[i].SpecialtyLikeliness *= 8
+				h.enemies[i].Level.BerserkLikeliness *= 8
+				h.enemies[i].Berserk()
+				h.enemies[i].Surprise(map[enemy.EnemyType]int{enemy.Goodie: 100, enemy.Freezer: 0})
 			}
 
 			config.SendMessage(config.Execute(
 				config.Config.MessageBox.Messages.Templates.PlanetImpactsSystem,
 				config.Template{"PlanetName": h.planet.Type.String()},
-			)+" It doubles the defense and hitpoints of the enemies.", false)
+			)+" It increases the likeliness for freezers to appear and going on a berserk.", false)
+		})
+
+	case planet.Jupiter, planet.Saturn:
+		h.planet.DoOnce(func() {
+			// Increases the defense and hitpoints of the enemies.
+			factor := map[planet.PlanetType]int{
+				planet.Jupiter: 2,
+				planet.Saturn:  4,
+			}[h.planet.Type]
+			for i := range h.enemies {
+				h.enemies[i].Level.Defense *= factor
+				h.enemies[i].Level.HitPoints *= factor
+			}
+
+			config.SendMessage(config.Execute(
+				config.Config.MessageBox.Messages.Templates.PlanetImpactsSystem,
+				config.Template{"PlanetName": h.planet.Type.String()},
+			)+" It increases the defense and hitpoints of the enemies.", false)
 		})
 
 	case planet.Venus, planet.Earth:
-		// Slow down the spaceship five-fold and double the specialty likeliness for goodies.
 		h.planet.DoOnce(func() {
-			h.spaceship.Level.AccelerateRate /= 5
+			// Slow down the spaceship and increase the specialty likeliness for goodies.
+			factor := map[planet.PlanetType]float64{
+				planet.Venus: 2,
+				planet.Earth: 4,
+			}[h.planet.Type]
+			h.spaceship.Level.AccelerateRate /= numeric.Number(2.5 * factor)
 			for i := range h.enemies {
-				h.enemies[i].SpecialtyLikeliness *= 2
+				h.enemies[i].SpecialtyLikeliness *= factor
 				h.enemies[i].Surprise(map[enemy.EnemyType]int{enemy.Goodie: 0, enemy.Freezer: 100})
 			}
 
 			config.SendMessage(config.Execute(
 				config.Config.MessageBox.Messages.Templates.PlanetImpactsSystem,
 				config.Template{"PlanetName": h.planet.Type.String()},
-			)+" It slows down the spaceship considerably and doubles the likeliness for goodies to appear.", false)
+			)+" It slows down the spaceship considerably and increases the likeliness for goodies to appear.", false)
 		})
 
 	}
@@ -633,8 +661,8 @@ func (h *handler) refresh() {
 	// Update the positions of the bullets.
 	h.spaceship.Bullets.Update()
 
-	// Apply the system impact of the planet.
-	h.applySystemImpact()
+	// Apply the impact of the planet on the system.
+	h.applyPlanetImpact()
 
 	// Check the collisions.
 	h.checkCollisions()
@@ -773,7 +801,7 @@ func New() *handler {
 		keysHeld:   make(map[keyBinding]bool),
 		mouseEvent: make(chan mouseEvent),
 		touchEvent: make(chan touchEvent),
-		planet:     planet.Reveal(true),
+		planet:     planet.Reveal(true, true),
 		spaceship:  spaceship.Embark(""),
 		stars:      star.Explode(config.Config.Star.Count),
 	}

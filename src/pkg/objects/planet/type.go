@@ -16,13 +16,16 @@ const (
 	Uranus
 	Neptune
 
+	// Other
+	Pluto
+	Sun
+
 	// Anomalies
 	BlackHole
 	Supernova
-
-	// Other
-	Sun
 )
+
+const PlanetsCount = int(Neptune + 1)
 
 // PlanetType represents the type of a planet or other celestial object.
 type PlanetType int
@@ -38,9 +41,10 @@ func (t PlanetType) Draw(position numeric.Position, radius numeric.Number) {
 		Saturn:    config.DrawPlanetSaturn,
 		Uranus:    config.DrawPlanetUranus,
 		Neptune:   config.DrawPlanetNeptune,
+		Pluto:     config.DrawPlanetPluto,
+		Sun:       config.DrawSun,
 		BlackHole: config.DrawAnomalyBlackHole,
 		Supernova: config.DrawAnomalySupernova,
-		Sun:       config.DrawSun,
 	}[t](position.Pack(), radius.Float())
 }
 
@@ -49,5 +53,5 @@ func (t PlanetType) IsPlanet() bool { return t <= Neptune }
 
 // String returns the string representation of the planet type.
 func (t PlanetType) String() string {
-	return [...]string{"Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Asteroid", "BlackHole", "Supernova", "Sun"}[t]
+	return [...]string{"Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto", "Sun", "BlackHole", "Supernova"}[t]
 }

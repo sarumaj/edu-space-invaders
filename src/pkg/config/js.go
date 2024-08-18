@@ -1279,7 +1279,10 @@ func DrawRect(coords [2]float64, size [2]float64, color string, cornerRadius flo
 // DrawSpaceship is a function that draws a spaceship on the document.
 // The spaceship is drawn at the specified position (x, y) with the specified width and height.
 // The spaceship is drawn facing the specified direction.
-func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color, label string) {
+// The spaceship is colored with the specified color.
+// The spaceship can have a label displayed above or below it.
+// The spaceship can have status bars displayed above or below it.
+func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color, label string, statusValues []float64, statusColors []string) {
 	x, y := coors[0], coors[1]
 	width, height := size[0], size[1]
 
@@ -1358,6 +1361,48 @@ func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color, label 
 
 		canvasObjectContext.Set("fillStyle", color) // Set text color
 		canvasObjectContext.Call("fillText", label, labelX, labelY)
+	}
+
+	// Draw the status bars
+	for i := 0; i < len(statusColors) && i < len(statusValues); i++ {
+		canvasObjectContext.Call("beginPath")
+		arcRadius := (width+height)/4 + 5 + float64(7*i) // Radius of the status arc
+
+		canvasObjectContext.Set("lineWidth", 5) // Set line width for the status arc
+
+		var startAngle, endAngle float64
+		if faceUp {
+			startAngle = math.Pi * 1.25 // Start angle (top-left)
+			endAngle = math.Pi * 1.75   // End angle (top-right)
+			canvasObjectContext.Call("arc", x+width/2, y+height*0.2, arcRadius, startAngle, endAngle, false)
+		} else {
+			startAngle = math.Pi * 0.25 // Start angle (bottom-left)
+			endAngle = math.Pi * 0.75   // End angle (bottom-right)
+			canvasObjectContext.Call("arc", x+width/2, y+height*0.8, arcRadius, startAngle, endAngle, false)
+		}
+
+		// Draw the background arc (gray)
+		canvasObjectContext.Set("strokeStyle", "rgba(128, 128, 128, 0.3)")
+		canvasObjectContext.Call("stroke")
+
+		value := statusValues[i]
+		if value > 1 {
+			value = 1
+		}
+
+		actualAngle := startAngle + (endAngle-startAngle)*value
+
+		canvasObjectContext.Call("beginPath")
+		if faceUp {
+			canvasObjectContext.Call("arc", x+width/2, y+height*0.2, arcRadius, startAngle, actualAngle, false)
+		} else {
+			canvasObjectContext.Call("arc", x+width/2, y+height*0.8, arcRadius, startAngle, actualAngle, false)
+		}
+
+		canvasObjectContext.Set("strokeStyle", statusColors[i])
+		canvasObjectContext.Call("stroke")
+
+		canvasObjectContext.Set("lineWidth", 1)
 	}
 }
 

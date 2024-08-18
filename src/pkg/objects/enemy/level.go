@@ -10,6 +10,7 @@ type EnemyLevel struct {
 	Progress           int            // Progress is the level of the enemy.
 	Speed              numeric.Number // Speed is the speed of the enemy
 	HitPoints, Defense int            // HitPoints is the health points of the enemy, Defense is the defense of the enemy.
+	HitPointsLoss      int            // HitPointsLoss is the loss of hit points of the enemy.
 	BerserkLikeliness  float64        // BerserkLikeliness is the likeliness of the enemy to become berserk or to become an annihilator.
 }
 

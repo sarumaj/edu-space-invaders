@@ -18,7 +18,7 @@ func TestGetRectangularVertices(t *testing.T) {
 		{"test#2", args{Position{-1, 3}, Size{Width: 1, Height: 2}}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GetRectangularVertices(tt.args.pos, tt.args.size)
+			got := GetRectangularVertices(tt.args.pos, tt.args.size, true)
 			if !got.Vertices().AreSorted(true) {
 				sorted := Rectangle(got.Vertices().Sort(true))
 				t.Errorf("got %v, want %v", got, sorted)

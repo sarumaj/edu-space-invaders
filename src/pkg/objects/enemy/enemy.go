@@ -62,22 +62,14 @@ func (enemy *Enemy) Berserk() {
 		return
 	}
 
-	enemy.Type = boost.nextType
+	if enemy.Type != boost.nextType {
+		enemy.Resize(boost.sizeFactor)
+		enemy.Type = boost.nextType
+	}
+
 	enemy.Level.HitPoints += boost.healthPoints
 	enemy.Level.Defense += boost.healthPoints
 	enemy.Level.Speed *= boost.speedFactor
-
-	canvasDimensions := config.CanvasBoundingBox()
-
-	newSize := numeric.
-		Locate(config.Config.Enemy.Width, config.Config.Enemy.Height).
-		Mul(boost.sizeFactor).
-		ToBox()
-
-	if newSize.ToVector().Less(numeric.Locate(canvasDimensions.OriginalWidth, canvasDimensions.OriginalHeight)) {
-		enemy.Size = newSize
-		enemy.Position = enemy.Position.Sub(newSize.ToVector().Div(boost.sizeFactor))
-	}
 }
 
 // BerserkGivenAncestor increases the chance of the enemy to become a berserker or an annihilator
@@ -116,6 +108,18 @@ func (enemy *Enemy) Destroy() {
 // The enemy is drawn as a rectangle with the specified color.
 // The color is based on the type of the enemy.
 func (enemy Enemy) Draw() {
+	var label string
+	if config.Config.Control.DrawObjectLabels.GetWithFallback(true) {
+		label = enemy.Name
+	}
+
+	var statusValues []float64
+	var statusColors []string
+	if enemy.Type != Goodie && config.Config.Control.DrawEnemyHitpointBars.GetWithFallback(true) {
+		statusValues = append(statusValues, float64(enemy.Level.HitPoints)/float64(enemy.Level.HitPoints+enemy.Level.HitPointsLoss))
+		statusColors = append(statusColors, "rgba(240, 0, 0, 0.8)")
+	}
+
 	config.DrawSpaceship(
 		enemy.Position.Pack(),
 		enemy.Size.Pack(),
@@ -127,7 +131,9 @@ func (enemy Enemy) Draw() {
 			Berserker:   "Firebrick",
 			Annihilator: "MidnightBlue",
 		}[enemy.Type],
-		enemy.Name,
+		label,
+		statusValues,
+		statusColors,
 	)
 }
 
@@ -140,6 +146,11 @@ func (enemy *Enemy) Hit(damage int) {
 		damage = numeric.RandomRange(0, config.Config.Bullet.InitialDamage).Int()
 	}
 
+	if damage > enemy.Level.HitPoints {
+		damage = enemy.Level.HitPoints
+	}
+
+	enemy.Level.HitPointsLoss += damage
 	enemy.Level.HitPoints -= damage
 
 	config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.EnemyHit, config.Template{
@@ -198,12 +209,13 @@ func (enemy *Enemy) Move(spaceshipPosition numeric.Position) {
 
 	// Move horizontally and vertically towards the spaceship
 	enemy.Position = enemy.Position.Add(delta)
-	canvasDimensions := config.CanvasBoundingBox()
-	if enemy.Position.X < 0 {
-		enemy.Position.X = 0
-	} else if enemy.Position.X.Float() > canvasDimensions.OriginalWidth {
-		enemy.Position.X = numeric.Number(canvasDimensions.OriginalWidth)
-	}
+}
+
+// Resize resizes the enemy.
+// The enemy is resized by the specified scale.
+// The position is adjusted to the center of the new size.
+func (enemy *Enemy) Resize(scale numeric.Number) {
+	enemy.Size, enemy.Position = enemy.Size.Resize(scale, enemy.Position)
 }
 
 // String returns the string representation of the enemy.

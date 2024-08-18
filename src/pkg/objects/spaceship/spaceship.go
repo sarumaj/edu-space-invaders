@@ -59,17 +59,21 @@ func (spaceship *Spaceship) isFrozen() bool {
 // and its size is doubled. If the number of cannons exceeds
 // the maximum number of cannons, it is set to the maximum number.
 func (spaceship *Spaceship) ChangeState(state SpaceshipState) {
+	spaceship.lastStateTransition = time.Now()
+	if spaceship.State == state {
+		return
+	}
+
 	if state == Boosted {
 		spaceship.Level.Cannons *= 2
 		if spaceship.Level.Cannons > config.Config.Spaceship.MaximumCannons {
 			spaceship.Level.Cannons = config.Config.Spaceship.MaximumCannons
 		}
-		spaceship.Size.Width = numeric.Number(config.Config.Spaceship.Width * 2)
-		spaceship.Position.X -= numeric.Number(config.Config.Spaceship.Width / 2)
+
+		spaceship.Resize(numeric.Number(config.Config.Spaceship.BoostScaleSizeFactor))
 	}
 
 	spaceship.State = state
-	spaceship.lastStateTransition = time.Now()
 
 	switch spaceship.State {
 	case Boosted:
@@ -127,8 +131,8 @@ func (spaceship *Spaceship) Discover(p *planet.Planet) {
 	switch {
 	case
 		!p.Type.IsPlanet(), // If the celestial object is not an actual planet
-		!p.WithinRange(spaceship.Position.Add(spaceship.Size.Center())), // If the spaceship is not within range of the planet
-		spaceship.discoveredPlanets[p.Type],                             // If the planet has been discovered
+		!p.WithinRange(spaceship.Position.Add(spaceship.Size.Half().ToVector())),                                                     // If the spaceship is not within range of the planet
+		spaceship.discoveredPlanets[p.Type],                                                                                          // If the planet has been discovered
 		time.Since(spaceship.lastDiscovery) < config.Config.Planet.DiscoveryCooldown*time.Duration(len(spaceship.discoveredPlanets)), // If a planet has been discovered recently
 		!numeric.SampleUniform(config.Config.Planet.DiscoveryProbability):                                                            // If the planet is not discovered based on the probability
 
@@ -159,6 +163,23 @@ func (spaceship *Spaceship) Discover(p *planet.Planet) {
 // The spaceship is drawn in yellow color if it is in the Boosted state.
 // The spaceship is drawn in blue color if it is in the Frozen state.
 func (spaceship Spaceship) Draw() {
+	var label string
+	if config.Config.Control.DrawObjectLabels.GetWithFallback(true) {
+		label = spaceship.Commandant
+	}
+
+	var statusValues []float64
+	var statusColors []string
+	if config.Config.Control.DrawSpaceshipExperienceBar.GetWithFallback(true) {
+		statusValues = append(statusValues, float64(spaceship.Level.Experience)/float64(spaceship.Level.GetRequiredExperience()))
+		statusColors = append(statusColors, "rgba(0, 255, 0, 0.8)")
+	}
+
+	if config.Config.Control.DrawSpaceshipDiscoveryProgressBar.GetWithFallback(true) {
+		statusValues = append(statusValues, float64(len(spaceship.discoveredPlanets))/float64(planet.PlanetsCount))
+		statusColors = append(statusColors, "rgba(0, 0, 255, 0.8)")
+	}
+
 	config.DrawSpaceship(
 		spaceship.Position.Pack(),
 		spaceship.Size.Pack(),
@@ -169,7 +190,9 @@ func (spaceship Spaceship) Draw() {
 			Boosted: "Chartreuse",
 			Frozen:  "DeepSkyBlue",
 		}[spaceship.State],
-		spaceship.Commandant,
+		label,
+		statusValues,
+		statusColors,
 	)
 }
 
@@ -210,6 +233,23 @@ func (spaceship *Spaceship) Fire() {
 	spaceship.lastFired = time.Now()
 
 	go config.PlayAudio("spaceship_cannon_fire.wav", false)
+}
+
+// FixPosition fixes the position of the spaceship based on the canvas boundaries
+// to prevent the spaceship from going out of bounds.
+func (spaceship *Spaceship) FixPosition() {
+	canvasDimensions := config.CanvasBoundingBox()
+	if halfWidth := spaceship.Size.Width / 2; spaceship.Position.X-halfWidth < 0 {
+		spaceship.Position.X = halfWidth
+	} else if (spaceship.Position.X + halfWidth).Float() > canvasDimensions.OriginalWidth {
+		spaceship.Position.X = numeric.Number(canvasDimensions.OriginalWidth) - halfWidth
+	}
+
+	if halfHeight := spaceship.Size.Height / 2; spaceship.Position.Y-halfHeight < 0 {
+		spaceship.Position.Y = halfHeight
+	} else if (spaceship.Position.Y + halfHeight).Float() > canvasDimensions.OriginalHeight {
+		spaceship.Position.Y = numeric.Number(canvasDimensions.OriginalHeight) - halfHeight
+	}
 }
 
 // GetBulletDamage returns the damage of the bullets fired by the spaceship.
@@ -262,11 +302,7 @@ func (spaceship *Spaceship) MoveDown() {
 
 	// Check the vertical boundaries and update the spaceship position
 	spaceship.Position.Y += spaceship.Speed.Y
-	canvasDimensions := config.CanvasBoundingBox()
-	if spaceship.Position.Y.Float() > canvasDimensions.OriginalHeight {
-		spaceship.Position.Y = numeric.Number(canvasDimensions.OriginalHeight)
-		spaceship.Speed.Y = 0
-	}
+	spaceship.FixPosition()
 
 	go config.PlayAudio("spaceship_deceleration.wav", false)
 }
@@ -297,10 +333,7 @@ func (spaceship *Spaceship) MoveLeft() {
 
 	// Check the horizontal boundaries and update the spaceship position
 	spaceship.Position.X -= spaceship.Speed.X
-	if spaceship.Position.X < 0 {
-		spaceship.Position.X = 0
-		spaceship.Speed.X = 0
-	}
+	spaceship.FixPosition()
 
 	go config.PlayAudio("spaceship_whoosh.wav", false)
 }
@@ -331,12 +364,8 @@ func (spaceship *Spaceship) MoveRight() {
 	}
 
 	// Check the horizontal boundaries and update the spaceship position
-	canvasDimensions := config.CanvasBoundingBox()
 	spaceship.Position.X += spaceship.Speed.X
-	if spaceship.Position.X.Float() > canvasDimensions.OriginalWidth {
-		spaceship.Position.X = numeric.Number(canvasDimensions.OriginalWidth)
-		spaceship.Speed.X = 0
-	}
+	spaceship.FixPosition()
 
 	go config.PlayAudio("spaceship_whoosh.wav", false)
 }
@@ -367,10 +396,7 @@ func (spaceship *Spaceship) MoveUp() {
 
 	// Check the vertical boundaries and update the spaceship position
 	spaceship.Position.Y -= spaceship.Speed.Y
-	if spaceship.Position.Y < 0 {
-		spaceship.Position.Y = 0
-		spaceship.Speed.Y = 0
-	}
+	spaceship.FixPosition()
 
 	go config.PlayAudio("spaceship_acceleration.wav", false)
 }
@@ -411,22 +437,8 @@ func (spaceship *Spaceship) MoveTo(target numeric.Position) {
 	// Update the spaceship position
 	spaceship.Position = spaceship.Position.Sub(delta)
 
-	// Check the horizontal boundaries
-	canvasDimensions := config.CanvasBoundingBox()
-	switch {
-	case spaceship.Position.X < 0:
-		spaceship.Position.X = 0
-	case spaceship.Position.X.Float() > canvasDimensions.OriginalWidth:
-		spaceship.Position.X = numeric.Number(canvasDimensions.OriginalWidth)
-	}
-
-	// Check the vertical boundaries
-	switch {
-	case spaceship.Position.Y < 0:
-		spaceship.Position.Y = 0
-	case spaceship.Position.Y.Float() > canvasDimensions.OriginalHeight:
-		spaceship.Position.Y = numeric.Number(canvasDimensions.OriginalHeight)
-	}
+	// Fix the spaceship position
+	spaceship.FixPosition()
 
 	go config.PlayAudio([...]string{
 		"spaceship_acceleration.wav",
@@ -442,6 +454,17 @@ func (spaceship *Spaceship) Penalize(levels int) {
 		if !spaceship.Level.Down() {
 			return
 		}
+	}
+}
+
+// Resize resizes the spaceship based on the scale.
+// The spaceship's size is updated based on the scale.
+// The spaceship's position is centered based on the new size and
+// fixed based on the canvas boundaries.
+func (spaceship *Spaceship) Resize(scale numeric.Number) {
+	spaceship.Size, spaceship.Position = spaceship.Size.Resize(scale, spaceship.Position)
+	if scale > 1 {
+		spaceship.FixPosition()
 	}
 }
 
@@ -464,9 +487,8 @@ func (spaceship *Spaceship) UpdateState() {
 	switch spaceship.State {
 	case Boosted:
 		if time.Since(spaceship.lastStateTransition) > config.Config.Spaceship.BoostDuration {
+			spaceship.Resize(1 / numeric.Number(config.Config.Spaceship.BoostScaleSizeFactor))
 			spaceship.Level.Cannons /= 2
-			spaceship.Size.Width = numeric.Number(config.Config.Spaceship.Width)
-			spaceship.Position.X += numeric.Number(config.Config.Spaceship.Width / 2)
 
 			if spaceship.Level.Cannons == 0 {
 				spaceship.Level.Cannons = 1

@@ -19,11 +19,11 @@ func (size Size) AspectRatio() Number {
 	return size.Width / size.Height
 }
 
-// Center returns the relative center of the bounding box.
-func (size Size) Center() Position {
-	return Position{
-		X: size.Width / 2,
-		Y: size.Height / 2,
+// Half returns the half of the size.
+func (size Size) Half() Size {
+	return Size{
+		Width:  size.Width / 2,
+		Height: size.Height / 2,
 	}
 }
 
@@ -35,6 +35,21 @@ func (size Size) Pack() [2]float64 {
 // Radius returns the radius of a circle with equivalent area.
 func (size Size) Radius() Number {
 	return (size.Width * size.Height / Pi).Root()
+}
+
+// Resize resizes the size by the scale and position.
+// The position is the center of the new size.
+// The function returns the new size and adjusted position.
+func (size Size) Resize(scale Number, position Position) (Size, Position) {
+	newSize := Size{
+		Width:  size.Width * scale,
+		Height: size.Height * scale,
+	}
+
+	position.X -= (newSize.Width - size.Width) / 2
+	position.Y -= (newSize.Height - size.Height) / 2
+
+	return newSize, position
 }
 
 // String returns the string representation of the size.

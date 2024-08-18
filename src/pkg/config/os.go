@@ -87,10 +87,14 @@ func DrawPlanetVenus(coords [2]float64, radius float64) {}
 // DrawRect is a function that draws a rectangle on the canvas.
 func DrawRect(coords [2]float64, size [2]float64, color string, cornerRadius float64) {}
 
-// DrawSpaceship is a function that draws a spaceship on the canvas.
+// DrawSpaceship is a function that draws a spaceship on the document.
 // The spaceship is drawn at the specified position (x, y) with the specified width and height.
 // The spaceship is drawn facing the specified direction.
-func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color, label string) {}
+// The spaceship is colored with the specified color.
+// The spaceship can have a label displayed above or below it.
+// The spaceship can have status bars displayed above or below it.
+func DrawSpaceship(coors [2]float64, size [2]float64, faceUp bool, color, label string, statusValues []float64, statusColors []string) {
+}
 
 // DrawStar draws a star on the canvas.
 // The star is drawn at the specified position (cx, cy) with the specified number of spikes.

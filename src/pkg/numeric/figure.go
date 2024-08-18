@@ -76,7 +76,11 @@ func (poly SpaceshipPolygon) String() string {
 func (poly SpaceshipPolygon) Vertices() Vertices { return poly[:] }
 
 // GetRectangularVertices calculates the vertices of the rectangle.
-func GetRectangularVertices(pos Position, size Size) Rectangle {
+func GetRectangularVertices(pos Position, size Size, centered bool) Rectangle {
+	if centered {
+		pos = pos.Sub(size.Half().ToVector())
+	}
+
 	return Rectangle{
 		Locate(pos.X, pos.Y+size.Height),            // Bottom-left
 		Locate(pos.X+size.Width, pos.Y+size.Height), // Bottom-right

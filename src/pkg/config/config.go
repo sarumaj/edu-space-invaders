@@ -39,14 +39,18 @@ type config struct {
 	}
 
 	Control struct {
-		AudioEnabled                *bool
-		BackgroundAnimationEnabled  *bool
-		CollisionDetectionVersion   envVariable[int]
-		Debug                       envVariable[bool]
-		CriticalFramesPerSecondRate float64
-		DesiredFramesPerSecondRate  float64
-		GodMode                     envVariable[bool]
-		SuspensionFrames            int
+		AudioEnabled                      *bool
+		BackgroundAnimationEnabled        *bool
+		CollisionDetectionVersion         envVariable[int]
+		CriticalFramesPerSecondRate       float64
+		Debug                             envVariable[bool]
+		DesiredFramesPerSecondRate        float64
+		DrawEnemyHitpointBars             envVariable[bool]
+		DrawObjectLabels                  envVariable[bool]
+		DrawSpaceshipDiscoveryProgressBar envVariable[bool]
+		DrawSpaceshipExperienceBar        envVariable[bool]
+		GodMode                           envVariable[bool]
+		SuspensionFrames                  int
 	}
 
 	Enemy struct {
@@ -130,23 +134,24 @@ type config struct {
 	}
 
 	Spaceship struct {
-		Acceleration       float64
-		AnnihilatorPenalty int
-		BerserkPenalty     int
-		BoostDuration      time.Duration
-		CannonProgress     int
-		Cooldown           time.Duration
-		DamageDuration     time.Duration
-		DefaultPenalty     int
-		ExperienceScaler   float64
-		FreezeDuration     time.Duration
-		FreezerPenalty     int
-		Height             float64
-		LogThrottling      time.Duration
-		MaximumCannons     int
-		MaximumLabelLength int
-		MaximumSpeed       float64
-		Width              float64
+		Acceleration         float64
+		AnnihilatorPenalty   int
+		BerserkPenalty       int
+		BoostDuration        time.Duration
+		BoostScaleSizeFactor float64
+		CannonProgress       int
+		Cooldown             time.Duration
+		DamageDuration       time.Duration
+		DefaultPenalty       int
+		ExperienceScaler     float64
+		FreezeDuration       time.Duration
+		FreezerPenalty       int
+		Height               float64
+		LogThrottling        time.Duration
+		MaximumCannons       int
+		MaximumLabelLength   int
+		MaximumSpeed         float64
+		Width                float64
 	}
 
 	Star struct {

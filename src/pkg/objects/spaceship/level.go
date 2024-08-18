@@ -67,12 +67,6 @@ func (lvl *SpaceshipLevel) GainExperience(e enemy.Enemy) bool {
 	// Calculate the experience gain
 	gain := (base * numeric.Number(e.Level.Progress)).Int()
 
-	// Formula for the required experience
-	// y = exp(progress/experience_factor)
-	formula := func() int {
-		return (numeric.E.Pow(numeric.Number(lvl.Progress) / numeric.Number(config.Config.Spaceship.ExperienceScaler))).Int()
-	}
-
 	// Increase the experience
 	lvl.Experience += gain
 
@@ -80,13 +74,22 @@ func (lvl *SpaceshipLevel) GainExperience(e enemy.Enemy) bool {
 	currentLvl := lvl.Progress
 
 	// Increase the spaceship level
-	for lvl.Experience >= formula() {
+	for required := lvl.GetRequiredExperience(); lvl.Experience >= required; required = lvl.GetRequiredExperience() {
 		lvl.Up()
-		lvl.Experience -= gain
+		lvl.Experience -= required // Subtract the required experience
+	}
+
+	if lvl.Experience < 0 {
+		lvl.Experience = 0
 	}
 
 	// Return true if the spaceship level has increased
 	return lvl.Progress > currentLvl
+}
+
+// GetRequiredExperience returns the required experience for the spaceship.
+func (lvl SpaceshipLevel) GetRequiredExperience() int {
+	return (numeric.E.Pow(numeric.Number(lvl.Progress) / numeric.Number(config.Config.Spaceship.ExperienceScaler))).Int()
 }
 
 // Up increases the spaceship level.

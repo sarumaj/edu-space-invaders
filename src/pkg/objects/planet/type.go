@@ -30,6 +30,17 @@ const PlanetsCount = int(Neptune + 1)
 // PlanetType represents the type of a planet or other celestial object.
 type PlanetType int
 
+// AnyOf returns true if the planet type is any of the given types.
+func (t PlanetType) AnyOf(types ...PlanetType) bool {
+	for _, typ := range types {
+		if t == typ {
+			return true
+		}
+	}
+
+	return false
+}
+
 // DrawFunc returns the draw function for the planet type.
 func (t PlanetType) Draw(position numeric.Position, radius numeric.Number) {
 	map[PlanetType]func([2]float64, float64){

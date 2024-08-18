@@ -69,41 +69,33 @@ func getenv[T any](key string, fallback T) (out T) {
 	target := reflect.ValueOf(&out).Elem()
 
 	switch target.Kind() {
-	case reflect.String:
-		target.SetString(raw)
-		return
-
 	case reflect.Bool:
-		parsed, err := strconv.ParseBool(raw)
-		if err == nil {
-			target.SetBool(parsed)
-		}
-		return
-
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		parsed, err := strconv.ParseInt(raw, 10, 64)
-		if err == nil {
-			target.SetInt(parsed)
-		}
-		return
-
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		parsed, err := strconv.ParseUint(raw, 10, 64)
-		if err == nil {
-			target.SetUint(parsed)
-		}
-		return
+		v, _ := strconv.ParseBool(raw)
+		target.Set(reflect.ValueOf(v))
+		return target.Interface().(T)
 
 	case reflect.Float32, reflect.Float64:
-		parsed, err := strconv.ParseFloat(raw, 64)
-		if err == nil {
-			target.SetFloat(parsed)
-		}
-		return
+		v, _ := strconv.ParseFloat(raw, 64)
+		target.Set(reflect.ValueOf(v).Convert(target.Type()))
+		return target.Interface().(T)
+
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		v, _ := strconv.ParseInt(raw, 10, 64)
+		target.Set(reflect.ValueOf(v).Convert(target.Type()))
+		return target.Interface().(T)
+
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		v, _ := strconv.ParseUint(raw, 10, 64)
+		target.Set(reflect.ValueOf(v).Convert(target.Type()))
+		return target.Interface().(T)
+
+	case reflect.String:
+		return any(raw).(T)
+
+	default:
+		return fallback
 
 	}
-
-	return fallback
 }
 
 // parseAES2GCMKeyFromPem parses the AES key from the PEM-encoded data.

@@ -65,7 +65,7 @@ func (b Bullet) HasHitV1(e enemy.Enemy) bool {
 // It assumes that the bullet is a rectangle and the enemy is a triangle.
 func (b Bullet) HasHitV2(e enemy.Enemy) bool {
 	return !numeric.
-		GetRectangularVertices(b.Position, b.Size).
+		GetRectangularVertices(b.Position, b.Size, false).
 		Vertices().
 		HasSeparatingAxis(numeric.GetSpaceshipVerticesV1(e.Position, e.Size, false).Vertices())
 }
@@ -79,7 +79,7 @@ func (b Bullet) HasHitV2(e enemy.Enemy) bool {
 // It assumes that the bullet is a rectangle and the enemy is a spaceship polygon.
 func (b Bullet) HasHitV3(e enemy.Enemy) bool {
 	return !numeric.
-		GetRectangularVertices(b.Position, b.Size).
+		GetRectangularVertices(b.Position, b.Size, false).
 		Vertices().
 		HasSeparatingAxis(numeric.GetSpaceshipVerticesV2(e.Position, e.Size, false).Vertices())
 }

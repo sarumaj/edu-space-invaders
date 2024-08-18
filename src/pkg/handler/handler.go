@@ -36,13 +36,13 @@ func (h *handler) applyGravityOnEnemies() {
 	// Apply gravity to the enemies, each enemy trapped in the planet's gravity is increasing the planet's mass.
 	for i, e := range h.enemies {
 		h.enemies[i].Position = h.planet.ApplyGravity(
-			e.Position.Add(e.Size.Center()),
+			e.Position.Add(e.Size.Half().ToVector()),
 			e.Size.Area(),
 			true, // Increase the planet's mass
 			h.planet.Type == planet.BlackHole && // Reverse gravity field, if the planet is a black hole,
-				!h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Center())) && // the spaceship is not within the range of the planet,
-				!h.planet.WithinRange(e.Position.Add(e.Size.Center())), // and the enemy is not within the range of the planet.
-		).Sub(e.Size.Center())
+				!h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector())) && // the spaceship is not within the range of the planet,
+				!h.planet.WithinRange(e.Position.Add(e.Size.Half().ToVector())), // and the enemy is not within the range of the planet.
+		).Sub(e.Size.Half().ToVector())
 	}
 }
 
@@ -54,11 +54,11 @@ func (h *handler) applyGravityOnSpaceship() {
 	// Apply gravity to the spaceship.
 	// The spaceship's mass should not increase the planet's mass.
 	h.spaceship.Position = h.planet.ApplyGravity(
-		h.spaceship.Position.Add(h.spaceship.Size.Center()),
+		h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector()),
 		h.spaceship.Size.Area(),
 		false, // Do not increase the planet's mass
 		false, // Do not reverse the gravity
-	).Sub(h.spaceship.Size.Center())
+	).Sub(h.spaceship.Size.Half().ToVector())
 
 	// Correct the spaceship's position if it is out of the canvas.
 	canvasDimensions := config.CanvasBoundingBox()
@@ -77,13 +77,13 @@ func (h *handler) applyGravityOnSpaceship() {
 		// Apply gravity to the bullets.
 		for i, bullet := range h.spaceship.Bullets {
 			h.spaceship.Bullets[i].Position = h.planet.ApplyGravity(
-				bullet.Position.Add(bullet.Size.Center()),
+				bullet.Position.Add(bullet.Size.Half().ToVector()),
 				numeric.Number(config.Config.Bullet.GravityAmplifier)*bullet.Size.Area(),
 				false, // Do not increase the planet's mass
 				false, // Do not reverse the gravity
-			).Sub(bullet.Size.Center())
+			).Sub(bullet.Size.Half().ToVector())
 
-			if numeric.Equal(h.planet.Position, h.spaceship.Bullets[i].Position.Add(bullet.Size.Center()), 1e-3) {
+			if numeric.Equal(h.planet.Position, h.spaceship.Bullets[i].Position.Add(bullet.Size.Half().ToVector()), 1e-3) {
 				h.spaceship.Bullets[i].Exhaust()
 			}
 		}
@@ -96,7 +96,7 @@ func (h *handler) applyGravityOnSpaceship() {
 // If the planet is Jupiter or Saturn, it increases the defense and hitpoints of the enemies.
 // If the planet is Venus or Earth, it slows down the spaceship and increases the specialty likeliness of the enemies for goodies.
 // If the spaceship is within range of the sun, it unfreezes the spaceship.
-// If a freezer is within range of the sun, it destroys the freezer.
+// If a freezer is within range of the sun, it unfreezes the freezer.
 // If the anomaly is a black hole, it sucks in the bullets and other objects.
 // If the anomaly is a supernova, it distorts the bullets and other objects and disables the freezers.
 func (h *handler) applyPlanetImpact() {
@@ -105,15 +105,15 @@ func (h *handler) applyPlanetImpact() {
 
 	switch h.planet.Type {
 	case planet.Sun:
-		// If the spaceship is within range of the sun,unfreeze the spaceship.
-		if h.spaceship.State == spaceship.Frozen && h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Center())) {
+		// If the spaceship is within range of the sun, unfreeze the spaceship.
+		if h.spaceship.State.AnyOf(spaceship.Frozen) && h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector())) {
 			h.spaceship.ChangeState(spaceship.Neutral)
 		}
 
 		for i, e := range h.enemies {
-			// If a freezer is within range of the sun, destroy it.
-			if e.Type == enemy.Freezer && h.planet.WithinRange(h.enemies[i].Position.Add(e.Size.Center())) {
-				h.enemies[i].Destroy()
+			// If a freezer is within range of the sun, unfreeze the freezer.
+			if e.Type.AnyOf(enemy.Freezer) && h.planet.WithinRange(h.enemies[i].Position.Add(e.Size.Half().ToVector())) {
+				h.enemies[i].Type = enemy.Normal
 			}
 		}
 
@@ -134,7 +134,7 @@ func (h *handler) applyPlanetImpact() {
 
 	case planet.Supernova:
 		// Unfreeze the spaceship immediately if frozen.
-		if h.spaceship.State == spaceship.Frozen {
+		if h.spaceship.State.AnyOf(spaceship.Frozen) {
 			h.spaceship.ChangeState(spaceship.Neutral)
 		}
 
@@ -247,6 +247,10 @@ func (h *handler) applyPlanetImpact() {
 // It checks if the bullets have hit an enemy.
 // If the bullets have hit an enemy, it applies the necessary damage.
 // If the enemy has no health points, it upgrades the spaceship.
+// If the enemy is a goodie, it does nothing.
+// If the enemy is a freezer and the spaceship is not an admiral, it does nothing.
+// If the enemy is a freezer and the planet is not the sun or a supernova, it does nothing.
+// If the bullet has not hit the enemy, it does nothing.
 func (h *handler) checkCollisions() {
 	var collisionDetector func(enemy.Enemy) bool
 	var bulletHitDetector func(bullet.Bullet) func(enemy.Enemy) bool
@@ -273,7 +277,7 @@ func (h *handler) checkCollisions() {
 	for j, e := range h.enemies {
 		if e.Level.HitPoints > 0 && collisionDetector(e) {
 			// If the spaceship is boosted, destroy the enemy.
-			if h.spaceship.State == spaceship.Boosted {
+			if h.spaceship.State.AnyOf(spaceship.Boosted) {
 				h.enemies[j].Destroy()
 				if h.spaceship.Level.GainExperience(e) {
 					h.spaceship.UpdateHighScore()
@@ -287,20 +291,14 @@ func (h *handler) checkCollisions() {
 			}
 
 			// Handle collisions with normal, berserker and annihilator enemies.
-			penalty := config.Config.Spaceship.DefaultPenalty
-			switch e.Type {
-			case enemy.Berserker:
-				penalty = config.Config.Spaceship.BerserkPenalty
+			penalty := map[enemy.EnemyType]int{
+				enemy.Normal:      config.Config.Spaceship.DefaultPenalty,
+				enemy.Berserker:   config.Config.Spaceship.BerserkPenalty,
+				enemy.Annihilator: config.Config.Spaceship.AnnihilatorPenalty,
+				enemy.Freezer:     config.Config.Spaceship.FreezerPenalty,
+			}[e.Type]
 
-			case enemy.Annihilator:
-				penalty = config.Config.Spaceship.AnnihilatorPenalty
-
-			case enemy.Freezer:
-				penalty = config.Config.Spaceship.FreezerPenalty
-
-			}
-
-			if h.spaceship.State == spaceship.Frozen {
+			if h.spaceship.State.AnyOf(spaceship.Frozen) {
 				h.enemies[j].Destroy()
 				h.spaceship.Penalize(penalty)
 				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipDowngradedByEnemy, config.Template{
@@ -369,10 +367,11 @@ func (h *handler) checkCollisions() {
 		for i, b := range h.spaceship.Bullets {
 			switch {
 			case
-				e.Level.HitPoints <= 0,                            // If the enemy has no health points, do nothing.
-				e.Type == enemy.Goodie,                            // If the enemy is a goodie, do nothing.
-				e.Type == enemy.Freezer && !h.spaceship.IsAdmiral, // If the enemy is a freezer and the spaceship is not an admiral, do nothing.
-				!bulletHitDetector(b)(e):                          // If the bullet has not hit the enemy, do nothing.
+				e.Level.HitPoints <= 0,                                // If the enemy has no health points, do nothing.
+				e.Type.AnyOf(enemy.Goodie),                            // If the enemy is a goodie, do nothing.
+				e.Type.AnyOf(enemy.Freezer) && !h.spaceship.IsAdmiral, // If the enemy is a freezer and the spaceship is not an admiral, do nothing.
+				e.Type.AnyOf(enemy.Freezer) && !h.planet.Type.AnyOf(planet.Sun, planet.Supernova), // If the enemy is a freezer and the planet is not the sun or a supernova, do nothing.
+				!bulletHitDetector(b)(e): // If the bullet has not hit the enemy, do nothing.
 
 			default: // The bullet has hit the enemy.
 				h.spaceship.Bullets[i].Exhaust()

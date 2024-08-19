@@ -24,6 +24,10 @@ type Enemy struct {
 // If the enemy is a berserker, it has a chance to become an annihilator.
 // If the enemy is an annihilator, it increases its size, health points and defense.
 func (enemy *Enemy) Berserk() {
+	if !numeric.SampleUniform(enemy.Level.BerserkLikeliness) {
+		return
+	}
+
 	boost := struct {
 		sizeFactor, speedFactor numeric.Number
 		healthPoints, defense   int
@@ -39,27 +43,23 @@ func (enemy *Enemy) Berserk() {
 	case Normal:
 		boost.defense = config.Config.Enemy.Berserker.DefenseBoost
 		boost.healthPoints = config.Config.Enemy.Berserker.HitpointsBoost
-		boost.speedFactor = numeric.Number(config.Config.Enemy.Berserker.SpeedFactorBoost)
+		boost.speedFactor = numeric.Number(config.Config.Enemy.Berserker.SpeedModifier)
 		boost.sizeFactor = numeric.Number(config.Config.Enemy.Berserker.SizeFactorBoost)
 		boost.nextType = Berserker
 
 	case Berserker:
 		boost.defense = config.Config.Enemy.Annihilator.DefenseBoost
 		boost.healthPoints = config.Config.Enemy.Annihilator.HitpointsBoost
-		boost.speedFactor = numeric.Number(config.Config.Enemy.Annihilator.SpeedFactorBoost)
+		boost.speedFactor = numeric.Number(config.Config.Enemy.Annihilator.SpeedModifier)
 		boost.sizeFactor = numeric.Number(config.Config.Enemy.Annihilator.SizeFactorBoost)
 		boost.nextType = Annihilator
 
 	case Annihilator:
 		boost.defense = config.Config.Enemy.Annihilator.YetAgainFactor * config.Config.Enemy.Annihilator.DefenseBoost
 		boost.healthPoints = config.Config.Enemy.Annihilator.YetAgainFactor * config.Config.Enemy.Annihilator.HitpointsBoost
-		boost.speedFactor = numeric.Number(config.Config.Enemy.Annihilator.SpeedFactorBoost)
+		boost.speedFactor = numeric.Number(config.Config.Enemy.Annihilator.SpeedModifier)
 		boost.sizeFactor = numeric.Number(config.Config.Enemy.Annihilator.SizeFactorBoost)
 
-	}
-
-	if !numeric.SampleUniform(enemy.Level.BerserkLikeliness) {
-		return
 	}
 
 	if enemy.Type != boost.nextType {
@@ -96,10 +96,6 @@ func (enemy *Enemy) BerserkGivenAncestor(oldType EnemyType) {
 // Destroy destroys the enemy.
 // The health points of the enemy are set to 0.
 func (enemy *Enemy) Destroy() {
-	config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.EnemyDestroyed, config.Template{
-		"EnemyName": enemy.Name,
-		"EnemyType": enemy.Type,
-	}), false)
 	enemy.Level.HitPoints = 0
 	go config.PlayAudio("enemy_destroyed.wav", false)
 }
@@ -107,15 +103,17 @@ func (enemy *Enemy) Destroy() {
 // Draw draws the enemy.
 // The enemy is drawn as a rectangle with the specified color.
 // The color is based on the type of the enemy.
+// If the control to draw object labels is enabled, the name of the enemy is drawn.
+// If the control to draw enemy hitpoint bars is enabled, the hitpoint bar is drawn.
 func (enemy Enemy) Draw() {
 	var label string
-	if config.Config.Control.DrawObjectLabels.GetWithFallback(true) {
+	if config.Config.Control.DrawObjectLabels.Get() {
 		label = enemy.Name
 	}
 
 	var statusValues []float64
 	var statusColors []string
-	if enemy.Type != Goodie && config.Config.Control.DrawEnemyHitpointBars.GetWithFallback(true) {
+	if enemy.Type != Goodie && config.Config.Control.DrawEnemyHitpointBars.Get() {
 		statusValues = append(statusValues, float64(enemy.Level.HitPoints)/float64(enemy.Level.HitPoints+enemy.Level.HitPointsLoss))
 		statusColors = append(statusColors, "rgba(240, 0, 0, 0.8)")
 	}
@@ -137,10 +135,24 @@ func (enemy Enemy) Draw() {
 	)
 }
 
+// GetPenalty returns the penalty of the enemy.
+func (enemy Enemy) GetPenalty() int {
+	if v, ok := map[EnemyType]int{
+		Freezer:     config.Config.Enemy.Freezer.Penalty,
+		Normal:      config.Config.Enemy.DefaultPenalty,
+		Berserker:   config.Config.Enemy.Berserker.Penalty,
+		Annihilator: config.Config.Enemy.Annihilator.Penalty,
+	}[enemy.Type]; ok {
+		return v + enemy.Level.Progress
+	}
+
+	return 0
+}
+
 // Hit reduces the health points of the enemy.
 // The damage is reduced by the defense of the enemy.
 // If the damage is less than 0, it is set to 0.
-func (enemy *Enemy) Hit(damage int) {
+func (enemy *Enemy) Hit(damage int) int {
 	damage = damage - enemy.Level.Defense - numeric.RandomRange(0, enemy.Level.Defense*enemy.Level.Progress).Int()
 	if damage < 0 {
 		damage = numeric.RandomRange(0, config.Config.Bullet.InitialDamage).Int()
@@ -153,13 +165,9 @@ func (enemy *Enemy) Hit(damage int) {
 	enemy.Level.HitPointsLoss += damage
 	enemy.Level.HitPoints -= damage
 
-	config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.EnemyHit, config.Template{
-		"EnemyName": enemy.Name,
-		"EnemyType": enemy.Type,
-		"Damage":    damage,
-	}), false)
-
 	go config.PlayAudio("enemy_hit.wav", false)
+
+	return damage
 }
 
 // IsDestroyed returns true if the enemy is destroyed.

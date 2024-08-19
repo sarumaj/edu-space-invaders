@@ -15,7 +15,7 @@ import (
 func (h *handler) ask() {
 	if commandant := config.GlobalCall(
 		"prompt",
-		config.Execute(config.Config.MessageBox.Messages.Templates.Prompt),
+		config.Execute(config.Config.MessageBox.Messages.Prompt),
 		h.spaceship.Commandant,
 	); commandant.Truthy() && commandant.String() != "" {
 
@@ -52,9 +52,9 @@ func (h *handler) monitor() {
 				if running.Get(h.ctx) { // If the game is running
 					// Notify the user about the performance drop
 					if config.Config.Control.Debug.Get() {
-						config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.PerformanceDropped, config.Template{
+						config.SendMessage(config.Execute(config.Config.MessageBox.Messages.PerformanceDropped, config.Template{
 							"FPS": fps,
-						}), false)
+						}), false, false)
 					}
 
 					running.Set(&h.ctx, false)  // Pause the game
@@ -73,9 +73,9 @@ func (h *handler) monitor() {
 					if !paused.Get(h.ctx) { // Do not resume the game if it is paused
 						if config.Config.Control.Debug.Get() {
 							// Notify the user about the performance boost
-							config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.PerformanceImproved, config.Template{
+							config.SendMessage(config.Execute(config.Config.MessageBox.Messages.PerformanceImproved, config.Template{
 								"FPS": fps,
-							}), false)
+							}), false, false)
 						}
 
 						running.Set(&h.ctx, true)    // Resume the game
@@ -107,7 +107,7 @@ func (h *handler) registerEventHandlers() {
 
 		if config.IsTouchDevice() {
 			globalTouchEvent := &touchEvent{mutex: &sync.Mutex{}}
-			config.GlobalSet("touchstart", globalTouchEvent.touchStart())
+			config.GlobalSet("touchstart", globalTouchEvent.touchStart(h.touchEvent))
 			config.GlobalSet("touchmove", globalTouchEvent.touchMove(h.touchEvent))
 			config.GlobalSet("touchend", globalTouchEvent.touchEnd(h.touchEvent))
 			config.AddEventListenerToCanvas("touchstart", config.GlobalGet("touchstart"))
@@ -129,7 +129,7 @@ func (h *handler) registerEventHandlers() {
 			config.AddEventListener("keyup", config.GlobalGet("keyup"))
 
 			globalMouseEvent := &mouseEvent{mutex: &sync.Mutex{}}
-			config.GlobalSet("mousedown", globalMouseEvent.mouseDown())
+			config.GlobalSet("mousedown", globalMouseEvent.mouseDown(h.mouseEvent))
 			config.GlobalSet("mousemove", globalMouseEvent.mouseMove(h.mouseEvent))
 			config.GlobalSet("mouseup", globalMouseEvent.mouseUp(h.mouseEvent))
 			config.AddEventListenerToCanvas("contextmenu", config.GlobalGet("mousedown"))
@@ -180,12 +180,12 @@ func (known registeredKeys) keyUp(rcv chan<- keyEvent) js.Func {
 }
 
 // mouseDown is a method that listens to the mousedown or contextmenu event.
-func (event *mouseEvent) mouseDown() js.Func {
+func (event *mouseEvent) mouseDown(rcv chan<- mouseEvent) js.Func {
 	return js.FuncOf(func(_ js.Value, p []js.Value) any {
 		p[0].Call("preventDefault")
 
 		canvasDimensions := config.CanvasBoundingBox()
-		_ = event.
+		event.
 			Reset().
 			SetStartPosition(numeric.Position{
 				X: numeric.Number(p[0].Get("clientX").Float() - canvasDimensions.BoxLeft),
@@ -194,7 +194,8 @@ func (event *mouseEvent) mouseDown() js.Func {
 			SetButton(mouseButton(p[0].Get("button").Int())).
 			SetStartTime(time.Now()).
 			SetType(MouseEventTypeDown).
-			SetPressed(true)
+			SetPressed(true).
+			Send(rcv)
 
 		return nil
 	})
@@ -296,12 +297,12 @@ func (event *touchEvent) touchMove(rcv chan<- touchEvent) js.Func {
 }
 
 // touchStart is a method that listens to the touchstart event.
-func (event *touchEvent) touchStart() js.Func {
+func (event *touchEvent) touchStart(rcv chan<- touchEvent) js.Func {
 	return js.FuncOf(func(_ js.Value, p []js.Value) any {
 		p[0].Call("preventDefault")
 		changedTouches := p[0].Get("changedTouches")
 		canvasDimensions := config.CanvasBoundingBox()
-		_ = event.
+		event.
 			Reset().
 			SetStartPosition(numeric.Position{
 				X: numeric.Number(changedTouches.Index(0).Get("clientX").Float() - canvasDimensions.BoxLeft),
@@ -309,7 +310,8 @@ func (event *touchEvent) touchStart() js.Func {
 			}).
 			SetStartTime(time.Now()).
 			SetMultiTap(changedTouches.Length() > 1).
-			SetType(TouchTypeStart)
+			SetType(TouchTypeStart).
+			Send(rcv)
 
 		return nil
 	})

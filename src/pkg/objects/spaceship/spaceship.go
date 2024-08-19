@@ -2,6 +2,7 @@ package spaceship
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/Pallinder/go-randomdata"
@@ -20,33 +21,31 @@ type Spaceship struct {
 	Speed               numeric.Position           // Speed of the spaceship in both directions
 	Cooldown            time.Duration              // Time between shots
 	Directions          Directions                 // Directions the spaceship can move
-	Size                numeric.Size               // Size of the
-	CurrentScale        numeric.Position           // Scale of the spaceship
+	Size                numeric.Size               // Size of the spaceship
 	Bullets             bullet.Bullets             // Bullets fired by the spaceship
 	Level               *SpaceshipLevel            // Spaceship level
 	State               SpaceshipState             // Spaceship state
 	HighScore           int                        // HighScore is the high score of the spaceship.
 	lastFired           time.Time                  // Last time the spaceship fired
 	lastStateTransition time.Time                  // Last time the spaceship changed state
-	lastThrottledLog    time.Time                  // Last time the spaceship throttled log messages
 	lastDiscovery       time.Time                  // Last time the spaceship discovered a planet
 	discoveredPlanets   map[planet.PlanetType]bool // Discovered planets
 }
 
-// isFrozen checks if the spaceship can move or shoot.
+// ifFrozen checks if the spaceship can move or shoot.
 // If the spaceship is in the Frozen state, a message is sent
 // to the message box indicating that the spaceship is still frozen.
-// The message is throttled based on the spaceship's log throttling duration.
-func (spaceship *Spaceship) isFrozen() bool {
+// The message is throttled based on the log throttling duration.
+func (spaceship *Spaceship) ifFrozen() bool {
 	if spaceship.State == Frozen {
-		now := time.Now()
-		if now.Sub(spaceship.lastThrottledLog) >= config.Config.Spaceship.LogThrottling {
-			config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.SpaceshipStillFrozen, config.Template{
-				"FreezeDuration": time.Until(spaceship.lastStateTransition.Add(config.Config.Spaceship.FreezeDuration)).
-					Round(config.Config.Spaceship.LogThrottling),
-			}), false)
-			spaceship.lastThrottledLog = now
-		}
+		config.SendMessageThrottled(
+			config.Execute(config.Config.MessageBox.Messages.SpaceshipStillFrozen,
+				config.Template{
+					"FreezeDuration": time.Until(spaceship.lastStateTransition.
+						Add(config.Config.Spaceship.FreezeDuration)).
+						Round(config.Config.MessageBox.LogThrottling),
+				},
+			), false, true, config.Config.MessageBox.LogThrottling)
 
 		return true
 	}
@@ -127,7 +126,7 @@ func (spaceship Spaceship) DetectCollisionV3(e enemy.Enemy) bool {
 // the planet has not been discovered recently, and the planet is discovered based on the probability,
 // the planet will be discovered.
 // If all planets have been discovered, the spaceship will promote its commander to admiral.
-func (spaceship *Spaceship) Discover(p *planet.Planet) {
+func (spaceship *Spaceship) Discover(p *planet.Planet) bool {
 	switch {
 	case
 		!p.Type.IsPlanet(), // If the celestial object is not an actual planet
@@ -136,25 +135,26 @@ func (spaceship *Spaceship) Discover(p *planet.Planet) {
 		time.Since(spaceship.lastDiscovery) < config.Config.Planet.DiscoveryCooldown*time.Duration(len(spaceship.discoveredPlanets)), // If a planet has been discovered recently
 		!numeric.SampleUniform(config.Config.Planet.DiscoveryProbability):                                                            // If the planet is not discovered based on the probability
 
-		return
+		return false
 	}
 
 	spaceship.lastDiscovery = time.Now()
 	spaceship.discoveredPlanets[p.Type] = true
 
-	if len(spaceship.discoveredPlanets) == planet.PlanetsCount {
-		spaceship.IsAdmiral = true // Promote the commander to admiral
-		config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.AllPlanetsDiscovered, config.Template{
-			"PlanetName": p.Type.String(),
-		}), false)
-		return
+	return true
+}
+
+// Discovered returns the list of discovered planets.
+func (spaceship *Spaceship) Discovered() []string {
+	var discovered []string
+	for t, d := range spaceship.discoveredPlanets {
+		if d {
+			discovered = append(discovered, t.String())
+		}
 	}
 
-	config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Templates.PlanetDiscovered, config.Template{
-		"PlanetName":       p.Type.String(),
-		"RemainingPlanets": planet.PlanetsCount - len(spaceship.discoveredPlanets),
-		"TotalPlanets":     planet.PlanetsCount,
-	}), false)
+	slices.Sort(discovered)
+	return discovered
 }
 
 // Draw draws the spaceship on the canvas.
@@ -162,22 +162,32 @@ func (spaceship *Spaceship) Discover(p *planet.Planet) {
 // The spaceship is drawn in dark red color if it is in the Damaged state.
 // The spaceship is drawn in yellow color if it is in the Boosted state.
 // The spaceship is drawn in blue color if it is in the Frozen state.
+// If the control to draw object labels is enabled, the spaceship is drawn with the commander's name.
+// If the control to draw the spaceship experience bar is enabled, the spaceship is drawn with the experience bar.
+// If the control to draw the spaceship discovery progress bar is enabled, the spaceship is drawn with the discovery progress bar.
+// If the control to draw the spaceship shield is enabled, the spaceship is drawn with the shield.
 func (spaceship Spaceship) Draw() {
 	var label string
-	if config.Config.Control.DrawObjectLabels.GetWithFallback(true) {
+	if config.Config.Control.DrawObjectLabels.Get() {
 		label = spaceship.Commandant
 	}
 
 	var statusValues []float64
 	var statusColors []string
-	if config.Config.Control.DrawSpaceshipExperienceBar.GetWithFallback(true) {
-		statusValues = append(statusValues, float64(spaceship.Level.Experience)/float64(spaceship.Level.GetRequiredExperience()))
-		statusColors = append(statusColors, "rgba(0, 255, 0, 0.8)")
+	if config.Config.Control.DrawSpaceshipShield.Get() {
+		// Reverse the shield charge to draw the damage impact on the shield
+		statusValues = append(statusValues, 1-spaceship.Level.Shield.Health().Float())
+		statusColors = append(statusColors, "rgba(240, 10, 10, 0.8)") // Red
 	}
 
-	if config.Config.Control.DrawSpaceshipDiscoveryProgressBar.GetWithFallback(true) {
+	if config.Config.Control.DrawSpaceshipExperienceBar.Get() {
+		statusValues = append(statusValues, float64(spaceship.Level.Experience)/float64(spaceship.Level.GetRequiredExperience()))
+		statusColors = append(statusColors, "rgba(240, 240, 0, 0.8)") // Yellow
+	}
+
+	if config.Config.Control.DrawSpaceshipDiscoveryProgressBar.Get() {
 		statusValues = append(statusValues, float64(len(spaceship.discoveredPlanets))/float64(planet.PlanetsCount))
-		statusColors = append(statusColors, "rgba(0, 0, 255, 0.8)")
+		statusColors = append(statusColors, "rgba(0, 0, 240, 0.8)") // Blue
 	}
 
 	config.DrawSpaceship(
@@ -203,7 +213,7 @@ func (spaceship Spaceship) Draw() {
 // The trajectory of the bullets is skewed based on the position
 // of the cannon.
 func (spaceship *Spaceship) Fire() {
-	if spaceship.isFrozen() {
+	if spaceship.ifFrozen() {
 		return
 	}
 
@@ -263,7 +273,12 @@ func (spaceship Spaceship) GetBulletDamage() int {
 
 	// Allow critical hit
 	if numeric.SampleUniform(config.Config.Bullet.CriticalHitChance) {
-		damage *= damage
+		damage *= config.Config.Bullet.CriticalHitFactor
+	}
+
+	// Amplify the damage if the spaceship is an admiral
+	if spaceship.IsAdmiral {
+		damage *= config.Config.Spaceship.AdmiralDamageAmplifier
 	}
 
 	// Return the damage
@@ -280,7 +295,7 @@ func (spaceship Spaceship) IsDestroyed() bool {
 // If the spaceship's position is greater than the canvas height,
 // it is set to the canvas height.
 func (spaceship *Spaceship) MoveDown() {
-	if spaceship.isFrozen() {
+	if spaceship.ifFrozen() {
 		return
 	}
 
@@ -311,7 +326,7 @@ func (spaceship *Spaceship) MoveDown() {
 // The spaceship's position is updated based on the spaceship's speed.
 // If the spaceship's position is less than 0, it is set to 0.
 func (spaceship *Spaceship) MoveLeft() {
-	if spaceship.isFrozen() {
+	if spaceship.ifFrozen() {
 		return
 	}
 
@@ -343,7 +358,7 @@ func (spaceship *Spaceship) MoveLeft() {
 // If the spaceship's position is greater than the canvas width,
 // it is set to the canvas width.
 func (spaceship *Spaceship) MoveRight() {
-	if spaceship.isFrozen() {
+	if spaceship.ifFrozen() {
 		return
 	}
 
@@ -374,7 +389,7 @@ func (spaceship *Spaceship) MoveRight() {
 // The spaceship's position is updated based on the spaceship's speed.
 // If the spaceship's position is less than 0, it is set to 0.
 func (spaceship *Spaceship) MoveUp() {
-	if spaceship.isFrozen() {
+	if spaceship.ifFrozen() {
 		return
 	}
 
@@ -410,7 +425,7 @@ func (spaceship *Spaceship) MoveUp() {
 // If the spaceship's position is greater than the canvas height,
 // it is set to the canvas height.
 func (spaceship *Spaceship) MoveTo(target numeric.Position) {
-	if spaceship.isFrozen() {
+	if spaceship.State.AnyOf(Frozen) {
 		return
 	}
 
@@ -448,13 +463,20 @@ func (spaceship *Spaceship) MoveTo(target numeric.Position) {
 
 // Penalize penalizes the spaceship by downgrading its level.
 // The spaceship is downgraded by the specified number of levels.
-// If the spaceship's level is less than 1, it is set to 1.
-func (spaceship *Spaceship) Penalize(levels int) {
+// If the spaceship's level has decreased, it returns true.
+func (spaceship *Spaceship) Penalize(levels int) bool {
+	if levels < 1 {
+		return false
+	}
+
+	currentLvl := spaceship.Level.Progress
 	for i := 0; i < levels && spaceship.Level.Progress > 0; i++ {
 		if !spaceship.Level.Down() {
-			return
+			return spaceship.Level.Progress < currentLvl
 		}
 	}
+
+	return spaceship.Level.Progress < currentLvl
 }
 
 // Resize resizes the spaceship based on the scale.
@@ -516,15 +538,22 @@ func (spaceship *Spaceship) UpdateState() {
 func Embark(commandant string) *Spaceship {
 	canvasDimensions := config.CanvasBoundingBox()
 	spaceship := Spaceship{
-		Commandant:   commandant,
-		Position:     numeric.Locate(canvasDimensions.OriginalWidth/2, canvasDimensions.OriginalHeight),
-		Size:         numeric.Locate(config.Config.Spaceship.Width, config.Config.Spaceship.Height).ToBox(),
-		Cooldown:     config.Config.Spaceship.Cooldown,
-		CurrentScale: numeric.Ones(),
+		Commandant: commandant,
+		Position: numeric.Locate(
+			canvasDimensions.OriginalWidth/2,
+			canvasDimensions.OriginalHeight-config.Config.Spaceship.Height/2,
+		),
+		Size:     numeric.Locate(config.Config.Spaceship.Width, config.Config.Spaceship.Height).ToBox(),
+		Cooldown: config.Config.Spaceship.Cooldown,
 		Level: &SpaceshipLevel{
 			AccelerateRate: numeric.Number(config.Config.Spaceship.Acceleration),
 			Progress:       1,
 			Cannons:        1,
+			Shield: &Shield{
+				Charge:         1,
+				Capacity:       1,
+				ChargeDuration: config.Config.Spaceship.ShieldChargeDuration,
+			},
 		},
 		discoveredPlanets: make(map[planet.PlanetType]bool),
 	}

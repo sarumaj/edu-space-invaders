@@ -165,9 +165,9 @@ type mouseEventType int
 
 // String returns the string representation of the mouse event type.
 func (t mouseEventType) String() string {
-	if t > 2 {
+	if t > MouseEventTypeUp {
 		return "Unknown"
 	}
 
-	return [...]string{"Down", "Move", "Up"}[t]
+	return [...]string{"Unknown", "Down", "Move", "Up"}[t]
 }

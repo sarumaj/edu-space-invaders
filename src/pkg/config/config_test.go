@@ -48,7 +48,7 @@ func TestConfigLoaded(t *testing.T) {
 			}
 
 			// Check if the field is a template string and parse it.
-			if v.Field(i).Type() == reflect.TypeOf(templateString("")) {
+			if v.Field(i).Type() == reflect.TypeOf(TemplateString("")) {
 				parsed, err := template.New(v.Field(i).Type().Name()).Funcs(funcsMap).Parse(v.Field(i).String())
 				if err != nil {
 					tb.Error(reportFieldNok(v.Type().Field(i), err))

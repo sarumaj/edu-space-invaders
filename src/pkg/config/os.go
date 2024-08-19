@@ -5,6 +5,7 @@ package config
 import (
 	"log"
 	"os"
+	"time"
 )
 
 // dimensions represents the dimensions of the document.
@@ -153,7 +154,10 @@ func PlayAudio(name string, loop bool) {}
 func SaveScores() {}
 
 // SendMessage sends a message to the message box.
-func SendMessage(msg string, reset bool) { log.Println(msg) }
+func SendMessage(msg string, reset, event bool) { log.Println(msg) }
+
+// SendMessageThrottled sends a message to the message box with a cooldown.
+func SendMessageThrottled(msg string, reset, event bool, cooldown time.Duration) { log.Println(msg) }
 
 // Setenv is a function that sets the environment variable key to value.
 func Setenv(key, value string) { _ = os.Setenv(key, value) }
@@ -179,6 +183,3 @@ func Unsetenv(key string) { _ = os.Unsetenv(key) }
 
 // UpdateFPS is a function that updates the frames per second.
 func UpdateFPS(fps float64) {}
-
-// UpdateMessage is a function that updates the last message in the message box.
-func UpdateMessage(msg string) {}

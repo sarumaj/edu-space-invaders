@@ -23,5 +23,5 @@ func (state SpaceshipState) AnyOf(states ...SpaceshipState) bool {
 
 // String returns the string representation of the spaceship state.
 func (state SpaceshipState) String() string {
-	return [...]string{"Neutral", "Damaged", "Boosted", "Frozen", "Admiral"}[state]
+	return [...]string{"Neutral", "Damaged", "Boosted", "Frozen"}[state]
 }

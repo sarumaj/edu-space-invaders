@@ -41,7 +41,7 @@ func (lvl *EnemyLevel) Down() {
 		lvl.Defense -= config.Config.Enemy.DefenseProgress
 	}
 
-	lvl.Progress--
+	lvl.Progress -= 1
 }
 
 // Up increases the enemy level.
@@ -59,5 +59,5 @@ func (lvl *EnemyLevel) Up() {
 	lvl.BerserkLikeliness += config.Config.Enemy.BerserkLikelinessProgress
 	lvl.HitPoints += config.Config.Enemy.HitpointProgress
 	lvl.Defense += config.Config.Enemy.DefenseProgress
-	lvl.Progress++
+	lvl.Progress += 1
 }

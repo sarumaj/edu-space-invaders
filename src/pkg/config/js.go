@@ -22,14 +22,24 @@ const (
 )
 
 const (
-	audioIconId      = "audioIcon"
-	audioIconMuted   = "fa-volume-mute"
-	audioIconUnmuted = "fa-volume-up"
-	audioToggleBtnId = "audioToggle"
-	canvasId         = "gameCanvas"
-	goEnv            = "go_env"
-	messageBoxId     = "message"
-	refreshButtonId  = "refreshButton"
+	animatedClickClass      = "animated-click"
+	animatedClickEndClass   = "animated-click-end"
+	audioIconId             = "audioIcon"
+	audioIconMutedClass     = "fa-volume-mute"
+	audioIconUnmutedClass   = "fa-volume-up"
+	audioToggleBtnId        = "audioToggle"
+	canvasId                = "gameCanvas"
+	eventLogChannelButtonID = "eventLogChannelBtn"
+	eventLogChannelID       = "eventLogChannel"
+	goEnv                   = "go_env"
+	infoLogChannelButtonID  = "infoLogChannelBtn"
+	infoLogChannelID        = "infoLogChannel"
+	messageBoxID            = "message"
+	tabActiveClass          = "active"
+	tabClass                = "tab"
+	tabContentClass         = "tab-content"
+	tabFlashClass           = "flashing"
+	refreshButtonId         = "refreshButton"
 )
 
 var (
@@ -42,11 +52,16 @@ var (
 	canvasObjectContext    = canvasObject.Call("getContext", "2d", MakeObject(map[string]any{"willReadFrequently": true}))
 	console                = GlobalGet("console")
 	document               = GlobalGet("document")
+	eventLogChannel        = document.Call("getElementById", eventLogChannelID)
+	eventLogChannelBtn     = document.Call("getElementById", eventLogChannelButtonID)
 	fpsDiv                 = document.Call("getElementById", "fps")
+	infoLogChannel         = document.Call("getElementById", infoLogChannelID)
+	infoLogChannelBtn      = document.Call("getElementById", infoLogChannelButtonID)
 	invisibleCanvas        = document.Call("createElement", "canvas")
 	invisibleCtx           = invisibleCanvas.Call("getContext", "2d")
 	invisibleCanvasScrollY = 0.0
-	messageBox             = document.Call("getElementById", messageBoxId)
+	messageBox             = document.Call("getElementById", messageBoxID)
+	lastLogSentTime        = time.Time{}
 	scoreBoard             []score
 	scoreBoardMutex        = sync.RWMutex{}
 	window                 = GlobalGet("window")
@@ -208,24 +223,24 @@ func setupAudioInterface() {
 	audioIcon := document.Call("getElementById", audioIconId)
 
 	if *Config.Control.AudioEnabled {
-		audioIcon.Get("classList").Call("remove", audioIconMuted)
-		audioIcon.Get("classList").Call("add", audioIconUnmuted)
+		audioIcon.Get("classList").Call("remove", audioIconMutedClass)
+		audioIcon.Get("classList").Call("add", audioIconUnmutedClass)
 	} else {
-		audioIcon.Get("classList").Call("remove", audioIconUnmuted)
-		audioIcon.Get("classList").Call("add", audioIconMuted)
+		audioIcon.Get("classList").Call("remove", audioIconUnmutedClass)
+		audioIcon.Get("classList").Call("add", audioIconMutedClass)
 	}
 
 	audioToggle := func() {
 		*Config.Control.AudioEnabled = !*Config.Control.AudioEnabled
 
 		if *Config.Control.AudioEnabled {
-			audioIcon.Get("classList").Call("remove", audioIconMuted)
-			audioIcon.Get("classList").Call("add", audioIconUnmuted)
+			audioIcon.Get("classList").Call("remove", audioIconMutedClass)
+			audioIcon.Get("classList").Call("add", audioIconUnmutedClass)
 
 			go PlayAudio("theme_heroic.wav", true)
 		} else {
-			audioIcon.Get("classList").Call("remove", audioIconUnmuted)
-			audioIcon.Get("classList").Call("add", audioIconMuted)
+			audioIcon.Get("classList").Call("remove", audioIconUnmutedClass)
+			audioIcon.Get("classList").Call("add", audioIconMutedClass)
 
 			go StopAudioSources(func(string) bool { return true })
 		}
@@ -275,10 +290,43 @@ func setupCanvasInterface() {
 // The message box is scrollable only if the content inside the #message element can scroll.
 // The touch events are prevented from propagating to the body when the message box is touched.
 func setupMessageBoxInterface() {
+	openTab := func(event js.Value, channelId string) {
+		// Hide all tab contents
+		tabContents := document.Call("getElementsByClassName", tabContentClass)
+		for i := 0; i < tabContents.Length(); i++ {
+			tabContents.Index(i).Get("classList").Call("remove", tabActiveClass)
+		}
+
+		// Remove active class from all tabs
+		tabs := document.Call("getElementsByClassName", tabClass)
+		for i := 0; i < tabs.Length(); i++ {
+			tabs.Index(i).Get("classList").Call("remove", tabActiveClass)
+		}
+
+		// Show the current tab content and add active class to the clicked tab
+		tabContent := document.Call("getElementById", channelId)
+		tabContent.Get("classList").Call("add", tabActiveClass)
+		event.Get("currentTarget").Get("classList").Call("add", "active")
+
+		// Scroll to the bottom of the tab content
+		tabContent.Set("scrollTop", tabContent.Get("scrollHeight"))
+	}
+
+	eventLogChannelBtn.Call("addEventListener", "click", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		openTab(p[0], eventLogChannelID)
+		return nil
+	}))
+
+	infoLogChannelBtn.Call("addEventListener", "click", js.FuncOf(func(_ js.Value, p []js.Value) any {
+		openTab(p[0], infoLogChannelID)
+		return nil
+	}))
+
 	if !IsTouchDevice() {
 		return
 	}
 
+	// Apply the touch event listeners to the message box
 	messageBox.Call("addEventListener", "touchstart", js.FuncOf(func(_ js.Value, p []js.Value) any {
 		p[0].Call("stopPropagation") // Stop the touch event from propagating to the body
 		return nil
@@ -301,18 +349,16 @@ func setupRefreshInterface() {
 	refreshButton := document.Call("getElementById", refreshButtonId)
 	GlobalSet("animateRefreshButton", js.FuncOf(func(_ js.Value, _ []js.Value) any {
 		return NewInstance("Promise", js.FuncOf(func(_ js.Value, p []js.Value) any {
-			refreshButton.Get("classList").Call("add", "animated-click")
+			refreshButton.Get("classList").Call("add", animatedClickClass)
 			resolve := p[0]
 
-			transitionEndCallback := js.FuncOf(func(_ js.Value, _ []js.Value) any {
-				refreshButton.Get("classList").Call("remove", "animated-click")
-				refreshButton.Get("classList").Call("add", "animated-click-end")
+			refreshButton.Call("addEventListener", "transitionend", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+				refreshButton.Get("classList").Call("remove", animatedClickClass)
+				refreshButton.Get("classList").Call("add", animatedClickEndClass)
 				resolve.Invoke()
 
 				return nil
-			})
-
-			refreshButton.Call("addEventListener", "transitionend", transitionEndCallback, MakeObject(map[string]any{"once": true}))
+			}), MakeObject(map[string]any{"once": true}))
 			return nil
 		}))
 	}))
@@ -1729,7 +1775,7 @@ func SaveScores() {
 	}
 
 	// Save the score board
-	SendMessage(Config.MessageBox.Messages.WaitForScoreBoardUpdate, false)
+	SendMessage(Execute(Config.MessageBox.Messages.WaitForScoreBoardUpdate), false, false)
 	scoreBoardMutex.Lock()
 
 	GlobalCall("fetch", "scores.db", MakeObject(map[string]any{
@@ -1747,7 +1793,7 @@ func SaveScores() {
 		}
 
 		// Send success message
-		SendMessage(Config.MessageBox.Messages.ScoreBoardUpdated, false)
+		SendMessage(Execute(Config.MessageBox.Messages.ScoreBoardUpdated), false, false)
 		return nil
 	})).Call("catch", js.FuncOf(func(_ js.Value, p []js.Value) any {
 		defer scoreBoardMutex.Unlock()
@@ -1757,19 +1803,46 @@ func SaveScores() {
 	}))
 }
 
-// SendMessage sends a message to the message box.
-func SendMessage(msg string, reset bool) {
+// SendInfoMessage sends a message to the message box.
+func SendMessage(msg string, reset, event bool) {
+	msg = fmt.Sprintf(`<!-- BEGIN -->%s<!-- END -->`, msg)
+	channel := infoLogChannel
+	channelBtn := infoLogChannelBtn
+	if event {
+		channel = eventLogChannel
+		channelBtn = eventLogChannelBtn
+	}
+
 	lines := []string{msg}
 	if !reset {
-		content := messageBox.Get("innerHTML").String()
-		lines = append(strings.Split(content, "<br>"), lines...)
+		content := channel.Get("innerHTML").String()
+		lines = append(strings.Split(content, "<!-- END --><!-- BEGIN -->"), lines...)
 		if len(lines) > Config.MessageBox.BufferSize {
 			lines = lines[len(lines)-Config.MessageBox.BufferSize:]
 		}
 	}
 
-	messageBox.Set("innerHTML", strings.Join(lines, "<br>"))
-	messageBox.Set("scrollTop", messageBox.Get("scrollHeight"))
+	channel.Set("innerHTML", strings.Join(lines, "<!-- END --><!-- BEGIN -->"))
+	channel.Set("scrollTop", channel.Get("scrollHeight"))
+
+	// Flash the channel button if it is not active
+	if !channelBtn.Get("classList").Call("contains", tabActiveClass).Bool() {
+		channelBtn.Get("classList").Call("add", tabFlashClass)
+		channelBtn.Call("addEventListener", "animationend", js.FuncOf(func(this js.Value, _ []js.Value) interface{} {
+			this.Get("classList").Call("remove", tabFlashClass)
+			return nil
+		}), MakeObject(map[string]any{"once": true}))
+	}
+}
+
+// SendMessageThrottled sends a message to the message box with a cooldown.
+func SendMessageThrottled(msg string, reset, event bool, cooldown time.Duration) {
+	if !lastLogSentTime.IsZero() && time.Since(lastLogSentTime) < cooldown {
+		return
+	}
+
+	SendMessage(msg, reset, event)
+	lastLogSentTime = time.Now()
 }
 
 // Setenv is a function that sets the environment variable key to value.
@@ -1902,11 +1975,4 @@ func Unsetenv(key string) {
 // UpdateFPS is a function that updates the frames per second.
 func UpdateFPS(fps float64) {
 	fpsDiv.Set("innerHTML", fmt.Sprintf(fpsDiv.Call("getAttribute", "data-format").String(), fps))
-}
-
-// UpdateMessage is a function that updates the last message in the message box.
-func UpdateMessage(msg string) {
-	lines := strings.Split(messageBox.Get("innerHTML").String(), "<br>")
-	lines[len(lines)-1] = msg
-	messageBox.Set("innerHTML", strings.Join(lines, "<br>"))
 }

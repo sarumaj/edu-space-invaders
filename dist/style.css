@@ -10,52 +10,6 @@ body {
   overscroll-behavior: none; /* Prevent scrolling from affecting parent containers */
 }
 
-canvas {
-  width: 100%;
-  max-width: 800px;
-  aspect-ratio: 800 / 600; /* Maintain a 4:3 aspect ratio */
-  touch-action: none; /* Disable touch events */
-}
-
-#audioToggle,
-#refreshButton {
-  font-size: 24px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: white;
-  touch-action: manipulation; /* Allow touch interactions specifically for these buttons */
-  flex-shrink: 0; /* Prevent the button from shrinking */
-  transition: transform 0.6s; /* Add transition for the click animation */
-}
-
-#audioToggle:focus,
-#refreshButton:focus {
-  outline: none;
-}
-
-.animated-click {
-  transform: rotate(360deg); /* Rotate the button 360 degrees on click */
-}
-
-.animated-click-end {
-  transform: rotate(360deg); /* Keep the button rotated after the click */
-}
-
-#canvasContainer {
-  position: relative; /* Important: This positions the #info div correctly */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-  max-width: 800px;
-  aspect-ratio: 800 / 600;
-  border: 5px solid white;
-  padding: 5px;
-  box-sizing: border-box; /* Include padding and border in the element's total width and height */
-  touch-action: none; /* Disable touch events */
-}
-
 #gameContainer {
   display: flex;
   flex-direction: column;
@@ -67,18 +21,29 @@ canvas {
   box-sizing: border-box; /* Include padding and border in the element's total width and height */
 }
 
-#header {
+#gameContainer #canvasContainer {
+  position: relative; /* Important: This positions the #info div correctly */
   display: flex;
+  justify-content: center;
   align-items: center;
   width: 100%;
   max-width: 800px;
-  justify-content: space-between;
+  aspect-ratio: 800 / 600;
+  border: 5px solid white;
+  padding: 5px;
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+  touch-action: none; /* Disable touch events */
   margin-bottom: 20px;
-  padding-bottom: 10px;
-  border-bottom: 5px solid white;
 }
 
-#info {
+#gameContainer #canvasContainer canvas {
+  width: 100%;
+  max-width: 800px;
+  aspect-ratio: 800 / 600; /* Maintain a 4:3 aspect ratio */
+  touch-action: none; /* Disable touch events */
+}
+
+#gameContainer #canvasContainer #info {
   position: absolute;
   padding: 10px;
   background: rgba(255, 255, 255, 0.2);
@@ -90,23 +55,64 @@ canvas {
   z-index: -1; /* Ensure it is behind other elements */
 }
 
-#message {
-  margin-top: 10px;
-  color: white;
-  font-family: Arial, sans-serif;
-  white-space: pre-wrap; /* Enable word wrapping and preserve whitespace */
+#gameContainer #header {
+  display: flex;
+  align-items: center;
   width: 100%;
   max-width: 800px;
-  height: 100%;
-  flex-shrink: 1; /* Allow the element to shrink if needed */
-  overflow-y: auto; /* Enable vertical scrolling */
-  -webkit-overflow-scrolling: touch; /* Ensure smooth scrolling on iOS */
-  border: 5px solid white;
-  padding: 5px;
-  box-sizing: border-box; /* Ensure padding and border are included in the width and height */
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 5px solid white;
 }
 
-#title {
+#gameContainer #header button {
+  background-color: #fff;
+  border-radius: 2px;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin: 0 5px;
+}
+
+#gameContainer #header svg {
+  width: 24px;
+  height: 24px;
+  vertical-align: middle;
+}
+
+#gameContainer #header a {
+  display: inline-block;
+  width: 100%;
+  height: 100%;
+}
+
+#gameContainer #header .animated-click {
+  transform: rotate(360deg); /* Rotate the button 360 degrees on click */
+}
+
+#gameContainer #header .animated-click-end {
+  transform: rotate(360deg); /* Keep the button rotated after the click */
+}
+
+#gameContainer #header #audioToggle,
+#gameContainer #header #refreshButton {
+  font-size: 24px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: white;
+  touch-action: manipulation; /* Allow touch interactions specifically for these buttons */
+  flex-shrink: 0; /* Prevent the button from shrinking */
+  transition: transform 0.6s; /* Add transition for the click animation */
+}
+
+#gameContainer #header #audioToggle:focus,
+#gameContainer #header #refreshButton:focus {
+  outline: none;
+}
+
+#gameContainer #header #title {
   color: white;
   font-family: "Arial", sans-serif;
   font-size: 24px;
@@ -114,4 +120,131 @@ canvas {
   width: 100%;
   max-width: 800px;
   flex-grow: 1; /* Allow the title to take up all available space */
+}
+
+#gameContainer #messageContainer {
+  width: 100%;
+  height: 100%;
+  max-width: 800px;
+  min-height: 200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#gameContainer #messageContainer #message {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  overflow: hidden;
+  border: 5px solid white;
+  border-top: none;
+  padding: 5px;
+  box-sizing: border-box;
+}
+
+#gameContainer #messageContainer #message p {
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+
+#gameContainer #messageContainer #message .indented {
+  padding-left: 120px;
+}
+
+#gameContainer #messageContainer #message .indented-inline {
+  flex-grow: 1; /* Allow the paragraph to take up the remaining space */
+}
+
+#gameContainer #messageContainer #message .timestamp {
+  width: 120px; /* Fixed width for the timestamp */
+  color: rgb(163, 163, 163);
+  flex-shrink: 0; /* Prevent the timestamp from shrinking */
+}
+
+#gameContainer #messageContainer #message .timestamp-paragraph {
+  display: flex; /* Use flexbox to align the timestamp and paragraph in a row */
+  align-items: flex-start; /* Align the timestamp to the top */
+}
+
+#gameContainer #messageContainer #tabs {
+  display: flex;
+}
+
+#gameContainer #messageContainer .tab {
+  flex: 1;
+  background-color: transparent;
+  color: white;
+  font-family: Arial, sans-serif;
+  padding: 10px;
+  cursor: pointer;
+  text-align: center;
+  border: none;
+  outline: none;
+  transition: background-color 0.3s;
+}
+
+#gameContainer #messageContainer .tab:first-child {
+  border-top-left-radius: 5px;
+}
+
+#gameContainer #messageContainer .tab:last-child {
+  border-top-right-radius: 5px;
+}
+
+#gameContainer #messageContainer .tab.active {
+  border: 5px solid white;
+  border-bottom: none;
+}
+
+#gameContainer #messageContainer .tab:not(.active) {
+  border-bottom: 5px solid white;
+}
+
+#gameContainer #messageContainer .tab:not(.active).flashing {
+  animation: tab-flash 1s ease-in-out; /* The animation will run once */
+}
+
+@keyframes tab-flash {
+  0% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(255, 255, 255, 0.8); /* Flashing color */
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+#gameContainer #messageContainer .tab:not(.active):hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+#gameContainer #messageContainer .tab:not(.active):hover:first-child {
+  border-top-left-radius: 5px;
+}
+
+#gameContainer #messageContainer .tab:not(.active):hover:last-child {
+  border-top-right-radius: 5px;
+}
+
+#gameContainer #messageContainer .tab-content {
+  display: none;
+  flex-grow: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 5px;
+  box-sizing: border-box;
+  color: white;
+  font-family: Arial, sans-serif;
+  white-space: pre-wrap; /* Enable word wrapping and preserve whitespace */
+}
+
+#gameContainer #messageContainer .tab-content.active {
+  display: block;
+  height: 100%;
 }

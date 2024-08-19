@@ -1,18 +1,22 @@
 package config
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 )
 
 func testEnvVariable[E any](t *testing.T, key, value string, want E) {
-	t.Run(fmt.Sprintf("%s_%s", key, value), func(t *testing.T) {
+	t.Run(key+":"+value, func(t *testing.T) {
+		if got := EnvVariable[E](key + ":" + value).Get(); !reflect.DeepEqual(got, want) {
+			t.Errorf("envVariable[%[1]T](%[3]q).Get() failed, got: %[2]v, want: %[1]v", got, want, key+":"+value)
+			return
+		}
+
 		Setenv(key, value)
 		defer Unsetenv(key)
 
-		if got := envVariable[E](key).Get(); !reflect.DeepEqual(got, want) {
-			t.Errorf("envVariable[%[1]T].Get() failed, got: %[2]v, want: %[1]v", got, want)
+		if got := EnvVariable[E](key).Get(); !reflect.DeepEqual(got, want) {
+			t.Errorf("envVariable[%[1]T](%[3]q).Get() failed, got: %[2]v, want: %[1]v", got, want, key)
 		}
 	})
 }
@@ -33,4 +37,8 @@ func TestEnvVariable(t *testing.T) {
 	testEnvVariable(t, "TEST_UINT32", "42", uint32(42))
 	testEnvVariable(t, "TEST_UINT64", "42", uint64(42))
 	testEnvVariable(t, "TEST_STRING", "hello", "hello")
+	testEnvVariable(t, "TEST_MAP", `{"key":"value"}`, map[string]string{"key": "value"})
+	testEnvVariable(t, "TEST_SLICE", `["a","b","c"]`, []string{"a", "b", "c"})
+	testEnvVariable(t, "TEST_ARRAY", `["a","b","c"]`, [3]string{"a", "b", "c"})
+	testEnvVariable(t, "TEST_STRUCT", `{"Key":"value"}`, struct{ Key string }{"value"})
 }

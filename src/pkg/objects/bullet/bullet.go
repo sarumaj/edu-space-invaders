@@ -23,22 +23,22 @@ type Bullet struct {
 func (bullet Bullet) Draw() {
 	switch {
 	case bullet.Damage > 1_000_000:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "Red", 0)
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "DarkRed", 0) // Very high damage, intense color
 
 	case bullet.Damage > 100_000:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "MediumVioletRed", 0)
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "Crimson", 0) // High damage, strong but less intense
 
 	case bullet.Damage > 10_000:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "Goldenrod", 0)
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "DarkOrange", 0) // Moderate damage, warm color
 
 	case bullet.Damage > 1_000:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "Coral", 0)
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "Orange", 0) // Lower damage, vibrant but softer
 
 	case bullet.Damage > 100:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "Aquamarine", 0)
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "LightSeaGreen", 0) // Low damage, cool and calm
 
 	default:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "Bisque", 0)
+		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "Lavender", 0) // Minimal damage, soft and neutral
 
 	}
 }

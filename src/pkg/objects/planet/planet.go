@@ -47,15 +47,19 @@ func (planet *Planet) ApplyGravity(center numeric.Position, mass numeric.Number,
 		return center
 	}
 
+	// The product of the mass and planet's mass by using the area of the planet
+	massProduct := numeric.Pi * planet.Radius.Pow(2) * (mass + planet.additionalMass)
+
 	// The gravitational field strength
-	fieldStrength := numeric.Number(config.Config.Planet.GravityStrength) * numeric.Pi * planet.Radius.Pow(2) * (mass + planet.additionalMass) / distance.Pow(2)
-	switch planet.Type { // Black holes and supernovas have a stronger gravitational force
-	case Supernova: // Push the point away from the supernova to distort the field
-		fieldStrength *= -numeric.Number(config.Config.Planet.AnomalyGravityModifier)
-
-	case BlackHole: // Pull the point towards the black hole to trap the player
-		fieldStrength *= numeric.Number(config.Config.Planet.AnomalyGravityModifier)
-
+	fieldStrength := massProduct / distance.Pow(2)
+	if factor, ok := map[PlanetType]float64{
+		BlackHole: config.Config.Planet.Impact.BlackHole.GravityStrength,
+		Supernova: config.Config.Planet.Impact.Supernova.GravityStrength,
+		Sun:       config.Config.Planet.Impact.Sun.GravityStrength,
+	}[planet.Type]; ok {
+		fieldStrength *= numeric.Number(factor)
+	} else {
+		fieldStrength *= numeric.Number(config.Config.Planet.Impact.DefaultGravityStrength)
 	}
 
 	if reverse {

@@ -12,14 +12,20 @@ type SpaceshipLevel struct {
 	Cannons        int            // Cannons is the number of cannons the spaceship has.
 	Experience     int            // Experience is the experience level of the spaceship.
 	Progress       int            // Progress is the progress level of the spaceship.
+	Shield         *Shield        // Shield is the shield of the spaceship.
 }
 
 // Down decreases the spaceship level.
+// It uses the shield if it is available.
 // If the spaceship level is already at the minimum level, it does nothing.
 // If the number of cannons is greater than 1, it decreases the number of cannons by 1.
 // It decreases the accelerate rate by the acceleration value: x = -0.5 + sqrt(0.25 + x').
-// It returns true if the spaceship level has decreased.
+// It returns true if the spaceship level has decreased or if the shield has been used.
 func (lvl *SpaceshipLevel) Down() bool {
+	if lvl.Shield.Use() {
+		return true
+	}
+
 	if config.Config.Control.GodMode.Get() {
 		return false
 	}
@@ -37,7 +43,8 @@ func (lvl *SpaceshipLevel) Down() bool {
 		lvl.Cannons -= 1
 	}
 
-	lvl.Progress--
+	lvl.Progress -= 1
+	lvl.Shield.Reduce()
 	return true
 }
 
@@ -48,21 +55,12 @@ func (lvl *SpaceshipLevel) Down() bool {
 // It returns true if the spaceship level has increased.
 func (lvl *SpaceshipLevel) GainExperience(e enemy.Enemy) bool {
 	// Calculate the base experience using the penalty values
-	var base numeric.Number
-	switch e.Type {
-	case enemy.Freezer:
-		base = numeric.Number(config.Config.Spaceship.FreezerPenalty)
-
-	case enemy.Normal:
-		base = numeric.Number(config.Config.Spaceship.DefaultPenalty)
-
-	case enemy.Berserker:
-		base = numeric.Number(config.Config.Spaceship.BerserkPenalty)
-
-	case enemy.Annihilator:
-		base = numeric.Number(config.Config.Spaceship.AnnihilatorPenalty)
-
-	}
+	base := map[enemy.EnemyType]numeric.Number{
+		enemy.Freezer:     numeric.Number(config.Config.Enemy.Freezer.Penalty),
+		enemy.Normal:      numeric.Number(config.Config.Enemy.DefaultPenalty),
+		enemy.Berserker:   numeric.Number(config.Config.Enemy.Berserker.Penalty),
+		enemy.Annihilator: numeric.Number(config.Config.Enemy.Annihilator.Penalty),
+	}[e.Type]
 
 	// Calculate the experience gain
 	gain := (base * numeric.Number(e.Level.Progress)).Int()
@@ -106,5 +104,6 @@ func (lvl *SpaceshipLevel) Up() {
 		lvl.AccelerateRate = numeric.Number(config.Config.Spaceship.MaximumSpeed * config.Config.Spaceship.Acceleration)
 	}
 
-	lvl.Progress++
+	lvl.Progress += 1
+	lvl.Shield.Reinforce()
 }

@@ -135,9 +135,9 @@ type touchType int
 
 // String returns the string representation of the touch type.
 func (t touchType) String() string {
-	if t > 2 {
+	if t > TouchTypeEnd {
 		return "Unknown"
 	}
 
-	return [...]string{"Start", "Move", "End"}[t]
+	return [...]string{"Unknown", "Start", "Move", "End"}[t]
 }

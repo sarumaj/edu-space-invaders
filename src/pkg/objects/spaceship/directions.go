@@ -93,10 +93,20 @@ func (d *Directions) SetFromDelta(delta numeric.Position) {
 }
 
 // SetHorizontal sets the horizontal direction.
-func (d *Directions) SetHorizontal(dir Direction) { d.Horizontal = dir }
+func (d *Directions) SetHorizontal(dir Direction) {
+	switch dir {
+	case Left, Right:
+		d.Horizontal = dir
+	}
+}
 
 // SetVertical sets the vertical direction.
-func (d *Directions) SetVertical(dir Direction) { d.Vertical = dir }
+func (d *Directions) SetVertical(dir Direction) {
+	switch dir {
+	case Up, Down:
+		d.Vertical = dir
+	}
+}
 
 // String returns the string representation of the directions.
 func (d Directions) String() string {

@@ -11,7 +11,7 @@
 this is an example project to showcase the game development using the Web Assembly Framework in Go.
 Web Assembly allows us to develop web-frontend applications in a runtime like Go.
 
-<a href="https://youtu.be/t-5W3WgnDkI">
+<a href="https://youtu.be/mcXqwQV50fg">
   <p align="center">
     <img src="assets/screenshot.png" alt="Gameover">
   </p>
@@ -147,3 +147,39 @@ The game engine uses the **Hyperplane separation theorem** to detect object coll
 
 - [WebAssembly](https://go.dev/wiki/WebAssembly)
 - [Hyperplane Separation Theorem](https://en.wikipedia.org/wiki/Hyperplane_separation_theorem)
+
+## Questionary
+
+Analyze this project and answer following questions:
+
+1. Game engine
+   1. Actors
+      - What actors and objects do occur in the game?
+      - What are the relations among them?
+      - Illustrate with an UML diagram.
+   2. Rules and axioms
+      - How does the collision detection work?
+      - What rules make the objects move? (Enemies, Planets, Stars)
+      - What transitions apply to the objects? (Spaceship, Enemies)
+      - What role do probabilities play?
+   3. User interface
+      - What kind of user input is being processed?
+      - How does the event handling work?
+      - How is the UI designed? (HTML, CSS, JS, WASM)
+   4. Tests
+      - What is being tested and how?
+      - What could be tested?
+      - What is a subject to manual testing?
+   5. Build
+      - How does the build process of the WebAssembly module work?
+2. Web API
+   1. Design
+      - What is the bridge between the WASM frontend and the API backend and how does it work?
+      - Which endpoints does the Web API expose?
+      - What kind of web technology stack is being used?
+      - How is the Postgres Database being used?
+   2. Security
+      - How does the authentication work?
+      - How is cryptography being used?
+      - How is the API protected against common attack patterns (DDoS, XSS, etc.)?
+      - What are vulnerabilities of the API?

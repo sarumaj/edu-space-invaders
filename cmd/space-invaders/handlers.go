@@ -10,10 +10,18 @@ import (
 
 	gin "github.com/gin-gonic/gin"
 	dist "github.com/sarumaj/edu-space-invaders/dist"
+	config "github.com/sarumaj/edu-space-invaders/src/pkg/config"
 	zap "go.uber.org/zap"
 	zapcore "go.uber.org/zap/zapcore"
 	gorm "gorm.io/gorm"
 )
+
+// GetConfig returns the configuration as a response.
+func GetConfig() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		ctx.TOML(http.StatusOK, config.Config)
+	}
+}
 
 // GetScores returns the scores as a response.
 // It returns the scores in descending order of the score.

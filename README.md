@@ -143,6 +143,13 @@ To be able to compile the code for other targets and to run tests against it, bu
 
 The game engine uses the **Hyperplane separation theorem** to detect object collisions.
 
+The game server exposes access to the configuration of the game engine:
+
+- [/.env](https://space-invaders.sarumaj.com/.env)
+- [/config.ini](https://space-invaders.sarumaj.com/config.ini)
+
+You may be interested to take a look at it.
+
 ## Furter reading
 
 - [WebAssembly](https://go.dev/wiki/WebAssembly)

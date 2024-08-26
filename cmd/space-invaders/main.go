@@ -81,14 +81,14 @@ func main() {
 	}
 
 	// Connect to the database.
-	scoreBoardDatabase, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	database, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		logger.Fatal("Failed to connect to database", zapcore.Field{Key: "error", Interface: err, Type: zapcore.ErrorType})
 	}
 
 	// Migrate the database.
-	if !scoreBoardDatabase.DryRun {
-		_ = scoreBoardDatabase.AutoMigrate(&Metric{}, &Score{})
+	if !database.DryRun {
+		_ = database.AutoMigrate(&Metric{}, &Score{})
 	}
 
 	// Define the skipper function.
@@ -151,18 +151,19 @@ func main() {
 	router.Use(
 		SessionMiddleware(key, cryptKey, "session", time.Hour),
 		gzip.Gzip(gzip.BestCompression),
-		MetricsMiddleware(scoreBoardDatabase, skipper),
+		MetricsMiddleware(database, skipper),
 		HttpsRedirectMiddleware(*forceSecure),
 		CacheControlMiddleware(),
 		LimitMiddleware(*limitRPS, *limitBurst, nil),
 	)
 
 	router.POST("/.env", jwtAuthenticator, HandleEnv())
-	router.PUT("/scores.db", jwtAuthenticator, SaveScores(scoreBoardDatabase))
+	router.PUT("/scores.db", jwtAuthenticator, SaveScores(database))
 	router.Match([]string{http.MethodHead, http.MethodGet}, "/*filepath", BeHeadMiddleware(), ServeFileSystem(map[*regexp.Regexp]gin.HandlersChain{
-		regexp.MustCompile(`^/?health/?$`):     {HandleHealth(scoreBoardDatabase)},
-		regexp.MustCompile(`^/?\.env/?$`):      {jwtAuthenticator, HandleEnv()},
-		regexp.MustCompile(`^/?scores\.db/?$`): {GetScores(scoreBoardDatabase)},
+		regexp.MustCompile(`^/?health/?$`):      {HandleHealth(database)},
+		regexp.MustCompile(`^/?config\.ini/?$`): {jwtAuthenticator, GetConfig()},
+		regexp.MustCompile(`^/?\.env/?$`):       {jwtAuthenticator, HandleEnv()},
+		regexp.MustCompile(`^/?scores\.db/?$`):  {GetScores(database)},
 	}))
 
 	if err := router.Run(fmt.Sprintf(":%d", *port)); err != nil {

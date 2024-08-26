@@ -36,14 +36,25 @@ type handler struct {
 // If the planet is a black hole, it pulls the enemies away, if the spaceship is not within the range of the planet.
 func (h *handler) applyGravityOnEnemies() {
 	// Apply gravity to the enemies, each enemy trapped in the planet's gravity is increasing the planet's mass.
+	// If the planet is a black hole, it repels the enemies away, if the spaceship is not within the range of the planet,
+	// to mimic some kind of a intelligent behavior (as if the enemies were trying to avoid the black hole).
+
+	// If the planet is a black hole.
+	repel := h.planet.Type == planet.BlackHole
+	spaceshipPosition := h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector())
+
 	for i, e := range h.enemies {
+		// And if the spaceship is not within the range of the planet or the enemy is a goodie:
+		repel = repel && (!h.planet.WithinRange(spaceshipPosition) || e.Type == enemy.Goodie)
+		enemyPosition := e.Position.Add(e.Size.Half().ToVector())
+		// And if the enemy is not within the range of the planet:
+		repel = repel && !h.planet.WithinRange(enemyPosition)
+
 		h.enemies[i].Position = h.planet.ApplyGravity(
 			e.Position.Add(e.Size.Half().ToVector()),
 			e.Size.Area(),
-			true, // Increase the planet's mass
-			h.planet.Type == planet.BlackHole && // Reverse gravity field, if the planet is a black hole,
-				!h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector())) && // the spaceship is not within the range of the planet,
-				!h.planet.WithinRange(e.Position.Add(e.Size.Half().ToVector())), // and the enemy is not within the range of the planet.
+			true,  // Increase the planet's mass
+			repel, // Repel the enemies away or not
 		).Sub(e.Size.Half().ToVector())
 	}
 }

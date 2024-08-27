@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	gin "github.com/gin-gonic/gin"
 	jwt "github.com/golang-jwt/jwt/v5"
 	dist "github.com/sarumaj/edu-space-invaders/dist"
@@ -27,6 +28,39 @@ func (*nopWriter) Write([]byte) (n int, err error) { return }
 
 // WriteString writes nothing.
 func (*nopWriter) WriteString(string) (n int, err error) { return }
+
+// ApplySecurityHeadersMiddleware applies security headers to the response.
+func ApplySecurityHeadersMiddleware(enabled bool) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		if !enabled {
+			ctx.Next()
+			return
+		}
+
+		ctx.Header("X-Content-Type-Options", "nosniff") // Prevent MIME sniffing
+		ctx.Header("X-Frame-Options", "DENY")           // Prevent click-jacking
+		ctx.Header("X-XSS-Protection", "1; mode=block") // Prevent reflected XSS attacks
+		ctx.Header("Referrer-Policy", "no-referrer")    // Prevent leaking of the referrer
+		ctx.Header("Content-Security-Policy", strings.Join([]string{
+			"default-src 'self'",              // Allow default source from self
+			"script-src 'self' 'unsafe-eval'", // Allow scripts from self and unsafe eval
+			"object-src 'self'",               // Allow objects from self
+			"base-uri 'self'",                 // Allow base URI from self
+			"frame-ancestors 'none'",          // Prevent embedding of the page in a frame
+			"upgrade-insecure-requests;",      // Upgrade insecure requests
+		}, "; "))
+		ctx.Header("Strict-Transport-Security", strings.Join([]string{
+			"max-age=31536000",  // 1 year of caching
+			"includeSubDomains", // Include subdomains
+			"preload",           // Add to the HTTP Strict Transport Security preload list
+		}, "; "))
+		ctx.Header("Cross-Origin-Opener-Policy", "same-origin")    // Prevent opening of cross-origin windows
+		ctx.Header("Cross-Origin-Embedder-Policy", "require-corp") // Prevent embedding of cross-origin resources
+		ctx.Header("Cross-Origin-Resource-Policy", "same-site")    // Prevent loading of cross-origin resources
+
+		ctx.Next()
+	}
+}
 
 // AuthenticatorMiddleware is a middleware that authenticates the request using JWT.
 // It uses the public key to verify the JWT token.
@@ -143,6 +177,25 @@ func CacheControlMiddleware() gin.HandlerFunc {
 		logger.Debug("ETag not matched", fields...)
 		ctx.Next()
 	}
+}
+
+// CrossOriginResourceSharing is a middleware that handles Cross Origin Resource Sharing (CORS).
+func CrossOriginResourceSharingMiddleware(enabled bool) gin.HandlerFunc {
+	if !enabled {
+		return func(ctx *gin.Context) { ctx.Next() }
+	}
+
+	cfg := cors.DefaultConfig()
+	cfg.AllowHeaders = append(cfg.AllowHeaders, "Authorization")
+	cfg.AllowCredentials = true
+	cfg.AllowOriginWithContextFunc = func(ctx *gin.Context, origin string) bool {
+		return fmt.Sprintf("%s://%s",
+			selectValue(ctx.GetHeader("X-Forwarded-Proto"), ctx.Request.URL.Scheme),
+			selectValue(ctx.GetHeader("X-Forwarded-Host"), ctx.Request.URL.Hostname()),
+		) == origin
+	}
+
+	return cors.New(cfg)
 }
 
 // HttpsRedirectMiddleware redirects HTTP requests to HTTPS

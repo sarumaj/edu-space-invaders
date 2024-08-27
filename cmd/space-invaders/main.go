@@ -149,6 +149,8 @@ func main() {
 
 	// Register the routes.
 	router.Use(
+		ApplySecurityHeadersMiddleware(*forceSecure),
+		CrossOriginResourceSharingMiddleware(*forceSecure),
 		SessionMiddleware(key, cryptKey, "session", time.Hour),
 		gzip.Gzip(gzip.BestCompression),
 		MetricsMiddleware(database, skipper),

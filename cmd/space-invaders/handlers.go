@@ -16,7 +16,6 @@ import (
 	gorm "gorm.io/gorm"
 )
 
-
 // GetConfig returns the configuration as a response.
 func GetConfig() gin.HandlerFunc {
 	return func(ctx *gin.Context) {

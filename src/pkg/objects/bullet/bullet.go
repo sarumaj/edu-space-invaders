@@ -12,35 +12,38 @@ import (
 type Bullet struct {
 	Position  numeric.Position // Position of the bullet
 	Size      numeric.Size     // Size of the bullet
-	Speed     float64          // Speed and damage of the bullet
+	Speed     numeric.Number   // Speed and damage of the bullet
 	Damage    int              // Damage is the amount of health points the bullet takes from the enemy
-	skew      float64          // Skew of the bullet
+	skew      numeric.Number   // Skew of the bullet
 	Exhausted bool             // Exhausted is true if the bullet is out of the screen or has hit an enemy
 }
 
 // Draw draws the bullet.
 // The bullet is drawn as a yellow rectangle.
 func (bullet Bullet) Draw() {
+	var color string
 	switch {
-	case bullet.Damage > 1_000_000:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "DarkRed", 0) // Very high damage, intense color
-
-	case bullet.Damage > 100_000:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "Crimson", 0) // High damage, strong but less intense
-
-	case bullet.Damage > 10_000:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "DarkOrange", 0) // Moderate damage, warm color
-
+	case bullet.Damage > 25_000:
+		color = "DarkRed" // Very high damage, intense color
+	case bullet.Damage > 12_000:
+		color = "Crimson" // High damage, strong but less intense
+	case bullet.Damage > 5_000:
+		color = "DarkOrange" // Moderate damage, warm color
 	case bullet.Damage > 1_000:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "Orange", 0) // Lower damage, vibrant but softer
-
+		color = "Orange" // Lower damage, vibrant but softer
 	case bullet.Damage > 100:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "LightSeaGreen", 0) // Low damage, cool and calm
-
+		color = "Gold" // Low damage, bright and shiny
 	default:
-		config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), "Lavender", 0) // Minimal damage, soft and neutral
-
+		color = "Lavender" // Minimal damage, soft and neutral
 	}
+
+	//config.DrawRect(bullet.Position.Pack(), bullet.Size.Pack(), color, 0)
+	config.DrawLine(
+		bullet.Position.Pack(), // Start position
+		bullet.Position.Add(numeric.Locate(-bullet.skew*bullet.Size.Height, bullet.Size.Height)).Pack(), // End position
+		color,                     // Color
+		bullet.Size.Width.Float(), // Width
+	)
 }
 
 // Exhaust sets the bullet as exhausted.
@@ -48,50 +51,47 @@ func (b *Bullet) Exhaust() {
 	b.Exhausted = true
 }
 
-// HasHitV1 returns true if the bullet has hit the enemy.
-// This version is less precise than HasHitV2.
-// It uses a simple bounding box collision check.
-func (b Bullet) HasHitV1(e enemy.Enemy) bool {
-	return b.Position.Less(e.Position.Add(e.Size.ToVector())) &&
-		b.Position.Add(e.Size.ToVector()).Greater(e.Position)
-}
-
-// HasHitV2 returns true if the bullet has hit the enemy.
-// This version is more precise than HasHit.
-// It uses the Separating Axis Theorem to check for collision.
-// The Separating Axis Theorem states that if two convex shapes do not overlap on any axis, then they do not intersect.
-// The axes to test are the normals to the edges of the triangle and the rectangle.
-// If there is a separating axis, there is no collision.
-// It assumes that the bullet is a rectangle and the enemy is a triangle.
-func (b Bullet) HasHitV2(e enemy.Enemy) bool {
-	return !numeric.
-		GetRectangularVertices(b.Position, b.Size, false).
-		Vertices().
-		HasSeparatingAxis(numeric.GetSpaceshipVerticesV1(e.Position, e.Size, false).Vertices())
-}
-
-// HasHitV3 returns true if the bullet has hit the enemy.
-// This version is more precise than HasHitV2.
+// HasHit returns true if the bullet has hit the enemy.
 // It uses the Separating Axis Theorem to check for collision.
 // The Separating Axis Theorem states that if two convex shapes do not overlap on any axis, then they do not intersect.
 // The axes to test are the normals to the edges of the spaceship polygon and the bullet rectangle.
 // If there is a separating axis, there is no collision.
 // It assumes that the bullet is a rectangle and the enemy is a spaceship polygon.
-func (b Bullet) HasHitV3(e enemy.Enemy) bool {
-	return !numeric.
-		GetRectangularVertices(b.Position, b.Size, false).
-		Vertices().
-		HasSeparatingAxis(numeric.GetSpaceshipVerticesV2(e.Position, e.Size, false).Vertices())
+func (b Bullet) HasHit(e enemy.Enemy) bool {
+	if e.Type == enemy.Goodie {
+		return false
+	}
+
+	switch config.Config.Control.CollisionDetectionVersion.Get() {
+	case 1:
+		return !numeric.GetRectangularVertices(b.Position, b.Size, false).
+			Vertices().
+			HasSeparatingAxis(numeric.GetRectangularVertices(e.Position, e.Size, true).
+				Vertices())
+
+	case 2:
+		return !numeric.GetRectangularVertices(b.Position, b.Size, false).
+			Vertices().
+			HasSeparatingAxis(numeric.GetSpaceshipVerticesV1(e.Position, e.Size, e.Type == enemy.Goodie).
+				Vertices())
+
+	case 3:
+		return !numeric.
+			GetRectangularVertices(b.Position, b.Size, false).
+			Vertices().
+			HasSeparatingAxis(numeric.GetSpaceshipVerticesV2(e.Position, e.Size, e.Type == enemy.Goodie).
+				Vertices())
+
+	}
+
+	return false
 }
 
 // Move moves the bullet.
 // The bullet moves upwards and slightly to the left or right.
 // The skew of the bullet is based on the position of the cannon.
 func (b *Bullet) Move() {
-	b.Position = b.Position.Add(numeric.Position{
-		Y: -numeric.Number(b.Speed),
-		X: numeric.Number(b.skew * b.Speed),
-	})
+	b.Position = b.Position.Add(numeric.Locate(b.skew*b.Speed, -b.Speed))
 }
 
 // String returns the string representation of the bullet.
@@ -100,11 +100,11 @@ func (bullet Bullet) String() string {
 }
 
 // Craft creates a new bullet at the specified position.
-func Craft(position numeric.Position, damage int, ratio, speedBoost float64) *Bullet {
+func Craft(position numeric.Position, damage int, ratio, speedBoost numeric.Number) *Bullet {
 	bullet := Bullet{
 		Position: position,
 		Size:     numeric.Locate(config.Config.Bullet.Width, config.Config.Bullet.Height).ToBox(),
-		Speed:    config.Config.Bullet.Speed + speedBoost,
+		Speed:    numeric.Number(config.Config.Bullet.Speed) + speedBoost,
 		Damage:   damage,
 		skew:     ratio - 0.5,
 	}

@@ -7,7 +7,7 @@ type Bullets []Bullet
 
 // Reload creates a new bullet at the specified position.
 // The bullet has the specified damage and skew ratio.
-func (bullets *Bullets) Reload(position numeric.Position, damage int, ratio, speedBoost float64) {
+func (bullets *Bullets) Reload(position numeric.Position, damage int, ratio, speedBoost numeric.Number) {
 	*bullets = append(*bullets, *Craft(position, damage, ratio, speedBoost))
 }
 

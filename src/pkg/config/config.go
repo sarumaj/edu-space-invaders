@@ -59,6 +59,7 @@ type config struct {
 		DrawSpaceshipExperienceBar        EnvVariable[bool]
 		DrawSpaceshipShield               EnvVariable[bool]
 		GodMode                           EnvVariable[bool]
+		RepelEnemiesOnBoost               EnvVariable[bool]
 		SuspensionFrames                  int
 	}
 
@@ -104,8 +105,8 @@ type config struct {
 	}
 
 	MessageBox struct {
-		BufferSize    int
-		LogThrottling time.Duration
+		ChannelBufferSize    int
+		ChannelLogThrottling time.Duration
 
 		Messages struct {
 			AllPlanetsDiscovered         TemplateString

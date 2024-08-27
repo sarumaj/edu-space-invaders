@@ -40,6 +40,24 @@ func testHasSeparatingAxis[F1, F2 interface {
 	}
 }
 
+func testMinimumTranslationVector[F1, F2 interface {
+	Triangle | Rectangle | SpaceshipPolygon
+}](t *testing.T, verticesA F1, verticesB F2, sort bool, want Position) {
+	t.Helper()
+
+	if sort {
+		verticesA = F1(reflect.ValueOf(&verticesA).Elem().MethodByName("Vertices").Call(nil)[0].Interface().(Vertices).Sort(true))
+		verticesB = F2(reflect.ValueOf(&verticesB).Elem().MethodByName("Vertices").Call(nil)[0].Interface().(Vertices).Sort(true))
+	}
+
+	vertices := reflect.ValueOf(&verticesA).Elem().MethodByName("Vertices").Call(nil)[0].Interface().(Vertices)
+	other := reflect.ValueOf(&verticesB).Elem().MethodByName("Vertices").Call(nil)[0].Interface().(Vertices)
+
+	if got := vertices.MinimumTranslationVector(other); got != want {
+		t.Errorf("MinimumTranslationVector(%v, %v) = %s, want %s", verticesA, verticesB, got, want)
+	}
+}
+
 func TestArea(t *testing.T) {
 	type args struct {
 		vertices Vertices
@@ -97,4 +115,12 @@ func TestHasSeparatingAxis(t *testing.T) {
 	testHasSeparatingAxis(t, makeTestRect(p{X: 0, Y: 0}, s{Width: 1, Height: 1}), makeTestRect(p{X: 1.1, Y: 1.1}, s{Width: 1, Height: 1}), false, true)
 	testHasSeparatingAxis(t, makeTestRect(p{X: 0, Y: 0}, s{Width: 1, Height: 1}), makeTestTriangle(p{X: 1, Y: 1}, s{Width: 1, Height: 1}), false, false)
 	testHasSeparatingAxis(t, makeTestTriangle(p{X: 0, Y: 0}, s{Width: 1, Height: 1}), makeTestTriangle(p{X: 1.1, Y: 1}, s{Width: 1, Height: 1}), false, true)
+}
+
+func TestMinimumTranslationVector(t *testing.T) {
+	type p = Position
+	type s = Size
+
+	testMinimumTranslationVector(t, makeTestRect(p{X: 0, Y: 0}, s{Width: 1, Height: 1}), makeTestRect(p{X: 0, Y: 0}, s{Width: 1, Height: 1}), false, p{X: 0, Y: -1})
+	testMinimumTranslationVector(t, makeTestRect(p{X: 0, Y: 0}, s{Width: 1, Height: 1}), makeTestRect(p{X: 1, Y: 1}, s{Width: 1, Height: 1}), false, p{})
 }

@@ -75,15 +75,17 @@ To setup similar project follow following steps:
       - [game config file config.ini](src/pkg/config/config.ini)
       - [unit tests for envvariable.go](src/pkg/config/envvariable_test.go)
       - [code file envvariable.go](src/pkg/config/envvariable.go)
-      - [code file js.go](src/pkg/config/js.go)
-      - [code file os.go](src/pkg/config/os.go)
+      - [code file js_draw.go](src/pkg/config/js_draw.go)
+      - [code file js_internal.go](src/pkg/config/js_internal.go)
+      - [code file js_placebo.go](src/pkg/config/js_placebo.go)
+      - [code file js_util.go](src/pkg/config/js_util.go)
       - [unit tests for template.go](src/pkg/config/template_test.go)
       - [code file template.go](src/pkg/config/template.go)
     - [package handler](src/pkg/handler)
       - [code file contextaccess.go](src/pkg/handler/contextaccess.go)
       - [code file handler.go](src/pkg/handler/handler.go)
-      - [code file handlerjs.go](src/pkg/handler/handlerjs.go)
-      - [code file handleros.go](src/pkg/handler/handleros.go)
+      - [code file handler_js.go](src/pkg/handler/handler_js.go)
+      - [code file handler_os.go](src/pkg/handler/handler_os.go)
       - [code file keyevent.go](src/pkg/handler/keyevent.go)
       - [code file mouseevent.go](src/pkg/handler/mouseevent.go)
       - [code file touchevent.go](src/pkg/handler/touchevent.go)
@@ -91,6 +93,7 @@ To setup similar project follow following steps:
       - [code file arithmetic.go](src/pkg/numeric/arithmetic.go)
       - [unit tests for figure.go](src/pkg/numeric/figure_test.go)
       - [code file figure.go](src/pkg/numeric/figure.go)
+      - [unit test file number_test.go](src/pkg/numeric/numer_test.go)
       - [code file number.go](src/pkg/numeric/number.go)
       - [unit tests for position.go](src/pkg/numeric/position_test.go)
       - [code file position.go](src/pkg/numeric/position.go)
@@ -137,9 +140,9 @@ The script [build.sh](src/build.sh) is meant to compile the web assembly package
 To authenticate the WASM application towards the game server, the [jwt.sh](src/jwt.sh) can be used. The application will then be able to call protected endpoints of the game servers, like `POST /scores` which is used to publish a highscore record. The JWT based authentication scheme is meant to prevent the manipulation of the scoreboard from outside.
 
 The [game server](cmd/space-invaders/main.go) serves the files from the distribution package using the web assembly. The files can be served in any other runtime than Go.
-Some code components are meant to be compiled only for the JS WASM architecture (e.g. [js.go](src/pkg/config/js.go) and [handlerjs.go](src/pkg/handler/handlerjs.go)).
+Some code components are meant to be compiled only for the JS WASM architecture (e.g. [js_util.go](src/pkg/config/js_util.go) and [handler_js.go](src/pkg/handler/handler_js.go)).
 
-To be able to compile the code for other targets and to run tests against it, build tags has been leveraged and some mock-ups haven been defined (e.g. [os.go](src/pkg/config/os.go) and [handleros.go](src/pkg/handler/handleros.go)). The heart of the web application is the JavaScript script building the bridge between the WASM package: [wasm.js](src/static/wasm.js) and our static web page: [index.html](src/static/index.html).
+To be able to compile the code for other targets and to run tests against it, build tags has been leveraged and some mock-ups haven been defined (e.g. [js_placebo.go](src/pkg/config/js_placebo.go) and [handler_os.go](src/pkg/handler/handler_os.go)). The heart of the web application is the JavaScript script building the bridge between the WASM package: [wasm.js](src/static/wasm.js) and our static web page: [index.html](src/static/index.html).
 
 The game engine uses the **Hyperplane separation theorem** to detect object collisions.
 

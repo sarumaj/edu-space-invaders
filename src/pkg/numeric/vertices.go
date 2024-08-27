@@ -1,6 +1,9 @@
 package numeric
 
-import "slices"
+import (
+	"math"
+	"slices"
+)
 
 type Vertices []Position
 
@@ -8,11 +11,17 @@ type Vertices []Position
 // The axes are the normals to the edges of the polygon.
 // The normals are the perpendicular vectors to the edges.
 // It assumes that the vertices are sorted in clockwise or counter-clockwise order.
-func (vertices Vertices) Axes() []Position {
-	axes := make([]Position, 0, len(vertices))
+// If other is supplied, the axes are the normals to the edges of the two polygons.
+func (vertices Vertices) Axes(other Vertices) []Position {
+	axes := make([]Position, 0, len(vertices)+len(other))
 
-	for i := 0; i < len(vertices); i++ {
-		edge := vertices[i].Sub(vertices[(i+1)%len(vertices)])
+	for i := 0; i < len(vertices)+len(other); i++ {
+		var edge Position
+		if i < len(vertices) {
+			edge = vertices[i].Sub(vertices[(i+1)%len(vertices)])
+		} else {
+			edge = other[i-len(vertices)].Sub(other[(i-len(vertices)+1)%len(other)])
+		}
 		axes = append(axes, edge.Perpendicular())
 	}
 
@@ -90,15 +99,10 @@ func (vertices Vertices) HasSeparatingAxis(other Vertices) bool {
 		return false
 	}
 
-	// Calculate the normals to the edges of the two objects
-	axes := make([]Position, 0, len(vertices)+len(other))
-
-	// Add the normals to the edges of the first object
-	axes = append(axes, vertices.Axes()...)
-	axes = append(axes, other.Axes()...)
-
 	// Check for overlap on all axes
-	for _, axis := range axes {
+	for _, axis := range vertices.Axes(other) {
+		axis = axis.Normalize() // Ensure the axis is normalized
+
 		minA, maxA := axis.Project(vertices)
 		minB, maxB := axis.Project(other)
 
@@ -110,4 +114,36 @@ func (vertices Vertices) HasSeparatingAxis(other Vertices) bool {
 
 	// No separating axis found, there is a collision
 	return false
+}
+
+// MaximumTranslationVector calculates the minimum translation vector to separate two objects.
+// It uses the Separating Axis Theorem to check for collision.
+// It assumes that the two objects are convex.
+func (vertices Vertices) MinimumTranslationVector(other Vertices) (mtv Position) {
+	minOverlap := Number(math.MaxFloat64)
+
+	// Check for overlap on all axes
+	for _, axis := range vertices.Axes(other) {
+		axis = axis.Normalize() // Ensure the axis is normalized
+
+		minA, maxA := axis.Project(vertices)
+		minB, maxB := axis.Project(other)
+
+		if minA > maxB || minB > maxA {
+			// There is a separating axis, no collision
+			return
+		}
+
+		// Calculate the overlap
+		if overlap := maxA.Min(maxB) - minA.Max(minB); overlap < minOverlap {
+			minOverlap = overlap
+
+			mtv = axis.Mul(overlap)
+			if minA < minB { // Change the direction of the MTV in the opposite direction of the axis
+				mtv = mtv.Mul(-1)
+			}
+		}
+	}
+
+	return mtv
 }

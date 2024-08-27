@@ -1,4 +1,4 @@
-// Code generated on 2024-08-26T13:24:24.422Z+00:00, DO NOT EDIT.
+// Code generated on 2024-08-27T23:17:57.940Z+00:00, DO NOT EDIT.
 package dist
 
 import (
@@ -61,7 +61,10 @@ var hashMap = func() map[string]string {
 	return hashes
 }()
 
-var HttpFS http.FileSystem = httpFS{http.FS(embeddedFsys)}
+var HttpFS interface {
+	http.FileSystem
+	FS() fs.FS
+} = &httpFS{fsys: embeddedFsys}
 
 type httpFile struct {
 	name   string
@@ -87,11 +90,13 @@ func (httpFileInfo) ModTime() time.Time { return time.Time{} }
 func (httpFileInfo) IsDir() bool        { return false }
 func (httpFileInfo) Sys() any           { return nil }
 
-type httpFS struct{ fsys http.FileSystem }
+type httpFS struct{ fsys fs.FS }
 
-func (h httpFS) Open(name string) (http.File, error) {
-	if !strings.HasSuffix(name, ".sha256") {
-		return h.fsys.Open(name)
+func (h *httpFS) FS() fs.FS { return h.fsys }
+
+func (h *httpFS) Open(name string) (http.File, error) {
+	if !strings.HasSuffix(strings.TrimSuffix(name, "/"), ".sha256") {
+		return http.FS(h.fsys).Open(name)
 	}
 
 	if hash, ok := hashMap[strings.TrimSuffix(filepath.Base(name), ".sha256")]; ok {
@@ -105,7 +110,7 @@ func (h httpFS) Open(name string) (http.File, error) {
 	return nil, fs.ErrNotExist
 }
 
-func BuildTime() string { return "2024-08-26T13:24:24.422Z+00:00" }
+func BuildTime() string { return "2024-08-27T23:17:57.940Z+00:00" }
 
 func LookupHash(name string) (string, bool) {
 	hash, ok := hashMap[name]

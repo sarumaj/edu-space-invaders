@@ -2,7 +2,9 @@ package main
 
 import (
 	"crypto/cipher"
+	"crypto/rand"
 	"crypto/rsa"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-contrib/cors"
+	cors "github.com/gin-contrib/cors"
 	gin "github.com/gin-gonic/gin"
 	jwt "github.com/golang-jwt/jwt/v5"
 	dist "github.com/sarumaj/edu-space-invaders/dist"
@@ -31,23 +33,45 @@ func (*nopWriter) WriteString(string) (n int, err error) { return }
 
 // ApplySecurityHeadersMiddleware applies security headers to the response.
 func ApplySecurityHeadersMiddleware(enabled bool) gin.HandlerFunc {
+	generateNonce := func() (string, error) {
+		nonceBytes := make([]byte, 16)
+		_, err := rand.Read(nonceBytes)
+		if err != nil {
+			return "", err
+		}
+		return base64.StdEncoding.EncodeToString(nonceBytes), nil
+	}
+
 	return func(ctx *gin.Context) {
 		if !enabled {
 			ctx.Next()
 			return
 		}
 
-		ctx.Header("X-Content-Type-Options", "nosniff") // Prevent MIME sniffing
-		ctx.Header("X-Frame-Options", "DENY")           // Prevent click-jacking
-		ctx.Header("X-XSS-Protection", "1; mode=block") // Prevent reflected XSS attacks
-		ctx.Header("Referrer-Policy", "no-referrer")    // Prevent leaking of the referrer
-		ctx.Header("Content-Security-Policy", strings.Join([]string{
-			"default-src 'self'",              // Allow default source from self
-			"script-src 'self' 'unsafe-eval'", // Allow scripts from self and unsafe eval
-			"object-src 'self'",               // Allow objects from self
-			"base-uri 'self'",                 // Allow base URI from self
-			"frame-ancestors 'none'",          // Prevent embedding of the page in a frame
-			"upgrade-insecure-requests;",      // Upgrade insecure requests
+		// Generate a random nonce
+		nonce, err := generateNonce()
+		if err != nil {
+			logger.Error("Failed to generate nonce", zap.Error(err))
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to generate nonce"})
+			return
+		}
+
+		// Reserved for future usage
+		ctx.Set("nonce", nonce)
+
+		ctx.Header("X-Content-Type-Options", "nosniff")              // Prevent MIME sniffing
+		ctx.Header("X-Frame-Options", "DENY")                        // Prevent click-jacking
+		ctx.Header("X-XSS-Protection", "1; mode=block")              // Prevent reflected XSS attacks
+		ctx.Header("Referrer-Policy", "no-referrer")                 // Prevent leaking of the referrer
+		ctx.Header("Content-Security-Policy", strings.Join([]string{ // Prevent various injection attacks
+			"default-src 'self'",                                            // Default source
+			"font-src 'self' https://cdnjs.cloudflare.com",                  // Fonts
+			"script-src 'self' 'unsafe-inline' 'unsafe-eval'",               // Scripts
+			"object-src 'self' 'unsafe-inline'",                             // Objects
+			"style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com", // Styles
+			"base-uri 'self'",                                               // Base URL
+			"frame-ancestors 'none'",                                        // Frame ancestors
+			"upgrade-insecure-requests",                                     // Upgrade insecure requests
 		}, "; "))
 		ctx.Header("Strict-Transport-Security", strings.Join([]string{
 			"max-age=31536000",  // 1 year of caching

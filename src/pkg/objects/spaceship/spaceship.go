@@ -43,14 +43,53 @@ func (spaceship *Spaceship) ifFrozen() bool {
 				config.Template{
 					"FreezeDuration": time.Until(spaceship.lastStateTransition.
 						Add(config.Config.Spaceship.FreezeDuration)).
-						Round(config.Config.MessageBox.LogThrottling),
+						Round(config.Config.MessageBox.ChannelLogThrottling),
 				},
-			), false, true, config.Config.MessageBox.LogThrottling)
+			), false, true, config.Config.MessageBox.ChannelLogThrottling)
 
 		return true
 	}
 
 	return false
+}
+
+// ApplyRepulsion applies repulsion to the spaceship and the enemy.
+// The repulsion is applied based on the spaceship's and enemy speed and direction.
+func (spaceship *Spaceship) ApplyRepulsion(e enemy.Enemy) numeric.Position {
+	// Calculate the effective area (as substitute for mass)
+	spaceshipArea, enemyArea := spaceship.Size.Area(), e.Size.Area()
+	effectiveArea := spaceshipArea * enemyArea / (spaceshipArea + enemyArea)
+
+	// Calculate the minimum translation vector (MTV)
+	var mtv numeric.Position
+	switch config.Config.Control.CollisionDetectionVersion.Get() {
+	case 1:
+		mtv = numeric.GetRectangularVertices(spaceship.Position, spaceship.Size, true).
+			Vertices().
+			MinimumTranslationVector(numeric.GetRectangularVertices(e.Position, e.Size, true).
+				Vertices())
+
+	case 2:
+		mtv = numeric.GetSpaceshipVerticesV1(spaceship.Position, spaceship.Size, true).
+			Vertices().
+			MinimumTranslationVector(numeric.GetSpaceshipVerticesV1(e.Position, e.Size, e.Type == enemy.Goodie).
+				Vertices())
+
+	case 3:
+		mtv = numeric.GetSpaceshipVerticesV2(spaceship.Position, spaceship.Size, true).
+			Vertices().
+			MinimumTranslationVector(numeric.GetSpaceshipVerticesV2(e.Position, e.Size, e.Type == enemy.Goodie).
+				Vertices())
+
+	}
+
+	if mtv.IsZero() { // No collision
+		return e.Position
+	}
+
+	// Apply the displacements
+	spaceship.Position = spaceship.Position.Add(mtv.Mul(effectiveArea / spaceshipArea))
+	return e.Position.Sub(mtv.Mul(effectiveArea / enemyArea))
 }
 
 // ChangeState changes the state of the spaceship.
@@ -87,38 +126,36 @@ func (spaceship *Spaceship) ChangeState(state SpaceshipState) {
 	}
 }
 
-// DetectCollisionV1 checks if the spaceship has collided with an enemy.
-// The collision detection is based on the bounding box method.
-// It is less accurate than DetectCollisionV2.
-func (spaceship Spaceship) DetectCollisionV1(e enemy.Enemy) bool {
-	return spaceship.Position.Less(e.Position.Add(e.Size.ToVector())) &&
-		spaceship.Position.Add(spaceship.Size.ToVector()).Greater(e.Position)
-}
-
-// DetectCollision V2 checks if the spaceship has collided with an enemy.
+// DetectCollision checks if the spaceship has collided with an enemy.
 // The collision detection is based on the separating axis theorem.
 // The separating axis theorem states that if two convex shapes do not overlap
 // on all axes, then they do not overlap.
-// This version is more accurate than DetectCollisionV1.
-// It uses the triangular vertices of the spaceship and the enemy.
-func (spaceship Spaceship) DetectCollisionV2(e enemy.Enemy) bool {
-	return !numeric.
-		GetSpaceshipVerticesV1(spaceship.Position, spaceship.Size, true).
-		Vertices().
-		HasSeparatingAxis(numeric.GetSpaceshipVerticesV1(e.Position, e.Size, false).Vertices())
-}
-
-// DetectCollisionV3 checks if the spaceship has collided with an enemy.
-// The collision detection is based on the separating axis theorem.
-// The separating axis theorem states that if two convex shapes do not overlap
-// on all axes, then they do not overlap.
-// This version is more accurate than DetectCollisionV2.
 // It uses the exact vertices of the spaceship and the enemy.
-func (spaceship Spaceship) DetectCollisionV3(e enemy.Enemy) bool {
-	return !numeric.
-		GetSpaceshipVerticesV2(spaceship.Position, spaceship.Size, true).
-		Vertices().
-		HasSeparatingAxis(numeric.GetSpaceshipVerticesV2(e.Position, e.Size, false).Vertices())
+func (spaceship Spaceship) DetectCollision(e enemy.Enemy) bool {
+	switch config.Config.Control.CollisionDetectionVersion.Get() {
+	case 1:
+		return !numeric.GetRectangularVertices(spaceship.Position, spaceship.Size, true).
+			Vertices().
+			HasSeparatingAxis(numeric.GetRectangularVertices(e.Position, e.Size, true).
+				Vertices())
+
+	case 2:
+		return !numeric.
+			GetSpaceshipVerticesV1(spaceship.Position, spaceship.Size, true).
+			Vertices().
+			HasSeparatingAxis(numeric.GetSpaceshipVerticesV1(e.Position, e.Size, e.Type == enemy.Goodie).
+				Vertices())
+
+	case 3:
+		return !numeric.
+			GetSpaceshipVerticesV2(spaceship.Position, spaceship.Size, true).
+			Vertices().
+			HasSeparatingAxis(numeric.GetSpaceshipVerticesV2(e.Position, e.Size, e.Type == enemy.Goodie).
+				Vertices())
+
+	}
+
+	return false
 }
 
 // Discover discovers the planet.
@@ -234,9 +271,9 @@ func (spaceship *Spaceship) Fire() {
 			spaceship.GetBulletDamage(),
 			// Skew of the bullet
 			// Skew is the skew of the bullet based on the position of the cannon.
-			float64(i)/float64(spaceship.Level.Cannons+1),
+			numeric.Number(float64(i)/float64(spaceship.Level.Cannons+1)),
 			// Speed boost of the bullet
-			spaceship.Level.AccelerateRate.Float(),
+			spaceship.Level.AccelerateRate,
 		)
 	}
 

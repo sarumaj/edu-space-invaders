@@ -7,7 +7,6 @@ import (
 
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
-	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/bullet"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/planet"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/spaceship"
@@ -251,26 +250,6 @@ func (h *handler) applyPlanetImpact() {
 // If the enemy is a freezer and the planet is not the sun or a supernova, it does nothing.
 // If the bullet has not hit the enemy, it does nothing.
 func (h *handler) checkCollisions() {
-	var collisionDetector func(enemy.Enemy) bool
-	var bulletHitDetector func(bullet.Bullet) func(enemy.Enemy) bool
-
-	// Choose the collision detection version.
-	// Default is the version 2 if the version is not set.
-	switch config.Config.Control.CollisionDetectionVersion.Get() {
-	case 1:
-		collisionDetector = h.spaceship.DetectCollisionV1
-		bulletHitDetector = func(b bullet.Bullet) func(enemy.Enemy) bool { return b.HasHitV1 }
-
-	case 2:
-		collisionDetector = h.spaceship.DetectCollisionV2
-		bulletHitDetector = func(b bullet.Bullet) func(enemy.Enemy) bool { return b.HasHitV2 }
-
-	default:
-		collisionDetector = h.spaceship.DetectCollisionV3
-		bulletHitDetector = func(b bullet.Bullet) func(enemy.Enemy) bool { return b.HasHitV3 }
-
-	}
-
 	// Discover the planet.
 	if h.spaceship.Discover(h.planet) {
 		if discovered := h.spaceship.Discovered(); len(discovered) == planet.PlanetsCount && !h.spaceship.IsAdmiral {
@@ -289,7 +268,16 @@ func (h *handler) checkCollisions() {
 
 	// Check if the spaceship has collided with an enemy.
 	for j, e := range h.enemies {
-		if e.Level.HitPoints > 0 && collisionDetector(e) { // Collision detected.
+		if e.Level.HitPoints > 0 && h.spaceship.DetectCollision(e) { // Collision detected.
+			// If the spaceship is boosted, repel the enemy.
+			if config.Config.Control.RepelEnemiesOnBoost.Get() &&
+				h.spaceship.State == spaceship.Boosted &&
+				e.Type != enemy.Goodie {
+
+				h.enemies[j].Position = h.spaceship.ApplyRepulsion(e)
+				continue
+			}
+
 			h.enemies[j].Destroy() // Destroy the enemy due to the collision.
 			config.SendMessage(config.Execute(config.Config.MessageBox.Messages.EnemyDestroyed, config.Template{
 				"EnemyName": e.Name,
@@ -402,7 +390,7 @@ func (h *handler) checkCollisions() {
 				e.Type == enemy.Goodie, // If the enemy is a goodie, do nothing.
 				// If the enemy is a freezer and the spaceship is not an admiral and the planet is not the sun or a supernova, do nothing.
 				e.Type == enemy.Freezer && !h.spaceship.IsAdmiral && !h.planet.Type.AnyOf(planet.Sun, planet.Supernova),
-				!bulletHitDetector(b)(e): // If the bullet has not hit the enemy, do nothing.
+				!b.HasHit(e): // If the bullet has not hit the enemy, do nothing.
 
 			default: // The bullet has hit the enemy.
 				h.spaceship.Bullets[i].Exhaust() // Exhaust the bullet.

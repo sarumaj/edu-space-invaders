@@ -11,7 +11,7 @@
 this is an example project to showcase the game development using the Web Assembly Framework in Go.
 Web Assembly allows us to develop web-frontend applications in a runtime like Go.
 
-<a href="https://youtu.be/mcXqwQV50fg">
+<a href="https://youtu.be/GyXKS7EXtck">
   <p align="center">
     <img src="assets/screenshot.png" alt="Gameover">
   </p>
@@ -93,7 +93,7 @@ To setup similar project follow following steps:
       - [code file arithmetic.go](src/pkg/numeric/arithmetic.go)
       - [unit tests for figure.go](src/pkg/numeric/figure_test.go)
       - [code file figure.go](src/pkg/numeric/figure.go)
-      - [unit test file number_test.go](src/pkg/numeric/numer_test.go)
+      - [unit test file number_test.go](src/pkg/numeric/number_test.go)
       - [code file number.go](src/pkg/numeric/number.go)
       - [unit tests for position.go](src/pkg/numeric/position_test.go)
       - [code file position.go](src/pkg/numeric/position.go)

@@ -73,6 +73,13 @@ self.addEventListener("fetch", (event) => {
     );
   } else {
     // If the request is not a GET request, just fetch it from the network
-    event.respondWith(fetch(event.request));
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => response)
+        .catch((error) => {
+          console.error(error);
+          return new Response("Error", { status: 500 });
+        })
+    );
   }
 });

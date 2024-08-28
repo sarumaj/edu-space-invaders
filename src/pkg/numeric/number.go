@@ -57,6 +57,9 @@ func (n Number) MaxMin(max bool, others ...Number) Number {
 // Min returns the minimum number from the list of numbers (including oneself).
 func (n Number) Min(others ...Number) Number { return n.MaxMin(false, others...) }
 
+// Polarity returns the polarity (sign) of the number.
+func (n Number) Polarity() Number { return n / n.Abs() }
+
 // Root returns the square root of the number.
 func (n Number) Root() Number { return Number(math.Sqrt(float64(n))) }
 

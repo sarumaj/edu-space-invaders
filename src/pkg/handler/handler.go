@@ -44,10 +44,10 @@ func (h *handler) applyGravityOnEnemies() {
 
 	for i, e := range h.enemies {
 		// And if the spaceship is not within the range of the planet or the enemy is a goodie:
-		repel = repel && (!h.planet.WithinRange(spaceshipPosition) || e.Type == enemy.Goodie)
+		repel = repel && (!h.planet.WithinRange(spaceshipPosition, 1) || e.Type == enemy.Goodie)
 		enemyPosition := e.Position.Add(e.Size.Half().ToVector())
 		// And if the enemy is not within the range of the planet:
-		repel = repel && !h.planet.WithinRange(enemyPosition)
+		repel = repel && !h.planet.WithinRange(enemyPosition, 1)
 
 		h.enemies[i].Position = h.planet.ApplyGravity(
 			e.Position.Add(e.Size.Half().ToVector()),
@@ -79,14 +79,24 @@ func (h *handler) applyGravityOnSpaceship() {
 		// Apply gravity to the bullets.
 		for i, bullet := range h.spaceship.Bullets {
 			h.spaceship.Bullets[i].Position = h.planet.ApplyGravity(
-				bullet.Position.Add(bullet.Size.Half().ToVector()),
-				numeric.Number(config.Config.Bullet.WeightFactor)*bullet.Size.Area(),
+				bullet.Position,
+				numeric.Number(config.Config.Bullet.Weight)*bullet.Size.Area(),
 				false, // Do not increase the planet's mass
 				false, // Do not reverse the gravity
-			).Sub(bullet.Size.Half().ToVector())
+			)
+
+			// Calculate skew based on the angle of the velocity vector
+			if delta := h.spaceship.Bullets[i].Position.Sub(bullet.Position); !delta.IsZero() {
+				// make the skew proportional to the angle of the velocity vector
+				// and the distance from the planet
+				ratio := delta.X / delta.Magnitude() * h.planet.Radius / numeric.Number(config.Config.Planet.MaximumRadius)
+				proximity := delta.Distance(bullet.Position)
+				// apply inverse decay function
+				h.spaceship.Bullets[i].Skew = (bullet.Skew + ratio/proximity).Clamp(-1, 1)
+			}
 
 			// Exhaust the bullet if it is stuck in the planet.
-			if numeric.Equal(h.planet.Position, h.spaceship.Bullets[i].Position.Add(bullet.Size.Half().ToVector()), 1e-3) {
+			if h.planet.WithinRange(h.spaceship.Bullets[i].Position, 0.75) {
 				h.spaceship.Bullets[i].Exhaust()
 			}
 		}
@@ -130,13 +140,13 @@ func (h *handler) applyPlanetImpact() {
 	switch h.planet.Type {
 	case planet.Sun:
 		// If the spaceship is within range of the sun, unfreeze the spaceship.
-		if h.spaceship.State == spaceship.Frozen && h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector())) {
+		if h.spaceship.State == spaceship.Frozen && h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector()), 1) {
 			h.spaceship.ResetState()
 		}
 
 		for i, e := range h.enemies {
 			// If a freezer is within range of the sun, unfreeze the freezer.
-			if e.Type == enemy.Freezer && h.planet.WithinRange(h.enemies[i].Position.Add(e.Size.Half().ToVector())) {
+			if e.Type == enemy.Freezer && h.planet.WithinRange(h.enemies[i].Position.Add(e.Size.Half().ToVector()), 1) {
 				h.enemies[i].Type = enemy.Normal
 			}
 		}
@@ -145,7 +155,7 @@ func (h *handler) applyPlanetImpact() {
 
 	case planet.BlackHole:
 		// If the spaceship is within range of the hole, disable the boost.
-		if h.spaceship.State == spaceship.Boosted && h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector())) {
+		if h.spaceship.State == spaceship.Boosted && h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector()), 1) {
 			h.spaceship.ResetState()
 		}
 

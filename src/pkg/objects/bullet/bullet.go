@@ -14,9 +14,9 @@ type Bullet struct {
 	Size        numeric.Size     // Size of the bullet
 	Speed       numeric.Number   // Speed and damage of the bullet
 	Damage      int              // Damage is the amount of health points the bullet takes from the enemy
-	skew        numeric.Number   // Skew of the bullet
-	repelVector numeric.Position // Repel vector of the bullet
+	Skew        numeric.Number   // Skew of the bullet
 	Exhausted   bool             // Exhausted is true if the bullet is out of the screen or has hit an enemy
+	repelVector numeric.Position // Repel vector of the bullet
 }
 
 // Draw draws the bullet.
@@ -39,7 +39,7 @@ func (bullet Bullet) Draw() {
 	}
 
 	// Calculate the end position of the bullet with skew
-	horizontalSkew := bullet.skew * bullet.Size.Height
+	horizontalSkew := bullet.Skew * bullet.Size.Height
 	// Preserve the total length of the bullet
 	verticalComponent := (bullet.Size.Height.Pow(2) - horizontalSkew.Pow(2)).Root()
 	endPosition := bullet.Position.Add(numeric.Locate(-horizontalSkew, verticalComponent))
@@ -90,7 +90,7 @@ func (bullet Bullet) HasHit(e enemy.Enemy) bool {
 
 	case 3:
 		return !numeric.
-			GetSkewedLineVertices(bullet.Position, bullet.Size, bullet.skew).
+			GetSkewedLineVertices(bullet.Position, bullet.Size, bullet.Skew).
 			Vertices().
 			HasSeparatingAxis(numeric.GetSpaceshipVerticesV2(e.Position, e.Size, e.Type == enemy.Goodie).
 				Vertices())
@@ -110,8 +110,8 @@ func (bullet *Bullet) Move() {
 		bullet.Position = bullet.Position.Add(bullet.repelVector)
 
 		// Adjust skew based on repelling vector
-		bullet.skew += (bullet.repelVector.X / bullet.Speed)
-		bullet.skew = bullet.skew.Clamp(-1, 1)
+		bullet.Skew += (bullet.repelVector.X / bullet.Speed)
+		bullet.Skew = bullet.Skew.Clamp(-1, 1)
 
 		// Reduce repelling force
 		numberOfFrames := numeric.Number(config.Config.Bullet.SpeedDecayDuration.Seconds() * config.Config.Control.DesiredFramesPerSecondRate)
@@ -126,7 +126,7 @@ func (bullet *Bullet) Move() {
 		return
 	}
 
-	bullet.Position = bullet.Position.Add(numeric.Locate(bullet.skew*bullet.Speed, -bullet.Speed))
+	bullet.Position = bullet.Position.Add(numeric.Locate(bullet.Skew*bullet.Speed, -bullet.Speed))
 }
 
 // Repel repels the bullet from the enemy.
@@ -151,7 +151,7 @@ func (bullet *Bullet) Repel(e enemy.Enemy) numeric.Position {
 				Vertices())
 
 	case 3:
-		mtv = numeric.GetSkewedLineVertices(bullet.Position, bullet.Size, bullet.skew).
+		mtv = numeric.GetSkewedLineVertices(bullet.Position, bullet.Size, bullet.Skew).
 			Vertices().
 			MinimumTranslationVector(numeric.GetSpaceshipVerticesV2(e.Position, e.Size, e.Type == enemy.Goodie).
 				Vertices())
@@ -176,7 +176,7 @@ func Craft(position numeric.Position, damage int, skew, speedBoost numeric.Numbe
 		Size:     numeric.Locate(config.Config.Bullet.Width, config.Config.Bullet.Height).ToBox(),
 		Speed:    numeric.Number(config.Config.Bullet.Speed) + speedBoost,
 		Damage:   damage,
-		skew:     skew,
+		Skew:     skew,
 	}
 
 	return &bullet

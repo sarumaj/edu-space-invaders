@@ -166,7 +166,7 @@ func (spaceship *Spaceship) Discover(p *planet.Planet) bool {
 	switch {
 	case
 		!p.Type.IsPlanet(), // If the celestial object is not an actual planet
-		!p.WithinRange(spaceship.Position.Add(spaceship.Size.Half().ToVector())),                                                     // If the spaceship is not within range of the planet
+		!p.WithinRange(spaceship.Position.Add(spaceship.Size.Half().ToVector()), 1),                                                  // If the spaceship is not within range of the planet
 		spaceship.discoveredPlanets[p.Type],                                                                                          // If the planet has been discovered
 		time.Since(spaceship.lastDiscovery) < config.Config.Planet.DiscoveryCooldown*time.Duration(len(spaceship.discoveredPlanets)), // If a planet has been discovered recently
 		!numeric.SampleUniform(config.Config.Planet.DiscoveryProbability):                                                            // If the planet is not discovered based on the probability

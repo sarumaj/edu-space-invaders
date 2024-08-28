@@ -43,7 +43,7 @@ type config struct {
 		ModifierProgressStep int
 		Speed                float64
 		SpeedDecayDuration   time.Duration
-		WeightFactor         float64
+		Weight               float64
 		Width                float64
 	}
 

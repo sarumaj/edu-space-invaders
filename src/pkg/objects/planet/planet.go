@@ -101,8 +101,8 @@ func (planet *Planet) Update(speed numeric.Number) {
 }
 
 // WithinRange returns true if the position is within the planet's range.
-func (planet Planet) WithinRange(center numeric.Position) bool {
-	return planet.Position.Sub(center).Magnitude() < planet.Radius
+func (planet Planet) WithinRange(center numeric.Position, factor numeric.Number) bool {
+	return planet.Position.Sub(center).Magnitude() < planet.Radius*factor
 }
 
 // Reveal reveals a new planet.

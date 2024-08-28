@@ -10,7 +10,41 @@ import (
 	"math/rand"
 )
 
-// DrawAnomalyBlackHole is a function that draws a black hole on the document.
+// Struct to represent color stops for gradients.
+type colorStop struct {
+	Position float64
+	Color    string
+}
+
+// Helper function to draw a circle with a radial gradient.
+func drawCircleWithGradient(cx, cy, radius float64, colorStops []colorStop) {
+	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.3, cx, cy, radius)
+	for _, stop := range colorStops {
+		gradient.Call("addColorStop", stop.Position, stop.Color)
+	}
+	canvasObjectContext.Set("fillStyle", gradient)
+	canvasObjectContext.Call("fill")
+}
+
+// Helper function to draw an arc.
+func drawArc(cx, cy, radius float64, color string) {
+	canvasObjectContext.Call("beginPath")
+	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
+	canvasObjectContext.Call("closePath")
+	canvasObjectContext.Set("fillStyle", color)
+	canvasObjectContext.Call("fill")
+}
+
+// Helper function to create a radial gradient with color stops.
+func createRadialGradient(cx, cy, innerRadius, outerRadius float64, colorStops []colorStop) interface{} {
+	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, innerRadius, cx, cy, outerRadius)
+	for _, stop := range colorStops {
+		gradient.Call("addColorStop", stop.Position, stop.Color)
+	}
+	return gradient
+}
+
+// DrawAnomalyBlackHole draws a black hole on the document.
 func DrawAnomalyBlackHole(coords [2]float64, radius float64) {
 	cx, cy := coords[0], coords[1]
 	scale := 1.0 + rand.Float64()/10
@@ -20,82 +54,62 @@ func DrawAnomalyBlackHole(coords [2]float64, radius float64) {
 	canvasObjectContext.Call("clearRect", cx-clearRadius, cy-clearRadius, clearRadius*2, clearRadius*2)
 
 	// Draw the dark core of the black hole
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", cx, cy, scale*0.6*radius, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
-	canvasObjectContext.Set("fillStyle", "black")
-	canvasObjectContext.Call("fill")
+	drawArc(cx, cy, scale*0.6*radius, "black")
 
 	// Draw a subtle glow around the black hole to simulate light bending
-	glowGradient := canvasObjectContext.Call("createRadialGradient", cx, cy, scale*0.6*radius, cx, cy, scale*radius)
-	glowGradient.Call("addColorStop", 0, "rgba(0, 0, 0, 0.0)") // Transparent center
-	glowGradient.Call("addColorStop", 1, "rgba(0, 0, 0, 0.3)") // Subtle black glow
+	glowGradient := createRadialGradient(cx, cy, scale*0.6*radius, scale*radius, []colorStop{
+		{0, "rgba(0, 0, 0, 0.0)"},
+		{1, "rgba(0, 0, 0, 0.3)"},
+	})
 	canvasObjectContext.Set("fillStyle", glowGradient)
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", cx, cy, scale*radius, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
-	canvasObjectContext.Call("fill")
+	drawArc(cx, cy, scale*radius, "")
 
 	// Draw the accretion disk around the black hole
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", cx, cy, scale*radius, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
-
-	// Create the radial gradient for the accretion disk
-	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, scale*0.6*radius, cx, cy, scale*radius)
-	gradient.Call("addColorStop", 0, "rgba(0, 0, 0, 0.0)")        // Fully transparent at the center
-	gradient.Call("addColorStop", 0.15, "rgba(128, 0, 128, 0.2)") // Slight purple glow
-	gradient.Call("addColorStop", 0.35, "rgba(78, 0, 78, 0.6)")   // Dark purple glow
-	gradient.Call("addColorStop", 0.6, "rgba(128, 0, 78, 0.8)")   // Purple-red glow
-	gradient.Call("addColorStop", 0.8, "rgba(128, 0, 128, 0.6)")  // Strong purple glow
-	gradient.Call("addColorStop", 1, "rgba(0, 0, 0, 0.0)")        // Fully transparent at the edges
-
+	gradient := createRadialGradient(cx, cy, scale*0.6*radius, scale*radius, []colorStop{
+		{0, "rgba(0, 0, 0, 0.0)"},
+		{0.15, "rgba(128, 0, 128, 0.2)"},
+		{0.35, "rgba(78, 0, 78, 0.6)"},
+		{0.6, "rgba(128, 0, 78, 0.8)"},
+		{0.8, "rgba(128, 0, 128, 0.6)"},
+		{1, "rgba(0, 0, 0, 0.0)"},
+	})
 	canvasObjectContext.Set("fillStyle", gradient)
-	canvasObjectContext.Call("fill")
+	drawArc(cx, cy, scale*radius, "")
 }
 
-// DrawAnomalySupernova is a function that draws a supernova on the document.
+// DrawAnomalySupernova draws a supernova on the document.
 func DrawAnomalySupernova(coords [2]float64, radius float64) {
 	cx, cy := coords[0], coords[1]
 	scale := 1.0 + rand.Float64()/10
 
 	// Draw the epicenter using a radial gradient
-	epicenterGradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.1, cx, cy, radius)
-	epicenterGradient.Call("addColorStop", 0, "rgba(255, 255, 255, 1)")   // Bright white center
-	epicenterGradient.Call("addColorStop", 0.3, "rgba(255, 215, 0, 0.9)") // Golden yellow
-	epicenterGradient.Call("addColorStop", 0.6, "rgba(255, 165, 0, 0.4)") // More transparent orange
-	epicenterGradient.Call("addColorStop", 0.8, "rgba(255, 69, 0, 0.2)")  // Red with more transparency
-	epicenterGradient.Call("addColorStop", 1, "rgba(128, 0, 128, 0.0)")   // Fully transparent purple
-
+	epicenterGradient := createRadialGradient(cx, cy, radius*0.1, radius, []colorStop{
+		{0, "rgba(255, 255, 255, 1)"},
+		{0.3, "rgba(255, 215, 0, 0.9)"},
+		{0.6, "rgba(255, 165, 0, 0.4)"},
+		{0.8, "rgba(255, 69, 0, 0.2)"},
+		{1, "rgba(128, 0, 128, 0.0)"},
+	})
 	canvasObjectContext.Set("fillStyle", epicenterGradient)
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
-	canvasObjectContext.Call("fill")
+	drawArc(cx, cy, radius, "")
 
 	// Draw the first shockwave as a ring around the epicenter
-	firstShockwaveGradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*1.1, cx, cy, radius*1.5)
-	firstShockwaveGradient.Call("addColorStop", 0, "rgba(255, 69, 0, 0.0)")    // Fully transparent at inner edge
-	firstShockwaveGradient.Call("addColorStop", 0.5, "rgba(255, 140, 0, 0.4)") // Orange more transparent
-	firstShockwaveGradient.Call("addColorStop", 1, "rgba(255, 255, 0, 0.6)")   // Yellow with less transparency
-
+	firstShockwaveGradient := createRadialGradient(cx, cy, radius*1.1, radius*1.5, []colorStop{
+		{0, "rgba(255, 69, 0, 0.0)"},
+		{0.5, "rgba(255, 140, 0, 0.4)"},
+		{1, "rgba(255, 255, 0, 0.6)"},
+	})
 	canvasObjectContext.Set("fillStyle", firstShockwaveGradient)
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", cx, cy, scale*radius*1.5, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
-	canvasObjectContext.Call("fill")
+	drawArc(cx, cy, scale*radius*1.5, "")
 
 	// Draw the second shockwave as a larger ring further from the epicenter
-	secondShockwaveGradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*1.7, cx, cy, radius*2.2)
-	secondShockwaveGradient.Call("addColorStop", 0, "rgba(255, 69, 0, 0.0)")    // Fully transparent at inner edge
-	secondShockwaveGradient.Call("addColorStop", 0.5, "rgba(255, 140, 0, 0.3)") // Orange more transparent
-	secondShockwaveGradient.Call("addColorStop", 1, "rgba(255, 255, 255, 0.4)") // White with less transparency
-
+	secondShockwaveGradient := createRadialGradient(cx, cy, radius*1.7, radius*2.2, []colorStop{
+		{0, "rgba(255, 69, 0, 0.0)"},
+		{0.5, "rgba(255, 140, 0, 0.3)"},
+		{1, "rgba(255, 255, 255, 0.4)"},
+	})
 	canvasObjectContext.Set("fillStyle", secondShockwaveGradient)
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", cx, cy, scale*radius*2.2, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
-	canvasObjectContext.Call("fill")
+	drawArc(cx, cy, scale*radius*2.2, "")
 }
 
 // DrawBackground is a function that draws the background of the document.
@@ -136,28 +150,23 @@ func DrawPlanetEarth(coords [2]float64, radius float64) {
 	cx, cy := coords[0], coords[1]
 
 	// Begin drawing the Earth
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
+	drawArc(cx, cy, radius, "")
 
 	// Use a blue gradient to represent the oceans
-	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.2, cx, cy, radius)
-	gradient.Call("addColorStop", 0, "#00BFFF") // Light blue at the center
-	gradient.Call("addColorStop", 1, "#1E90FF") // Darker blue at the edges
-
+	gradient := createRadialGradient(cx, cy, radius*0.2, radius, []colorStop{
+		{0, "#00BFFF"},
+		{1, "#1E90FF"},
+	})
 	canvasObjectContext.Set("fillStyle", gradient)
 	canvasObjectContext.Call("fill")
 
 	// Add an atmospheric glow around the Earth
-	atmosphereGradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius, cx, cy, radius*1.2)
-	atmosphereGradient.Call("addColorStop", 0, "rgba(30, 144, 255, 0.1)") // Light blue glow
-	atmosphereGradient.Call("addColorStop", 1, "rgba(30, 144, 255, 0.0)") // Fading into transparency
-
+	atmosphereGradient := createRadialGradient(cx, cy, radius, radius*1.2, []colorStop{
+		{0, "rgba(30, 144, 255, 0.1)"},
+		{1, "rgba(30, 144, 255, 0.0)"},
+	})
 	canvasObjectContext.Set("fillStyle", atmosphereGradient)
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", cx, cy, radius*1.2, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
-	canvasObjectContext.Call("fill")
+	drawArc(cx, cy, radius*1.2, "")
 
 	// Clip to the planet's circle to restrict drawing within the Earth
 	canvasObjectContext.Call("save")
@@ -191,10 +200,10 @@ func DrawPlanetEarth(coords [2]float64, radius float64) {
 		canvasObjectContext.Call("ellipse", patch[0], patch[1], patch[2], patch[3], patch[4], 0, 2*math.Pi, false)
 		canvasObjectContext.Call("closePath")
 
-		landGradient := canvasObjectContext.Call("createRadialGradient", patch[0], patch[1], patch[2]*0.5, patch[0], patch[1], patch[2])
-		landGradient.Call("addColorStop", 0, landColors[i%len(landColors)])
-		landGradient.Call("addColorStop", 1, "#556B2F") // Darker green/brown for depth
-
+		landGradient := createRadialGradient(patch[0], patch[1], patch[2]*0.5, patch[2], []colorStop{
+			{0, landColors[i%len(landColors)]},
+			{1, "#556B2F"},
+		})
 		canvasObjectContext.Set("fillStyle", landGradient)
 		canvasObjectContext.Call("fill")
 	}
@@ -211,10 +220,10 @@ func DrawPlanetEarth(coords [2]float64, radius float64) {
 		canvasObjectContext.Call("ellipse", cloud[0], cloud[1], cloud[2], cloud[3], 0, 0, 2*math.Pi, false)
 		canvasObjectContext.Call("closePath")
 
-		cloudGradient := canvasObjectContext.Call("createRadialGradient", cloud[0], cloud[1], cloud[2]*0.5, cloud[0], cloud[1], cloud[2])
-		cloudGradient.Call("addColorStop", 0, "rgba(255, 255, 255, 0.8)")
-		cloudGradient.Call("addColorStop", 1, "rgba(255, 255, 255, 0.4)")
-
+		cloudGradient := createRadialGradient(cloud[0], cloud[1], cloud[2]*0.5, cloud[2], []colorStop{
+			{0, "rgba(255, 255, 255, 0.8)"},
+			{1, "rgba(255, 255, 255, 0.4)"},
+		})
 		canvasObjectContext.Set("fillStyle", cloudGradient)
 		canvasObjectContext.Call("fill")
 	}
@@ -235,11 +244,7 @@ func DrawPlanetEarth(coords [2]float64, radius float64) {
 	moonX := cx + moonDistance*math.Cos(phase)
 	moonY := cy + moonDistance*math.Sin(phase)
 
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", moonX, moonY, moonRadius, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
-	canvasObjectContext.Set("fillStyle", "#F0F0F0") // Light gray for the Moon
-	canvasObjectContext.Call("fill")
+	drawArc(moonX, moonY, moonRadius, "#F0F0F0")
 
 	// Add a crater to the Moon
 	craterX := moonX + moonRadius*0.2 // Position the crater slightly offset from the Moon's center
@@ -252,11 +257,7 @@ func DrawPlanetEarth(coords [2]float64, radius float64) {
 	canvasObjectContext.Call("closePath")
 	canvasObjectContext.Call("clip") // Clip to the Moon's circle
 
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", craterX, craterY, craterRadius, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
-	canvasObjectContext.Set("fillStyle", "#A9A9A9") // Darker gray for the crater
-	canvasObjectContext.Call("fill")
+	drawArc(craterX, craterY, craterRadius, "#A9A9A9")
 
 	canvasObjectContext.Call("restore") // Restore the drawing state to remove the clipping
 }
@@ -266,16 +267,14 @@ func DrawPlanetJupiter(coords [2]float64, radius float64) {
 	cx, cy := coords[0], coords[1] // Center position
 
 	// Draw the main body of Jupiter (a sphere)
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
+	drawArc(cx, cy, radius, "")
 
 	// Create a radial gradient to simulate the planet's lighting and subtle pole banding
-	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy-radius*0.1, radius*0.3, cx, cy, radius)
-	gradient.Call("addColorStop", 0, "#FFF4C3")   // Lighter central color
-	gradient.Call("addColorStop", 0.7, "#E2B56D") // Midway darker color
-	gradient.Call("addColorStop", 1, "#B58A4C")   // Darker edge color
-
+	gradient := createRadialGradient(cx, cy, radius*0.3, radius, []colorStop{
+		{0, "#FFF4C3"},
+		{0.7, "#E2B56D"},
+		{1, "#B58A4C"},
+	})
 	canvasObjectContext.Set("fillStyle", gradient)
 	canvasObjectContext.Call("fill")
 
@@ -312,15 +311,13 @@ func DrawPlanetJupiter(coords [2]float64, radius float64) {
 	}
 
 	// Add the Great Red Spot (simply a circle here)
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", cx+radius*0.5, cy+radius*0.4, radius*0.3, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
+	drawArc(cx+radius*0.5, cy+radius*0.4, radius*0.3, "")
 
-	redSpotGradient := canvasObjectContext.Call("createRadialGradient", cx+radius*0.5, cy+radius*0.4, 0, cx+radius*0.5, cy+radius*0.4, radius*0.3)
-	redSpotGradient.Call("addColorStop", 0, "#8B0000")    // Dark red at the center
-	redSpotGradient.Call("addColorStop", 0.75, "#CD5C5C") // Indian red
-	redSpotGradient.Call("addColorStop", 1, "#FF6347")    // Tomato red at the edges
-
+	redSpotGradient := createRadialGradient(cx+radius*0.5, cy+radius*0.4, 0, radius*0.3, []colorStop{
+		{0, "#8B0000"},
+		{0.75, "#CD5C5C"},
+		{1, "#FF6347"},
+	})
 	canvasObjectContext.Set("fillStyle", redSpotGradient)
 	canvasObjectContext.Call("fill")
 
@@ -331,28 +328,24 @@ func DrawPlanetJupiter(coords [2]float64, radius float64) {
 func DrawPlanetMars(coords [2]float64, radius float64) {
 	cx, cy := coords[0], coords[1]
 
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
+	drawArc(cx, cy, radius, "")
 
 	// Use a reddish color to represent Mars
-	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.2, cx, cy, radius)
-	gradient.Call("addColorStop", 0, "#FF7F50")   // Coral (lighter red) at the center
-	gradient.Call("addColorStop", 0.5, "#FF6347") // Tomato (mid-tone red)
-	gradient.Call("addColorStop", 1, "#8B0000")   // Dark red at the edges
-
+	gradient := createRadialGradient(cx, cy, radius*0.2, radius, []colorStop{
+		{0, "#FF7F50"},
+		{0.5, "#FF6347"},
+		{1, "#8B0000"},
+	})
 	canvasObjectContext.Set("fillStyle", gradient)
 	canvasObjectContext.Call("fill")
 
 	// Darker patch representing a region like Syrtis Major
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", cx-radius*0.2, cy-radius*0.1, radius*0.3, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
+	drawArc(cx-radius*0.2, cy-radius*0.1, radius*0.3, "")
 
-	patchGradient := canvasObjectContext.Call("createRadialGradient", cx-radius*0.2, cy-radius*0.1, 0, cx-radius*0.2, cy-radius*0.1, radius*0.3)
-	patchGradient.Call("addColorStop", 0, "#8B0000") // Dark red in the center
-	patchGradient.Call("addColorStop", 1, "#A52A2A") // Brownish red at the edges
-
+	patchGradient := createRadialGradient(cx-radius*0.2, cy-radius*0.1, 0, radius*0.3, []colorStop{
+		{0, "#8B0000"},
+		{1, "#A52A2A"},
+	})
 	canvasObjectContext.Set("fillStyle", patchGradient)
 	canvasObjectContext.Call("fill")
 
@@ -371,14 +364,13 @@ func DrawPlanetMars(coords [2]float64, radius float64) {
 	}
 
 	for _, crater := range craters {
-		canvasObjectContext.Call("beginPath")
-		canvasObjectContext.Call("arc", crater[0], crater[1], crater[2], 0, 2*math.Pi, false)
-		canvasObjectContext.Call("closePath")
+		drawArc(crater[0], crater[1], crater[2], "")
 
-		craterGradient := canvasObjectContext.Call("createRadialGradient", crater[0], crater[1], 0, crater[0], crater[1], crater[2])
-		craterGradient.Call("addColorStop", 0, "#8B4513")   // Darker brown in the center
-		craterGradient.Call("addColorStop", 0.8, "#8B4513") // Darker brown dominates
-		craterGradient.Call("addColorStop", 1, "#A0522D")   // Lighter brown at the edges
+		craterGradient := createRadialGradient(crater[0], crater[1], 0, crater[2], []colorStop{
+			{0, "#8B4513"},
+			{0.8, "#8B4513"},
+			{1, "#A0522D"},
+		})
 		canvasObjectContext.Set("fillStyle", craterGradient)
 		canvasObjectContext.Call("fill")
 	}
@@ -390,16 +382,14 @@ func DrawPlanetMars(coords [2]float64, radius float64) {
 func DrawPlanetMercury(coords [2]float64, radius float64) {
 	cx, cy := coords[0], coords[1]
 
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
+	drawArc(cx, cy, radius, "")
 
 	// Use a simple gray gradient to represent Mercury
-	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.2, cx, cy, radius)
-	gradient.Call("addColorStop", 0, "#C0C0C0")   // Light gray at the center
-	gradient.Call("addColorStop", 0.7, "#A9A9A9") // Mid-tone gray
-	gradient.Call("addColorStop", 1, "#808080")   // Darker gray at the edges
-
+	gradient := createRadialGradient(cx, cy, radius*0.2, radius, []colorStop{
+		{0, "#C0C0C0"},
+		{0.7, "#A9A9A9"},
+		{1, "#808080"},
+	})
 	canvasObjectContext.Set("fillStyle", gradient)
 	canvasObjectContext.Call("fill")
 
@@ -418,15 +408,13 @@ func DrawPlanetMercury(coords [2]float64, radius float64) {
 	}
 
 	for _, crater := range craters {
-		canvasObjectContext.Call("beginPath")
-		canvasObjectContext.Call("arc", crater[0], crater[1], crater[2], 0, 2*math.Pi, false)
-		canvasObjectContext.Call("closePath")
+		drawArc(crater[0], crater[1], crater[2], "")
 
-		craterGradient := canvasObjectContext.Call("createRadialGradient", crater[0], crater[1], 0, crater[0], crater[1], crater[2])
-		craterGradient.Call("addColorStop", 0, "#696969")                // Dark gray in the center
-		craterGradient.Call("addColorStop", 0.9, "#A0A0A0")              // Lighter gray at the edges
-		craterGradient.Call("addColorStop", 1, "rgba(160, 160, 160, 0)") // Fully transparent at the outer edge
-
+		craterGradient := createRadialGradient(crater[0], crater[1], 0, crater[2], []colorStop{
+			{0, "#696969"},
+			{0.9, "#A0A0A0"},
+			{1, "rgba(160, 160, 160, 0)"},
+		})
 		canvasObjectContext.Set("fillStyle", craterGradient)
 		canvasObjectContext.Call("fill")
 	}
@@ -438,16 +426,14 @@ func DrawPlanetMercury(coords [2]float64, radius float64) {
 func DrawPlanetNeptune(coords [2]float64, radius float64) {
 	cx, cy := coords[0], coords[1]
 
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
+	drawArc(cx, cy, radius, "")
 
 	// Deep blue color for Neptune
-	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.3, cx, cy, radius)
-	gradient.Call("addColorStop", 0, "#4682B4")   // Steel Blue
-	gradient.Call("addColorStop", 0.5, "#4169E1") // Royal Blue
-	gradient.Call("addColorStop", 1, "#00008B")   // Dark Blue
-
+	gradient := createRadialGradient(cx, cy, radius*0.3, radius, []colorStop{
+		{0, "#4682B4"},
+		{0.5, "#4169E1"},
+		{1, "#00008B"},
+	})
 	canvasObjectContext.Set("fillStyle", gradient)
 	canvasObjectContext.Call("fill")
 
@@ -492,16 +478,14 @@ func DrawPlanetPluto(coords [2]float64, radius float64) {
 	cx, cy := coords[0], coords[1]
 
 	// Draw the main body of Pluto with a gradient to simulate the icy surface
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
+	drawArc(cx, cy, radius, "")
 
 	// Create a gradient to represent Pluto's surface with icy and rocky textures
-	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.2, cx, cy, radius)
-	gradient.Call("addColorStop", 0, "#E8E8E8")   // Light Gray for the center
-	gradient.Call("addColorStop", 0.5, "#C0C0C0") // Silver for mid-range
-	gradient.Call("addColorStop", 1, "#A9A9A9")   // Dark Gray at the edges
-
+	gradient := createRadialGradient(cx, cy, radius*0.2, radius, []colorStop{
+		{0, "#E8E8E8"},   // Light Gray for the center
+		{0.5, "#C0C0C0"}, // Silver for mid-range
+		{1, "#A9A9A9"},   // Dark Gray at the edges
+	})
 	canvasObjectContext.Set("fillStyle", gradient)
 	canvasObjectContext.Call("fill")
 
@@ -529,9 +513,7 @@ func DrawPlanetPluto(coords [2]float64, radius float64) {
 
 	// Draw the static craters
 	for _, crater := range craters {
-		canvasObjectContext.Call("beginPath")
-		canvasObjectContext.Call("arc", crater[0], crater[1], crater[2], 0, 2*math.Pi, false)
-		canvasObjectContext.Call("closePath")
+		drawArc(crater[0], crater[1], crater[2], "")
 		canvasObjectContext.Set("fillStyle", craterColors[int(crater[3])%len(craterColors)]) // Use fixed color
 		canvasObjectContext.Call("fill")
 	}
@@ -583,15 +565,13 @@ func DrawPlanetSaturn(coords [2]float64, radius float64) {
 
 	{
 		// Draw Saturn's body
-		canvasObjectContext.Call("beginPath")
-		canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
-		canvasObjectContext.Call("closePath")
+		drawArc(cx, cy, radius, "")
 
-		gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.3, cx, cy, radius)
-		gradient.Call("addColorStop", 0, "#F5DEB3")   // Wheat color
-		gradient.Call("addColorStop", 0.5, "#EDD9A3") // Lightened Wheat
-		gradient.Call("addColorStop", 1, "#DAA520")   // Goldenrod color
-
+		gradient := createRadialGradient(cx, cy, radius*0.3, radius, []colorStop{
+			{0, "#F5DEB3"},   // Wheat color
+			{0.5, "#EDD9A3"}, // Lightened Wheat
+			{1, "#DAA520"},   // Goldenrod color
+		})
 		canvasObjectContext.Set("fillStyle", gradient)
 		canvasObjectContext.Call("fill")
 	}
@@ -671,16 +651,14 @@ func DrawPlanetUranus(coords [2]float64, radius float64) {
 
 	{
 		// Draw Uranus's body
-		canvasObjectContext.Call("beginPath")
-		canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
-		canvasObjectContext.Call("closePath")
+		drawArc(cx, cy, radius, "")
 
 		// Cyan color for Uranus
-		gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.3, cx, cy, radius)
-		gradient.Call("addColorStop", 0, "#E0FFFF")   // Light Cyan at the center
-		gradient.Call("addColorStop", 0.5, "#AFEEEE") // Pale Turquoise
-		gradient.Call("addColorStop", 1, "#5F9EA0")   // Cadet Blue at the edges
-
+		gradient := createRadialGradient(cx, cy, radius*0.3, radius, []colorStop{
+			{0, "#E0FFFF"},   // Light Cyan at the center
+			{0.5, "#AFEEEE"}, // Pale Turquoise
+			{1, "#5F9EA0"},   // Cadet Blue at the edges
+		})
 		canvasObjectContext.Set("fillStyle", gradient)
 		canvasObjectContext.Call("fill")
 
@@ -748,16 +726,14 @@ func DrawPlanetVenus(coords [2]float64, radius float64) {
 	cx, cy := coords[0], coords[1]
 
 	// Draw the main body of Venus with a gradient to simulate the thick atmosphere
-	canvasObjectContext.Call("beginPath")
-	canvasObjectContext.Call("arc", cx, cy, radius, 0, 2*math.Pi, false)
-	canvasObjectContext.Call("closePath")
+	drawArc(cx, cy, radius, "")
 
 	// Enhanced gradient with multiple stops to create depth
-	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, radius*0.2, cx, cy, radius)
-	gradient.Call("addColorStop", 0, "#FFF8DC")   // CornSilk at the center for a bright, hazy look
-	gradient.Call("addColorStop", 0.5, "#F0E68C") // Khaki in the middle for a yellowish hue
-	gradient.Call("addColorStop", 1, "#D2B48C")   // Tan at the edges for a more defined atmospheric layer
-
+	gradient := createRadialGradient(cx, cy, radius*0.2, radius, []colorStop{
+		{0, "#FFF8DC"},   // CornSilk at the center for a bright, hazy look
+		{0.5, "#F0E68C"}, // Khaki in the middle for a yellowish hue
+		{1, "#D2B48C"},   // Tan at the edges for a more defined atmospheric layer
+	})
 	canvasObjectContext.Set("fillStyle", gradient)
 	canvasObjectContext.Call("fill")
 
@@ -991,12 +967,12 @@ func DrawSun(coords [2]float64, radius float64) {
 	canvasObjectContext.Call("closePath")
 
 	// Use a radial gradient to represent the Sun's glowing appearance
-	gradient := canvasObjectContext.Call("createRadialGradient", cx, cy, scale*radius*0.3, cx, cy, scale*radius)
-	gradient.Call("addColorStop", 0, "rgba(255, 255, 0, 1)")     // Bright yellow at the center, fully opaque
-	gradient.Call("addColorStop", 0.5, "rgba(255, 165, 0, 0.9)") // Semi-transparent orange halfway
-	gradient.Call("addColorStop", 0.9, "rgba(255, 165, 0, 0.5)") // Semi-transparent orange near the edges
-	gradient.Call("addColorStop", 1, "rgba(255, 165, 0, 0)")     // Orange at the edges, fully transparent
-
+	gradient := createRadialGradient(cx, cy, scale*radius*0.3, scale*radius, []colorStop{
+		{0, "rgba(255, 255, 0, 1)"},
+		{0.5, "rgba(255, 165, 0, 0.9)"},
+		{0.9, "rgba(255, 165, 0, 0.5)"},
+		{1, "rgba(255, 165, 0, 0)"},
+	})
 	canvasObjectContext.Set("fillStyle", gradient)
 	canvasObjectContext.Call("fill")
 

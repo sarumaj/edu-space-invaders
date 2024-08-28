@@ -51,11 +51,9 @@ var (
 	document               = GlobalGet("document")
 	eventLogChannel        = document.Call("getElementById", eventLogChannelID)
 	eventLogChannelBtn     = document.Call("getElementById", eventLogChannelButtonID)
-	eventLogChannelTimer   js.Value
 	fpsDiv                 = document.Call("getElementById", "fps")
 	infoLogChannel         = document.Call("getElementById", infoLogChannelID)
 	infoLogChannelBtn      = document.Call("getElementById", infoLogChannelButtonID)
-	infoLogChannelTimer    js.Value
 	invisibleCanvas        = document.Call("createElement", "canvas")
 	invisibleCtx           = invisibleCanvas.Call("getContext", "2d")
 	invisibleCanvasScrollY = 0.0
@@ -93,11 +91,6 @@ func (e logEvent) Channel() js.Value {
 // ChannelButton returns the channel button element.
 func (e logEvent) ChannelButton() js.Value {
 	return map[logEvent]js.Value{true: eventLogChannelBtn, false: infoLogChannelBtn}[e]
-}
-
-// ChannelTimer returns the channel timer.
-func (e logEvent) ChannelTimer() js.Value {
-	return map[logEvent]js.Value{true: eventLogChannelTimer, false: infoLogChannelTimer}[e]
 }
 
 // score represents a score.

@@ -372,7 +372,6 @@ func SendMessage(msg string, reset, event logEvent) {
 
 	channel := event.Channel()
 	channelBtn := event.ChannelButton()
-	timer := event.ChannelTimer()
 
 	if reset {
 		// Reset the content, keeping only the new message
@@ -387,20 +386,11 @@ func SendMessage(msg string, reset, event logEvent) {
 		}
 	}
 
-	// Clear any existing scroll timer for this channel
-	if timer.Truthy() {
-		timer.Call("clearTimeout")
-		timer = js.Null()
-	}
-
-	timer = GlobalCall("setTimeout", js.FuncOf(func(_ js.Value, _ []js.Value) any {
-		// Scroll to the beginning of the newly added message
-		channel.Get("lastChild").Call("scrollIntoView", MakeObject(map[string]any{
-			"block":    "start",
-			"behavior": "smooth",
-		}))
-		return nil
-	}), len(msg)*1000/20) // Approximately 20 characters per second
+	// Scroll to the beginning of the newly added message
+	channel.Get("lastChild").Call("scrollIntoView", MakeObject(map[string]any{
+		"block":    "start",
+		"behavior": "smooth",
+	}))
 
 	if channelBtn.Get("classList").Call("contains", tabActiveClass).Bool() {
 		return // Already active, nothing to do

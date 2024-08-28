@@ -154,13 +154,7 @@ func (enemy Enemy) GetPenalty() int {
 // If the damage is less than 0, it is set to 0.
 func (enemy *Enemy) Hit(damage int) int {
 	damage = damage - enemy.Level.Defense - numeric.RandomRange(0, enemy.Level.Defense*enemy.Level.Progress).Int()
-	if damage < 0 {
-		damage = numeric.RandomRange(0, config.Config.Bullet.InitialDamage).Int()
-	}
-
-	if damage > enemy.Level.HitPoints {
-		damage = enemy.Level.HitPoints
-	}
+	damage = numeric.Number(damage).Clamp(0, numeric.Number(enemy.Level.HitPoints)).Int()
 
 	enemy.Level.HitPointsLoss += damage
 	enemy.Level.HitPoints -= damage
@@ -171,9 +165,7 @@ func (enemy *Enemy) Hit(damage int) int {
 }
 
 // IsDestroyed returns true if the enemy is destroyed.
-func (enemy Enemy) IsDestroyed() bool {
-	return enemy.Level.HitPoints <= 0
-}
+func (enemy Enemy) IsDestroyed() bool { return enemy.Level.HitPoints <= 0 }
 
 // Move moves the enemy.
 // The enemy moves downwards and changes its horizontal direction.

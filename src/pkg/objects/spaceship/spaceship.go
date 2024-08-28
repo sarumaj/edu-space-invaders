@@ -102,7 +102,8 @@ func (spaceship *Spaceship) ChangeState(state SpaceshipState) {
 		return
 	}
 
-	if state == Boosted {
+	switch state {
+	case Boosted:
 		spaceship.Level.Cannons *= 2
 		if spaceship.Level.Cannons > config.Config.Spaceship.MaximumCannons {
 			spaceship.Level.Cannons = config.Config.Spaceship.MaximumCannons
@@ -111,9 +112,7 @@ func (spaceship *Spaceship) ChangeState(state SpaceshipState) {
 		spaceship.Resize(numeric.Number(config.Config.Spaceship.BoostScaleSizeFactor))
 	}
 
-	spaceship.State = state
-
-	switch spaceship.State {
+	switch spaceship.State = state; spaceship.State {
 	case Boosted:
 		go config.PlayAudio("spaceship_boost.wav", false)
 
@@ -258,21 +257,22 @@ func (spaceship *Spaceship) Fire() {
 		return
 	}
 
-	for i := 1; i < spaceship.Level.Cannons+1; i++ {
+	/// Number of cannons, where cannons range from 1 to Level.Cannons
+	totalCannons := spaceship.Level.Cannons
+	centerCannon := numeric.Number(totalCannons+1) / 2 // Cannon at the center
+
+	for i := 1; i < totalCannons+1; i++ {
+		// Relative position of the cannon
+		centerCannonRelation := numeric.Number(i) - centerCannon
+
+		// Absolute position of the cannon
+		cannonPosition := spaceship.Size.Width * (centerCannonRelation/centerCannon + 0.5)
+
+		// Reload bullet
 		spaceship.Bullets.Reload(
-			spaceship.Position.Add(numeric.Locate(
-				// X position of the bullet
-				// The X position of the bullet is calculated based on the position of the cannon.
-				// The X position of the bullet is the X position of the spaceship plus the width of the spaceship
-				// times the position of the cannon minus the width of the bullet divided by 2.
-				spaceship.Size.Width*numeric.Number(i)/numeric.Number(spaceship.Level.Cannons+1)-numeric.Number(config.Config.Bullet.Width/2),
-				0,
-			)),
+			spaceship.Position.Add(numeric.Locate(cannonPosition, 0)),
 			spaceship.GetBulletDamage(),
-			// Skew of the bullet
-			// Skew is the skew of the bullet based on the position of the cannon.
-			numeric.Number(float64(i)/float64(spaceship.Level.Cannons+1)),
-			// Speed boost of the bullet
+			numeric.Number(centerCannonRelation/centerCannon*0.5), // Skew: -0.5 to 0.5
 			spaceship.Level.AccelerateRate,
 		)
 	}
@@ -286,17 +286,14 @@ func (spaceship *Spaceship) Fire() {
 // to prevent the spaceship from going out of bounds.
 func (spaceship *Spaceship) FixPosition() {
 	canvasDimensions := config.CanvasBoundingBox()
-	if halfWidth := spaceship.Size.Width / 2; spaceship.Position.X-halfWidth < 0 {
-		spaceship.Position.X = halfWidth
-	} else if (spaceship.Position.X + halfWidth).Float() > canvasDimensions.OriginalWidth {
-		spaceship.Position.X = numeric.Number(canvasDimensions.OriginalWidth) - halfWidth
-	}
 
-	if halfHeight := spaceship.Size.Height / 2; spaceship.Position.Y-halfHeight < 0 {
-		spaceship.Position.Y = halfHeight
-	} else if (spaceship.Position.Y + halfHeight).Float() > canvasDimensions.OriginalHeight {
-		spaceship.Position.Y = numeric.Number(canvasDimensions.OriginalHeight) - halfHeight
-	}
+	// Calculate the maximum allowed X and Y to keep the spaceship fully visible
+	maxX := numeric.Number(canvasDimensions.OriginalWidth) - spaceship.Size.Width
+	maxY := numeric.Number(canvasDimensions.OriginalHeight) - spaceship.Size.Height
+
+	// Fix the spaceship position
+	spaceship.Position.X = spaceship.Position.X.Clamp(0, maxX)
+	spaceship.Position.Y = spaceship.Position.Y.Clamp(0, maxY)
 }
 
 // GetBulletDamage returns the damage of the bullets fired by the spaceship.
@@ -516,6 +513,29 @@ func (spaceship *Spaceship) Penalize(levels int) bool {
 	return spaceship.Level.Progress < currentLvl
 }
 
+// ResetState resets the state of the spaceship immediately back to Neutral.
+// If the spaceship is Boosted, the spaceship's size is reduced and
+// the number of cannons is halved. If the number of cannons is 0,
+// it is set to 1. If the spaceship is Frozen or Damaged, the spaceship's
+// state is set to Neutral.
+func (spaceship *Spaceship) ResetState() {
+	switch spaceship.State {
+	case Boosted:
+		spaceship.Resize(1 / numeric.Number(config.Config.Spaceship.BoostScaleSizeFactor))
+		spaceship.Level.Cannons /= 2
+
+		if spaceship.Level.Cannons == 0 {
+			spaceship.Level.Cannons = 1
+		}
+
+		fallthrough
+
+	case Frozen, Damaged:
+		spaceship.State = Neutral
+
+	}
+}
+
 // Resize resizes the spaceship based on the scale.
 // The spaceship's size is updated based on the scale.
 // The spaceship's position is centered based on the new size and
@@ -543,30 +563,21 @@ func (spaceship *Spaceship) UpdateHighScore() {
 // If the time since the last state transition is greater than
 // the spaceship state duration, the spaceship's state is set to Neutral.
 func (spaceship *Spaceship) UpdateState() {
-	switch spaceship.State {
-	case Boosted:
-		if time.Since(spaceship.lastStateTransition) > config.Config.Spaceship.BoostDuration {
-			spaceship.Resize(1 / numeric.Number(config.Config.Spaceship.BoostScaleSizeFactor))
-			spaceship.Level.Cannons /= 2
+	duration, ok := map[SpaceshipState]time.Duration{
+		Boosted: config.Config.Spaceship.BoostDuration,
+		Frozen:  config.Config.Spaceship.FreezeDuration,
+		Damaged: config.Config.Spaceship.DamageDuration,
+	}[spaceship.State]
 
-			if spaceship.Level.Cannons == 0 {
-				spaceship.Level.Cannons = 1
-			}
-
-			spaceship.State = Neutral
-		}
-
-	case Frozen:
-		if time.Since(spaceship.lastStateTransition) > config.Config.Spaceship.FreezeDuration {
-			spaceship.State = Neutral
-		}
-
-	case Damaged:
-		if time.Since(spaceship.lastStateTransition) > config.Config.Spaceship.DamageDuration {
-			spaceship.State = Neutral
-		}
-
+	if !ok {
+		return
 	}
+
+	if time.Since(spaceship.lastStateTransition) < duration {
+		return
+	}
+
+	spaceship.ResetState()
 }
 
 // Embark creates a new spaceship.
@@ -578,7 +589,7 @@ func Embark(commandant string) *Spaceship {
 		Commandant: commandant,
 		Position: numeric.Locate(
 			canvasDimensions.OriginalWidth/2,
-			canvasDimensions.OriginalHeight-config.Config.Spaceship.Height/2,
+			canvasDimensions.OriginalHeight-config.Config.Spaceship.Height,
 		),
 		Size:     numeric.Locate(config.Config.Spaceship.Width, config.Config.Spaceship.Height).ToBox(),
 		Cooldown: config.Config.Spaceship.Cooldown,

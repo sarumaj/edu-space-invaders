@@ -22,8 +22,13 @@ func (n Number) Abs() Number {
 	return n
 }
 
+// Clamp clamps the number between the minimum and maximum numbers.
+func (n Number) Clamp(min, max Number) Number { return n.Max(min.Min(max)).Min(max.Max(min)) }
+
 // Int returns the int representation of the number.
 func (n Number) Int() int { return int(math.Round(float64(n))) }
+
+func (n Number) InRange(min, max Number) bool { return n >= min.Min(max) && n <= max.Max(min) }
 
 // Float returns the float64 representation of the number.
 func (n Number) Float() float64 { return float64(n) }

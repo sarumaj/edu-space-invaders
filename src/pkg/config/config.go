@@ -42,6 +42,7 @@ type config struct {
 		InitialDamage        int
 		ModifierProgressStep int
 		Speed                float64
+		SpeedDecayDuration   time.Duration
 		WeightFactor         float64
 		Width                float64
 	}
@@ -59,6 +60,7 @@ type config struct {
 		DrawSpaceshipExperienceBar        EnvVariable[bool]
 		DrawSpaceshipShield               EnvVariable[bool]
 		GodMode                           EnvVariable[bool]
+		PlanetChoice                      EnvVariable[int]
 		RepelEnemiesOnBoost               EnvVariable[bool]
 		SuspensionFrames                  int
 	}

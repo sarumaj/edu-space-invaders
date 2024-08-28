@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	originalWidth  = 760 // Original width of the drawable canvas area (px, after considering the padding and border of the surrounding containers)
-	originalHeight = 570 // Original height of the drawable canvas area (px, after considering the padding and border of the surrounding containers)
+	originalWidth  = 800 // Original width of the drawable canvas area (px, after considering the padding and border of the surrounding containers)
+	originalHeight = 600 // Original height of the drawable canvas area (px, after considering the padding and border of the surrounding containers)
 )
 
 const (

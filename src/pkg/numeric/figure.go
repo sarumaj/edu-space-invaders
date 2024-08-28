@@ -89,6 +89,32 @@ func GetRectangularVertices(pos Position, size Size, centered bool) Rectangle {
 	}
 }
 
+// GetSkewedLineVertices calculates and returns vertices that represent a skewed line for the bullet.
+func GetSkewedLineVertices(pos Position, size Size, skew Number) Rectangle {
+	// Start point (top)
+	start := pos
+
+	// Calculate the horizontal and vertical components
+	horizontalSkew := skew * size.Height
+	verticalComponent := (size.Height.Pow(2) - horizontalSkew.Pow(2)).Root()
+
+	// End point (bottom) calculated with skew
+	end := pos.Add(Locate(
+		-horizontalSkew, // Adjust based on skew
+		verticalComponent,
+	))
+
+	// Calculate perpendicular unit vector to apply the width offset
+	perpendicular := start.Sub(end).Perpendicular().Normalize().AddN(size.Width / 2)
+
+	return Rectangle{
+		end.Add(perpendicular),   // Bottom-Right
+		start.Add(perpendicular), // Top-Right
+		start.Sub(perpendicular), // Top-Left
+		end.Sub(perpendicular),   // Bottom-Left
+	}
+}
+
 // GetSpaceshipVerticesV1 calculates the vertices of the spaceship.
 // The spaceship is approximated as a triangle.
 // The spaceship can face up or down.

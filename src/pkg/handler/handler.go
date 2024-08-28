@@ -131,7 +131,7 @@ func (h *handler) applyPlanetImpact() {
 	case planet.Sun:
 		// If the spaceship is within range of the sun, unfreeze the spaceship.
 		if h.spaceship.State == spaceship.Frozen && h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector())) {
-			h.spaceship.ChangeState(spaceship.Neutral)
+			h.spaceship.ResetState()
 		}
 
 		for i, e := range h.enemies {
@@ -146,7 +146,7 @@ func (h *handler) applyPlanetImpact() {
 	case planet.BlackHole:
 		// If the spaceship is within range of the hole, disable the boost.
 		if h.spaceship.State == spaceship.Boosted && h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector())) {
-			h.spaceship.ChangeState(spaceship.Neutral)
+			h.spaceship.ResetState()
 		}
 
 		h.planet.DoOnce(func() { config.SendMessage(message, false, false) })
@@ -154,7 +154,7 @@ func (h *handler) applyPlanetImpact() {
 	case planet.Supernova:
 		// Unfreeze the spaceship immediately if frozen.
 		if h.spaceship.State == spaceship.Frozen {
-			h.spaceship.ChangeState(spaceship.Neutral)
+			h.spaceship.ResetState()
 		}
 
 		h.planet.DoOnce(func() { config.SendMessage(message, false, false) })
@@ -389,39 +389,50 @@ func (h *handler) checkCollisions() {
 
 		// Check if the bullets have hit the enemy.
 		for i, b := range h.spaceship.Bullets {
-			switch {
-			case
-				e.Level.HitPoints <= 0, // If the enemy has no health points, do nothing.
-				e.Type == enemy.Goodie, // If the enemy is a goodie, do nothing.
-				// If the enemy is a freezer and the spaceship is not an admiral and the planet is not the sun or a supernova, do nothing.
-				e.Type == enemy.Freezer && !h.spaceship.IsAdmiral && !h.planet.Type.AnyOf(planet.Sun, planet.Supernova),
-				!b.HasHit(e): // If the bullet has not hit the enemy, do nothing.
+			// If the bullet has been exhausted, do nothing.
+			// If the bullet has not hit the enemy, do nothing.
+			if e.IsDestroyed() || !b.HasHit(e) {
+				continue
+			}
 
-			default: // The bullet has hit the enemy.
-				h.spaceship.Bullets[i].Exhaust() // Exhaust the bullet.
-				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.EnemyHit, config.Template{
-					"EnemyName": e.Name,
-					"EnemyType": e.Type,
-					"Damage":    h.enemies[j].Hit(b.Damage), // Apply the damage to the enemy.
+			// If the enemy is a goodie, repel the bullet.
+			// If the enemy is a freezer and the spaceship is not an admiral and the planet is not the sun or a supernova, repel the bullet.
+			if e.Type == enemy.Goodie ||
+				e.Type == enemy.Freezer && !h.spaceship.IsAdmiral && !h.planet.Type.AnyOf(planet.Sun, planet.Supernova) {
+
+				h.enemies[j].Position = h.spaceship.Bullets[i].Repel(e) // Repel the bullet from the enemy.
+				continue
+			}
+
+			damage := h.enemies[j].Hit(b.GetDamage()) // Apply the damage to the enemy.
+			if damage == 0 {
+				h.enemies[j].Position = h.spaceship.Bullets[i].Repel(e) // Repel the bullet from the enemy.
+				continue
+			}
+
+			h.spaceship.Bullets[i].Exhaust() // Exhaust the bullet.
+			config.SendMessage(config.Execute(config.Config.MessageBox.Messages.EnemyHit, config.Template{
+				"EnemyName": e.Name,
+				"EnemyType": e.Type,
+				"Damage":    damage,
+			}), false, true)
+
+			// If the enemy has no health points, upgrade the spaceship.
+			if h.enemies[j].IsDestroyed() && h.spaceship.Level.GainExperience(e) {
+				h.spaceship.UpdateHighScore()
+				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.SpaceshipUpgradedByEnemyKill, config.Template{
+					"EnemyName":      e.Name,
+					"EnemyType":      e.Type,
+					"SpaceshipLevel": h.spaceship.Level.Progress,
 				}), false, true)
+			}
 
-				// If the enemy has no health points, upgrade the spaceship.
-				if h.enemies[j].IsDestroyed() && h.spaceship.Level.GainExperience(e) {
-					h.spaceship.UpdateHighScore()
-					config.SendMessage(config.Execute(config.Config.MessageBox.Messages.SpaceshipUpgradedByEnemyKill, config.Template{
-						"EnemyName":      e.Name,
-						"EnemyType":      e.Type,
-						"SpaceshipLevel": h.spaceship.Level.Progress,
-					}), false, true)
-				}
+			// If the progress is a multiple of the enemy count progress step,
+			// generate a new enemy.
+			if h.spaceship.Level.Progress%config.Config.Enemy.CountProgressStep == 0 &&
+				len(h.enemies) < config.Config.Enemy.MaximumCount {
 
-				// If the progress is a multiple of the enemy count progress step,
-				// generate a new enemy.
-				if h.spaceship.Level.Progress%config.Config.Enemy.CountProgressStep == 0 &&
-					len(h.enemies) < config.Config.Enemy.MaximumCount {
-
-					h.GenerateEnemy("", false)
-				}
+				h.GenerateEnemy("", false)
 			}
 
 		}

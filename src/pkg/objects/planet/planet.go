@@ -127,5 +127,10 @@ func Reveal(randomY, planetsOnly bool) *Planet {
 		planet.Position.Y = numeric.RandomRange(0, canvasDimensions.OriginalHeight)
 	}
 
+	choice := PlanetType(config.Config.Control.PlanetChoice.Get())
+	if choice >= Mercury && choice <= Supernova {
+		planet.Type = PlanetType(choice)
+	}
+
 	return planet
 }

@@ -144,6 +144,11 @@ func (h *handler) applyPlanetImpact() {
 		h.planet.DoOnce(func() { config.SendMessage(message, false, false) })
 
 	case planet.BlackHole:
+		// If the spaceship is within range of the hole, disable the boost.
+		if h.spaceship.State == spaceship.Boosted && h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector())) {
+			h.spaceship.ChangeState(spaceship.Neutral)
+		}
+
 		h.planet.DoOnce(func() { config.SendMessage(message, false, false) })
 
 	case planet.Supernova:

@@ -316,7 +316,7 @@ func (spaceship Spaceship) GetBulletDamage() int {
 	// Calculate the modifier
 	modifier := (spaceship.Level.Progress/config.Config.Bullet.ModifierProgressStep + 1) * spaceship.Level.Cannons
 
-	damage := base*modifier + numeric.RandomRange(0, base*modifier).Int()
+	damage := base*modifier + numeric.RandomRange(base, base*modifier).Int()
 
 	// Allow critical hit
 	if numeric.SampleUniform(config.Config.Bullet.CriticalHitChance) {

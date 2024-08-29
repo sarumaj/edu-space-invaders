@@ -53,11 +53,24 @@ func (spaceship *Spaceship) ifFrozen() bool {
 	return false
 }
 
+// Area returns the area of the spaceship.
+func (spaceship Spaceship) Area() numeric.Number {
+	switch config.Config.Control.CollisionDetectionVersion.Get() {
+	case 1:
+		return numeric.GetRectangularVertices(spaceship.Position, spaceship.Size, true).Vertices().Area()
+	case 2:
+		return numeric.GetSpaceshipVerticesV1(spaceship.Position, spaceship.Size, true).Vertices().Area()
+	case 3:
+		return numeric.GetSpaceshipVerticesV2(spaceship.Position, spaceship.Size, true).Vertices().Area()
+	}
+	return spaceship.Size.Area()
+}
+
 // ApplyRepulsion applies repulsion to the spaceship and the enemy.
 // The repulsion is applied based on the spaceship's and enemy speed and direction.
 func (spaceship *Spaceship) ApplyRepulsion(e enemy.Enemy) numeric.Position {
 	// Calculate the effective area (as substitute for mass)
-	spaceshipArea, enemyArea := spaceship.Size.Area(), e.Size.Area()
+	spaceshipArea, enemyArea := spaceship.Area(), e.Area()
 	effectiveArea := spaceshipArea * enemyArea / (spaceshipArea + enemyArea)
 
 	// Calculate the minimum translation vector (MTV)
@@ -545,6 +558,11 @@ func (spaceship *Spaceship) Resize(scale numeric.Number) {
 	if scale > 1 {
 		spaceship.FixPosition()
 	}
+}
+
+// RestoreSize restores the spaceship's size to its original size.
+func (spaceship *Spaceship) RestoreSize() {
+	spaceship.Size, spaceship.Position = spaceship.Size.Restore(spaceship.Position)
 }
 
 // String returns a string representation of the spaceship.

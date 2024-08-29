@@ -15,10 +15,16 @@ func TestTemplate(t *testing.T) {
 		{"test#1",
 			args{
 				Template{"Damage": 10000, "Name": "Test", "Level": 1},
-				`<p>Damage: {{ printf "%d" .Damage | color "red" }}, {{ "Name" | italic }}: {{ printf "%q" .Name | bold }}, Level: {{ printf "%d" .Level }}</p>`,
+				`<p>Damage: {{ printf "%d" .Damage | color "red" }}, {{ "Name" | italic }}: {{ printf "%q" .Name | bold }}, Level: {{ printf "%d" .Level }}, Reason: {{ default .Reason "unknown" }}</p>`,
 			},
-			`<p>Damage: <span style="color: red;">10,000</span>, <i>Name</i>: <b>"Test"</b>, Level: 1</p>`},
+			`<p>Damage: <span style="color: red;">10,000</span>, <i>Name</i>: <b>"Test"</b>, Level: 1, Reason: unknown</p>`},
 		{"test#2",
+			args{
+				Template{"Damage": 10000, "Name": "Test", "Level": 1, "Reason": "test"},
+				`<p>Damage: {{ printf "%d" .Damage | color "red" }}, {{ "Name" | italic }}: {{ printf "%q" .Name | bold }}, Level: {{ printf "%d" .Level }}, Reason: {{ default .Reason "unknown" }}</p>`,
+			},
+			`<p>Damage: <span style="color: red;">10,000</span>, <i>Name</i>: <b>"Test"</b>, Level: 1, Reason: test</p>`},
+		{"test#3",
 			args{
 				Template{"Damage": 100},
 				`Your damage is

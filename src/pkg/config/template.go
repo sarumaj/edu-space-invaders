@@ -35,7 +35,13 @@ var funcsMap = template.FuncMap{
 		return fmt.Sprintf(`<span style="color: %s;">%s</span>`, color, fmt.Sprint(args...))
 	},
 	"config": func() config { return Config },
-	"float":  convert[float64],
+	"default": func(arg, fallback any) any {
+		if arg != nil {
+			return arg
+		}
+		return fallback
+	},
+	"float": convert[float64],
 	"greet": func() string {
 		switch now := time.Now(); {
 		case now.Hour() >= 6 && now.Hour() < 12:

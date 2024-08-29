@@ -75,6 +75,9 @@ func (planet *Planet) ApplyGravity(center numeric.Position, mass numeric.Number,
 	return center.Add(delta.Normalize().Mul(fieldStrength))
 }
 
+// Area returns the area of the planet.
+func (planet Planet) Area() numeric.Number { return numeric.Pi * planet.Radius.Pow(2) }
+
 // DoOnce executes the action only once during the lifetime of the planet.
 func (planet *Planet) DoOnce(action func()) { planet.once.Do(action) }
 

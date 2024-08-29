@@ -97,6 +97,7 @@ To setup similar project follow following steps:
       - [code file number.go](src/pkg/numeric/number.go)
       - [unit tests for position.go](src/pkg/numeric/position_test.go)
       - [code file position.go](src/pkg/numeric/position.go)
+      - [unit test file size_test.go](src/pkg/numeric/size_test.go)
       - [code file size.go](src/pkg/numeric/size.go)
       - [unit tests for vertices.go](src/pkg/numeric/vertices_test.go)
       - [code file vertices.go](src/pkg/numeric/vertices.go)

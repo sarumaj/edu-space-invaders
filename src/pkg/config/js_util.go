@@ -368,8 +368,6 @@ func SaveScores() {
 
 // SendInfoMessage sends a message to the message box.
 func SendMessage(msg string, reset, event logEvent) {
-	msg = fmt.Sprintf(`<div>%s</div>`, msg)
-
 	channel := event.Channel()
 	channelBtn := event.ChannelButton()
 
@@ -377,8 +375,18 @@ func SendMessage(msg string, reset, event logEvent) {
 		// Reset the content, keeping only the new message
 		channel.Set("innerHTML", msg)
 	} else {
-		// Append the new message to the DOM
-		channel.Call("insertAdjacentHTML", "beforeend", msg)
+		// Create a DocumentFragment
+		fragment := document.Call("createDocumentFragment")
+
+		// Create a temporary container element
+		div := document.Call("createElement", "div")
+		div.Set("innerHTML", msg)
+
+		// Move all children from the temporary container to the fragment
+		fragment.Call("appendChild", div)
+
+		// Append the fragment to the channel, minimizing DOM manipulation
+		channel.Call("appendChild", fragment)
 
 		// Limit the number of messages in the DOM
 		for channel.Get("children").Length() > Config.MessageBox.ChannelBufferSize {

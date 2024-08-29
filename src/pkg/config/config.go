@@ -201,8 +201,10 @@ type config struct {
 			} `ini:"Planet.Impact.Sun"`
 
 			BlackHole struct {
-				Description     TemplateString
-				GravityStrength float64
+				Description              TemplateString
+				GravityStrength          float64
+				ObjectSizeDecayDuration  time.Duration
+				SpaceshipDestroyedReason TemplateString
 			} `ini:"Planet.Impact.BlackHole"`
 
 			Supernova struct {

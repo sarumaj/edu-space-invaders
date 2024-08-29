@@ -1,10 +1,13 @@
 package numeric
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Size represents the size of an object (Width, Height)
 type Size struct {
 	Width, Height Number
+	Scale         Number
 }
 
 // Area returns the area of the bounding box.
@@ -44,6 +47,11 @@ func (size Size) Resize(scale Number, position Position) (Size, Position) {
 	newSize := Size{
 		Width:  size.Width * scale,
 		Height: size.Height * scale,
+		Scale:  scale,
+	}
+
+	if size.Scale > 0 {
+		newSize.Scale = size.Scale * scale
 	}
 
 	position.X -= (newSize.Width - size.Width) / 2
@@ -52,9 +60,18 @@ func (size Size) Resize(scale Number, position Position) (Size, Position) {
 	return newSize, position
 }
 
+// Restore restores the size and position to the original state.
+func (size Size) Restore(position Position) (Size, Position) {
+	if size.Scale > 0 && size.Scale != 1 {
+		return size.Resize(1/size.Scale, position)
+	}
+
+	return size, position
+}
+
 // String returns the string representation of the size.
 func (size Size) String() string {
-	return fmt.Sprintf("(%g, %g)", size.Width, size.Height)
+	return fmt.Sprintf("(%g, %g) / %g", size.Width, size.Height, size.Scale)
 }
 
 // ToVector returns the size as a position.

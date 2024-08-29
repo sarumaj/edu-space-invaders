@@ -18,6 +18,19 @@ type Enemy struct {
 	Type                EnemyType        // Type is the type of the enemy.
 }
 
+// Area returns the area of the enemy.
+func (enemy Enemy) Area() numeric.Number {
+	switch config.Config.Control.CollisionDetectionVersion.Get() {
+	case 1:
+		return numeric.GetRectangularVertices(enemy.Position, enemy.Size, false).Vertices().Area()
+	case 2:
+		return numeric.GetSpaceshipVerticesV1(enemy.Position, enemy.Size, enemy.Type == Goodie).Vertices().Area()
+	case 3:
+		return numeric.GetSpaceshipVerticesV2(enemy.Position, enemy.Size, enemy.Type == Goodie).Vertices().Area()
+	}
+	return enemy.Size.Area()
+}
+
 // Berserk turns the enemy into a berserker or an annihilator.
 // If the enemy is a goodie or a freezer, it does nothing.
 // If the enemy is a normal enemy, it has a chance to become a berserker.
@@ -64,6 +77,7 @@ func (enemy *Enemy) Berserk() {
 
 	if enemy.Type != boost.nextType {
 		enemy.Resize(boost.sizeFactor)
+		enemy.Size.Scale = 1 // Reset the scale, to keep the new size as the base size
 		enemy.Type = boost.nextType
 	}
 
@@ -216,6 +230,11 @@ func (enemy *Enemy) Move(spaceshipPosition numeric.Position) {
 // The position is adjusted to the center of the new size.
 func (enemy *Enemy) Resize(scale numeric.Number) {
 	enemy.Size, enemy.Position = enemy.Size.Resize(scale, enemy.Position)
+}
+
+// RestoreSize restores the size of the enemy.
+func (enemy *Enemy) RestoreSize() {
+	enemy.Size, enemy.Position = enemy.Size.Restore(enemy.Position)
 }
 
 // String returns the string representation of the enemy.

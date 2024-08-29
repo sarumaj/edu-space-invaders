@@ -7,6 +7,30 @@ import (
 
 type Vertices []Position
 
+// sortVertices returns a function that sorts the vertices of a polygon in clockwise or counter-clockwise order.
+// The centroid is the center of the polygon.
+// To be used with slices.SortFunc.
+func (vertices Vertices) sortVerticesClockwise(clockwise bool) func(i, j Position) int {
+	sign, c := 1, vertices.Centroid()
+	if !clockwise {
+		sign *= -1
+	}
+
+	return func(i, j Position) int {
+		switch angleI, angleJ := c.AngleTo(i), c.AngleTo(j); {
+		case
+			angleI > angleJ, // Largest angle first
+			angleI == angleJ && c.Distance(i) < c.Distance(j): // Same angle, sort by distance, closest first
+
+			return -1 * sign
+
+		default:
+			return 1 * sign
+
+		}
+	}
+}
+
 // Axes returns the axes of a polygon.
 // The axes are the normals to the edges of the polygon.
 // The normals are the perpendicular vectors to the edges.
@@ -64,30 +88,6 @@ func (vertices Vertices) Len() int {
 func (vertices Vertices) Sort(clockwise bool) Vertices {
 	slices.SortFunc(vertices, vertices.sortVerticesClockwise(clockwise))
 	return vertices
-}
-
-// sortVertices returns a function that sorts the vertices of a polygon in clockwise or counter-clockwise order.
-// The centroid is the center of the polygon.
-// To be used with slices.SortFunc.
-func (vertices Vertices) sortVerticesClockwise(clockwise bool) func(i, j Position) int {
-	sign, c := 1, vertices.Centroid()
-	if !clockwise {
-		sign *= -1
-	}
-
-	return func(i, j Position) int {
-		switch angleI, angleJ := c.AngleTo(i), c.AngleTo(j); {
-		case
-			angleI > angleJ, // Largest angle first
-			angleI == angleJ && c.Distance(i) < c.Distance(j): // Same angle, sort by distance, closest first
-
-			return -1 * sign
-
-		default:
-			return 1 * sign
-
-		}
-	}
 }
 
 // HasSeparatingAxis checks if an object collides with another using the Separating Axis Theorem.

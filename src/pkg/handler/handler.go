@@ -45,16 +45,38 @@ func (h *handler) applyGravityOnEnemies() {
 	for i, e := range h.enemies {
 		// And if the spaceship is not within the range of the planet or the enemy is a goodie:
 		repel = repel && (!h.planet.WithinRange(spaceshipPosition, 1) || e.Type == enemy.Goodie)
-		enemyPosition := e.Position.Add(e.Size.Half().ToVector())
 		// And if the enemy is not within the range of the planet:
-		repel = repel && !h.planet.WithinRange(enemyPosition, 1)
+		repel = repel && !h.planet.WithinRange(e.Position.Add(e.Size.Half().ToVector()), 1)
 
 		h.enemies[i].Position = h.planet.ApplyGravity(
 			e.Position.Add(e.Size.Half().ToVector()),
-			e.Size.Area(),
+			e.Area(),
 			true,  // Increase the planet's mass
 			repel, // Repel the enemies away or not
 		).Sub(e.Size.Half().ToVector())
+
+		// Shrink the enemy if it is within range of the black hole.
+		if h.planet.Type == planet.BlackHole && h.planet.WithinRange(h.enemies[i].Position.Add(e.Size.Half().ToVector()), 1) {
+			area := e.Area()
+			if area <= 1 { // Destroy the enemy if it is too small.
+				h.enemies[i].Destroy()
+				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.EnemyDestroyed, config.Template{
+					"EnemyName": e.Name,
+					"EnemyType": e.Type,
+				}), false, true)
+				continue
+			}
+
+			numOfFrames := numeric.Number(config.Config.Planet.Impact.BlackHole.ObjectSizeDecayDuration.Seconds() * config.Config.Control.DesiredFramesPerSecondRate)
+			reduction := numeric.E.Pow(-area.Log()/numOfFrames).Clamp(0, 1)
+			h.enemies[i].Resize(reduction)
+			continue
+		}
+
+		// If the enemy has been shrunk, restore the enemy to its original size.
+		if h.planet.Type != planet.BlackHole || !h.planet.WithinRange(h.enemies[i].Position.Add(e.Size.Half().ToVector()), 1.2) {
+			h.enemies[i].RestoreSize()
+		}
 	}
 }
 
@@ -67,7 +89,7 @@ func (h *handler) applyGravityOnSpaceship() {
 	// The spaceship's mass should not increase the planet's mass.
 	h.spaceship.Position = h.planet.ApplyGravity(
 		h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector()),
-		h.spaceship.Size.Area(),
+		h.spaceship.Area(),
 		false, // Do not increase the planet's mass
 		false, // Do not reverse the gravity
 	).Sub(h.spaceship.Size.Half().ToVector())
@@ -80,7 +102,7 @@ func (h *handler) applyGravityOnSpaceship() {
 		for i, bullet := range h.spaceship.Bullets {
 			h.spaceship.Bullets[i].Position = h.planet.ApplyGravity(
 				bullet.Position,
-				numeric.Number(config.Config.Bullet.Weight)*bullet.Size.Area(),
+				numeric.Number(config.Config.Bullet.Weight)*bullet.Area(),
 				false, // Do not increase the planet's mass
 				false, // Do not reverse the gravity
 			)
@@ -96,10 +118,40 @@ func (h *handler) applyGravityOnSpaceship() {
 			}
 
 			// Exhaust the bullet if it is stuck in the planet.
-			if h.planet.WithinRange(h.spaceship.Bullets[i].Position, 0.75) {
+			if h.planet.WithinRange(h.spaceship.Bullets[i].Position, 0.1) {
 				h.spaceship.Bullets[i].Exhaust()
 			}
 		}
+	}
+
+	// If the spaceship is within range of the black hole, shrink the spaceship.
+	if h.planet.Type == planet.BlackHole && h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector()), 1) {
+		area := h.spaceship.Area()
+		// Destroy the spaceship if it is too small.
+		if area <= 1 && !config.Config.Control.GodMode.Get() {
+			config.SendMessage(config.Execute(config.Config.MessageBox.Messages.GameOver, config.Template{
+				"DiscoveredPlanets": h.spaceship.Discovered(),
+				"HighScore":         h.spaceship.HighScore,
+				"Rank":              config.SetScore(h.spaceship.Commandant, h.spaceship.HighScore),
+				"Reason":            config.Execute(config.Config.Planet.Impact.BlackHole.SpaceshipDestroyedReason),
+				"TopScores":         config.GetScores(10),
+			}), false, false)
+			h.cancel()
+			return
+		}
+
+		if area > 1 { // Shrink down the spaceship.
+			numOfFrames := numeric.Number(time.Second.Seconds() * config.Config.Control.DesiredFramesPerSecondRate)
+			reduction := numeric.E.Pow(-area.Log()/numOfFrames).Clamp(0, 1)
+			h.spaceship.Resize(reduction)
+		}
+
+		return
+	}
+
+	// If the spaceship has been shrunk, restore the spaceship to its original size.
+	if h.planet.Type != planet.BlackHole || !h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector()), 1.2) {
+		h.spaceship.RestoreSize()
 	}
 }
 

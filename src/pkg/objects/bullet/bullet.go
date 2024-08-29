@@ -19,6 +19,14 @@ type Bullet struct {
 	repelVector numeric.Position // Repel vector of the bullet
 }
 
+// Area returns the area of the bullet.
+func (bullet Bullet) Area() numeric.Number {
+	if config.Config.Control.CollisionDetectionVersion.Get() == 3 {
+		numeric.GetSkewedLineVertices(bullet.Position, bullet.Size, bullet.Skew).Vertices().Area()
+	}
+	return bullet.Size.Area()
+}
+
 // Draw draws the bullet.
 // The bullet is drawn as a yellow rectangle.
 func (bullet Bullet) Draw() {
@@ -132,7 +140,7 @@ func (bullet *Bullet) Move() {
 // Repel repels the bullet from the enemy.
 func (bullet *Bullet) Repel(e enemy.Enemy) numeric.Position {
 	// Calculate the effective area (as substitute for mass)
-	bulletArea, enemyArea := bullet.Size.Area(), e.Size.Area()
+	bulletArea, enemyArea := bullet.Area(), e.Area()
 	effectiveArea := bulletArea * enemyArea / (bulletArea + enemyArea)
 
 	// Calculate the minimum translation vector (MTV)

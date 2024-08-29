@@ -182,6 +182,7 @@ func (pos Position) ToBox() Size {
 	return Size{
 		Width:  pos.X,
 		Height: pos.Y,
+		Scale:  1,
 	}
 }
 

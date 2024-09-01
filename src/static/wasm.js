@@ -1,38 +1,96 @@
+function handleOnline(msg) {
+  updateOverlay(true, msg);
+  if (globalThis.onlineFunc) {
+    globalThis.onlineFunc();
+  }
+}
+
+function handleOffline(msg) {
+  updateOverlay(false, msg);
+  if (globalThis.offlineFunc) {
+    globalThis.offlineFunc();
+  }
+}
+
 async function loadWasm() {
   const go = new Go(); // Defined in wasm_exec.js
 
   // Show the loading overlay and apply the background effects
-  const overlay = document.getElementById("loadingOverlay");
-  if (overlay.classList.contains("hidden")) {
-    overlay.classList.remove("hidden");
-    overlay.classList.add("active");
-  }
+  updateOverlay(false, "Loading...");
 
   // Initialize the environment variables
   globalThis.go_env = {};
 
-  // Load and instantiate the WebAssembly module
-  const wasmModule = await WebAssembly.instantiateStreaming(
-    fetch("main.wasm"),
-    go.importObject
-  );
+  // Define the pause and resume functions
+  globalThis.offlineFunc = function () {
+    console.log("Not implemented: offlineFunc");
+  };
 
-  // Change overlay text to "Running..."
-  const overlayText = document.getElementById("loadingMessage");
-  overlayText.innerText = "Game loaded. Running...";
+  globalThis.onlineFunc = function () {
+    console.log("Not implemented: onlineFunc");
+  };
 
-  // Introduce a small delay to ensure the DOM is updated before running the Wasm module
-  await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms delay
+  try {
+    // Load and instantiate the WebAssembly module
+    const wasmModule = await WebAssembly.instantiateStreaming(
+      fetch("main.wasm"),
+      go.importObject
+    );
 
-  // Run the WebAssembly module
-  go.run(wasmModule.instance);
+    // Change overlay text to "Running..."
+    updateOverlay(true, "Game loaded. Running...");
 
-  // Hide the loading overlay and remove the background effects
-  overlay.classList.add("hidden");
-  overlay.classList.remove("active");
+    // Introduce a small delay to ensure the DOM is updated before running the Wasm module
+    await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms delay
+
+    // Run the WebAssembly module
+    go.run(wasmModule.instance);
+  } catch (error) {
+    console.error("Failed to load WASM module:", error);
+    handleOffline("Failed to load game. Check your connection and try again.");
+    return;
+  }
+
+  const worker = new Worker("health-worker.js");
+
+  worker.onmessage = function (e) {
+    switch (e.data.type) {
+      case "offline":
+        handleOffline("Game server is down. Waiting for connection...");
+        break;
+      case "online":
+        handleOnline("Game server is up. Resuming...");
+        break;
+    }
+    worker.postMessage({ type: "ack" });
+  };
+
+  worker.postMessage({ type: "start" });
 }
 
-window.addEventListener("load", loadWasm());
+function updateOverlay(activate, msg) {
+  const overlay = document.getElementById("loadingOverlay");
+  const overlayText = document.getElementById("loadingMessage");
+  overlayText.innerText = msg;
+
+  if (activate) {
+    overlay.classList.add("hidden");
+    overlay.classList.remove("active");
+  } else {
+    overlay.classList.add("active");
+    overlay.classList.remove("hidden");
+  }
+}
+
+window.addEventListener("load", loadWasm);
+
+window.addEventListener("online", () => {
+  handleOnline("Connection restored. Resuming...");
+});
+
+window.addEventListener("offline", () => {
+  handleOffline("Connection lost. Waiting for connection...");
+});
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("service-worker.js").then(

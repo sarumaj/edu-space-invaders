@@ -111,41 +111,7 @@ func init() {
 	setupScoreBoard()
 
 	// Detach the watchdogs
-	checkHealth(1)
 	envCallback(1)
-}
-
-// checkHealth is a function that checks the health of the game.
-// The health check is performed every 10 seconds.
-// The health check is performed by fetching the health endpoint.
-// If the health check fails, the next health check is scheduled with exponential backoff.
-func checkHealth(exponentialBackoff float64) {
-	delayInMs := 10_000 * time.Millisecond
-
-	go func() {
-		GlobalCall("fetch", "health", MakeObject(map[string]any{
-			"method":  http.MethodGet,
-			"headers": MakeObject(map[string]any{"Accept": "application/json"}),
-		})).Call("then", js.FuncOf(func(_ js.Value, p []js.Value) any {
-			if response := p[0]; !response.Get("ok").Bool() {
-				return response.Call("text").Call("then", js.FuncOf(func(_ js.Value, p []js.Value) any {
-					return GlobalGet("Promise").Call("reject", GlobalGet("Error").New(p[0].String()))
-				}))
-			}
-
-			time.AfterFunc(delayInMs, func() { checkHealth(exponentialBackoff) })
-			return nil
-
-		})).Call("catch", js.FuncOf(func(_ js.Value, p []js.Value) interface{} {
-			LogError(fmt.Errorf("Error checking health: %s", p[0].String()))
-
-			time.AfterFunc(delayInMs*time.Duration(exponentialBackoff), func() {
-				checkHealth(exponentialBackoff * 2)
-			})
-			return nil
-
-		}))
-	}()
 }
 
 // envCallback is a function that fetches the environment variables.

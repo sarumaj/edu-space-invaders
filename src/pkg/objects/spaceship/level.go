@@ -11,6 +11,7 @@ type SpaceshipLevel struct {
 	AccelerateRate numeric.Number // AccelerateRate is the rate at which the spaceship accelerates.
 	Cannons        int            // Cannons is the number of cannons the spaceship has.
 	Experience     int            // Experience is the experience level of the spaceship.
+	HighScore      int            // HighScore is the high score of the spaceship.
 	Progress       int            // Progress is the progress level of the spaceship.
 	Shield         *Shield        // Shield is the shield of the spaceship.
 }
@@ -22,22 +23,20 @@ type SpaceshipLevel struct {
 // It decreases the accelerate rate by the acceleration value: x = -0.5 + sqrt(0.25 + x').
 // It returns true if the spaceship level has decreased or if the shield has been used.
 func (lvl *SpaceshipLevel) Down() bool {
-	if lvl.Shield.Use() {
+	switch {
+	case lvl.Shield.Use():
 		return true
-	}
 
-	if config.Config.Control.GodMode.Get() {
+	case config.Config.Control.GodMode.Get():
 		return false
-	}
 
-	if lvl.Progress == 0 {
+	case lvl.Progress == 0:
 		return false
+
 	}
 
-	lvl.AccelerateRate = -0.5 + (0.25 + lvl.AccelerateRate).Root()
-	if lvl.AccelerateRate.Float() < config.Config.Spaceship.Acceleration {
-		lvl.AccelerateRate = numeric.Number(config.Config.Spaceship.Acceleration)
-	}
+	lvl.AccelerateRate = (-0.5 + (0.25 + lvl.AccelerateRate).Root()).
+		Max(numeric.Number(config.Config.Spaceship.Acceleration))
 
 	if lvl.Cannons > 1 && (lvl.Progress-1)%config.Config.Spaceship.CannonProgress == 0 {
 		lvl.Cannons -= 1
@@ -60,7 +59,7 @@ func (lvl *SpaceshipLevel) GainExperience(e enemy.Enemy) bool {
 		enemy.Normal:      numeric.Number(config.Config.Enemy.DefaultPenalty),
 		enemy.Berserker:   numeric.Number(config.Config.Enemy.Berserker.Penalty),
 		enemy.Annihilator: numeric.Number(config.Config.Enemy.Annihilator.Penalty),
-	}[e.Type]
+	}[e.Type()]
 
 	// Calculate the experience gain
 	gain := (base * numeric.Number(e.Level.Progress)).Int()
@@ -99,11 +98,12 @@ func (lvl *SpaceshipLevel) Up() {
 		lvl.Cannons += 1
 	}
 
-	lvl.AccelerateRate *= 1 + numeric.Number(config.Config.Spaceship.Acceleration)
-	if lvl.AccelerateRate.Float() > config.Config.Spaceship.MaximumSpeed {
-		lvl.AccelerateRate = numeric.Number(config.Config.Spaceship.MaximumSpeed * config.Config.Spaceship.Acceleration)
-	}
+	lvl.AccelerateRate = (lvl.AccelerateRate * numeric.Number(1+config.Config.Spaceship.Acceleration)).
+		Min(numeric.Number(config.Config.Spaceship.MaximumSpeed * config.Config.Spaceship.Acceleration))
 
 	lvl.Progress += 1
+
+	lvl.HighScore = numeric.Number(lvl.HighScore).Max(numeric.Number(lvl.Progress)).Int()
+
 	lvl.Shield.Reinforce()
 }

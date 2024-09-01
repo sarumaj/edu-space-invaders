@@ -7,6 +7,7 @@ import (
 
 	"github.com/Pallinder/go-randomdata"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/graphics"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/bullet"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/objects/enemy"
@@ -17,15 +18,14 @@ import (
 type Spaceship struct {
 	IsAdmiral           bool                       // IsAdmiral is true if the spaceship is the admiral.
 	Commandant          string                     // Commandant is the name of the spaceship's commander.
-	Position            numeric.Position           // Position of the spaceship
 	Speed               numeric.Position           // Speed of the spaceship in both directions
+	Color               *graphics.ColorTransition  // Transition of the spaceship
+	Geometry            *graphics.SizeTransition   // Transition of the spaceship's size
 	Cooldown            time.Duration              // Time between shots
 	Directions          Directions                 // Directions the spaceship can move
-	Size                numeric.Size               // Size of the spaceship
 	Bullets             bullet.Bullets             // Bullets fired by the spaceship
 	Level               *SpaceshipLevel            // Spaceship level
-	State               SpaceshipState             // Spaceship state
-	HighScore           int                        // HighScore is the high score of the spaceship.
+	state               SpaceshipState             // Spaceship state
 	lastFired           time.Time                  // Last time the spaceship fired
 	lastStateTransition time.Time                  // Last time the spaceship changed state
 	lastDiscovery       time.Time                  // Last time the spaceship discovered a planet
@@ -37,7 +37,7 @@ type Spaceship struct {
 // to the message box indicating that the spaceship is still frozen.
 // The message is throttled based on the log throttling duration.
 func (spaceship *Spaceship) ifFrozen() bool {
-	if spaceship.State == Frozen {
+	if spaceship.state == Frozen {
 		config.SendMessageThrottled(
 			config.Execute(config.Config.MessageBox.Messages.SpaceshipStillFrozen,
 				config.Template{
@@ -57,13 +57,13 @@ func (spaceship *Spaceship) ifFrozen() bool {
 func (spaceship Spaceship) Area() numeric.Number {
 	switch config.Config.Control.CollisionDetectionVersion.Get() {
 	case 1:
-		return numeric.GetRectangularVertices(spaceship.Position, spaceship.Size, true).Vertices().Area()
+		return numeric.GetRectangularVertices(spaceship.Geometry.Position(), spaceship.Geometry.Size(), true).Vertices().Area()
 	case 2:
-		return numeric.GetSpaceshipVerticesV1(spaceship.Position, spaceship.Size, true).Vertices().Area()
+		return numeric.GetSpaceshipVerticesV1(spaceship.Geometry.Position(), spaceship.Geometry.Size(), true).Vertices().Area()
 	case 3:
-		return numeric.GetSpaceshipVerticesV2(spaceship.Position, spaceship.Size, true).Vertices().Area()
+		return numeric.GetSpaceshipVerticesV2(spaceship.Geometry.Position(), spaceship.Geometry.Size(), true).Vertices().Area()
 	}
-	return spaceship.Size.Area()
+	return spaceship.Geometry.Size().Area()
 }
 
 // ApplyRepulsion applies repulsion to the spaceship and the enemy.
@@ -77,32 +77,32 @@ func (spaceship *Spaceship) ApplyRepulsion(e enemy.Enemy) numeric.Position {
 	var mtv numeric.Position
 	switch config.Config.Control.CollisionDetectionVersion.Get() {
 	case 1:
-		mtv = numeric.GetRectangularVertices(spaceship.Position, spaceship.Size, true).
+		mtv = numeric.GetRectangularVertices(spaceship.Geometry.Position(), spaceship.Geometry.Size(), true).
 			Vertices().
-			MinimumTranslationVector(numeric.GetRectangularVertices(e.Position, e.Size, true).
+			MinimumTranslationVector(numeric.GetRectangularVertices(e.Geometry.Position(), e.Geometry.Size(), true).
 				Vertices())
 
 	case 2:
-		mtv = numeric.GetSpaceshipVerticesV1(spaceship.Position, spaceship.Size, true).
+		mtv = numeric.GetSpaceshipVerticesV1(spaceship.Geometry.Position(), spaceship.Geometry.Size(), true).
 			Vertices().
-			MinimumTranslationVector(numeric.GetSpaceshipVerticesV1(e.Position, e.Size, e.Type == enemy.Goodie).
+			MinimumTranslationVector(numeric.GetSpaceshipVerticesV1(e.Geometry.Position(), e.Geometry.Size(), e.Type() == enemy.Tank).
 				Vertices())
 
 	case 3:
-		mtv = numeric.GetSpaceshipVerticesV2(spaceship.Position, spaceship.Size, true).
+		mtv = numeric.GetSpaceshipVerticesV2(spaceship.Geometry.Position(), spaceship.Geometry.Size(), true).
 			Vertices().
-			MinimumTranslationVector(numeric.GetSpaceshipVerticesV2(e.Position, e.Size, e.Type == enemy.Goodie).
+			MinimumTranslationVector(numeric.GetSpaceshipVerticesV2(e.Geometry.Position(), e.Geometry.Size(), e.Type() == enemy.Tank).
 				Vertices())
 
 	}
 
 	if mtv.IsZero() { // No collision
-		return e.Position
+		return e.Geometry.Position()
 	}
 
 	// Apply the displacements
-	spaceship.Position = spaceship.Position.Add(mtv.Mul(effectiveArea / spaceshipArea))
-	return e.Position.Sub(mtv.Mul(effectiveArea / enemyArea))
+	spaceship.Geometry.SetPosition(spaceship.Geometry.Position().Add(mtv.Mul(effectiveArea / spaceshipArea)))
+	return e.Geometry.Position().Sub(mtv.Mul(effectiveArea / enemyArea))
 }
 
 // ChangeState changes the state of the spaceship.
@@ -111,7 +111,7 @@ func (spaceship *Spaceship) ApplyRepulsion(e enemy.Enemy) numeric.Position {
 // the maximum number of cannons, it is set to the maximum number.
 func (spaceship *Spaceship) ChangeState(state SpaceshipState) {
 	spaceship.lastStateTransition = time.Now()
-	if spaceship.State == state {
+	if spaceship.state == state {
 		return
 	}
 
@@ -122,10 +122,15 @@ func (spaceship *Spaceship) ChangeState(state SpaceshipState) {
 			spaceship.Level.Cannons = config.Config.Spaceship.MaximumCannons
 		}
 
-		spaceship.Resize(numeric.Number(config.Config.Spaceship.BoostScaleSizeFactor))
+		spaceship.Color.SetColor(state.GetColor())
+		spaceship.Geometry.SetScale(state.GetScale())
+
+	case Frozen, Damaged:
+		spaceship.Color.SetColor(state.GetColor())
+
 	}
 
-	switch spaceship.State = state; spaceship.State {
+	switch spaceship.state = state; spaceship.state {
 	case Boosted:
 		go config.PlayAudio("spaceship_boost.wav", false)
 
@@ -146,23 +151,23 @@ func (spaceship *Spaceship) ChangeState(state SpaceshipState) {
 func (spaceship Spaceship) DetectCollision(e enemy.Enemy) bool {
 	switch config.Config.Control.CollisionDetectionVersion.Get() {
 	case 1:
-		return !numeric.GetRectangularVertices(spaceship.Position, spaceship.Size, true).
+		return !numeric.GetRectangularVertices(spaceship.Geometry.Position(), spaceship.Geometry.Size(), true).
 			Vertices().
-			HasSeparatingAxis(numeric.GetRectangularVertices(e.Position, e.Size, true).
+			HasSeparatingAxis(numeric.GetRectangularVertices(e.Geometry.Position(), e.Geometry.Size(), true).
 				Vertices())
 
 	case 2:
 		return !numeric.
-			GetSpaceshipVerticesV1(spaceship.Position, spaceship.Size, true).
+			GetSpaceshipVerticesV1(spaceship.Geometry.Position(), spaceship.Geometry.Size(), true).
 			Vertices().
-			HasSeparatingAxis(numeric.GetSpaceshipVerticesV1(e.Position, e.Size, e.Type == enemy.Goodie).
+			HasSeparatingAxis(numeric.GetSpaceshipVerticesV1(e.Geometry.Position(), e.Geometry.Size(), e.Type() == enemy.Tank).
 				Vertices())
 
 	case 3:
 		return !numeric.
-			GetSpaceshipVerticesV2(spaceship.Position, spaceship.Size, true).
+			GetSpaceshipVerticesV2(spaceship.Geometry.Position(), spaceship.Geometry.Size(), true).
 			Vertices().
-			HasSeparatingAxis(numeric.GetSpaceshipVerticesV2(e.Position, e.Size, e.Type == enemy.Goodie).
+			HasSeparatingAxis(numeric.GetSpaceshipVerticesV2(e.Geometry.Position(), e.Geometry.Size(), e.Type() == enemy.Tank).
 				Vertices())
 
 	}
@@ -179,8 +184,8 @@ func (spaceship *Spaceship) Discover(p *planet.Planet) bool {
 	switch {
 	case
 		!p.Type.IsPlanet(), // If the celestial object is not an actual planet
-		!p.WithinRange(spaceship.Position.Add(spaceship.Size.Half().ToVector()), 1),                                                  // If the spaceship is not within range of the planet
-		spaceship.discoveredPlanets[p.Type],                                                                                          // If the planet has been discovered
+		!p.WithinRange(spaceship.Geometry.Position().Add(spaceship.Geometry.Size().Half().ToVector()), 1), // If the spaceship is not within range of the planet
+		spaceship.discoveredPlanets[p.Type], // If the planet has been discovered
 		time.Since(spaceship.lastDiscovery) < config.Config.Planet.DiscoveryCooldown*time.Duration(len(spaceship.discoveredPlanets)), // If a planet has been discovered recently
 		!numeric.SampleUniform(config.Config.Planet.DiscoveryProbability):                                                            // If the planet is not discovered based on the probability
 
@@ -215,7 +220,7 @@ func (spaceship *Spaceship) Discovered() []string {
 // If the control to draw the spaceship experience bar is enabled, the spaceship is drawn with the experience bar.
 // If the control to draw the spaceship discovery progress bar is enabled, the spaceship is drawn with the discovery progress bar.
 // If the control to draw the spaceship shield is enabled, the spaceship is drawn with the shield.
-func (spaceship Spaceship) Draw() {
+func (spaceship *Spaceship) Draw() {
 	var label string
 	if config.Config.Control.DrawObjectLabels.Get() {
 		label = spaceship.Commandant
@@ -239,16 +244,13 @@ func (spaceship Spaceship) Draw() {
 		statusColors = append(statusColors, "rgba(0, 0, 240, 0.8)") // Blue
 	}
 
+	spaceship.Color.Interpolate()
+	spaceship.Geometry.Interpolate()
 	config.DrawSpaceship(
-		spaceship.Position.Pack(),
-		spaceship.Size.Pack(),
+		spaceship.Geometry.Position().Pack(),
+		spaceship.Geometry.Size().Pack(),
 		true,
-		map[SpaceshipState]string{
-			Neutral: "Lavender",
-			Damaged: "Crimson",
-			Boosted: "Chartreuse",
-			Frozen:  "DeepSkyBlue",
-		}[spaceship.State],
+		spaceship.Color.Gradient().FormatRGBA(),
 		label,
 		statusValues,
 		statusColors,
@@ -262,11 +264,11 @@ func (spaceship Spaceship) Draw() {
 // The trajectory of the bullets is skewed based on the position
 // of the cannon.
 func (spaceship *Spaceship) Fire() {
-	if spaceship.ifFrozen() {
-		return
-	}
+	switch {
+	case
+		spaceship.ifFrozen(),
+		time.Since(spaceship.lastFired) < spaceship.Cooldown:
 
-	if time.Since(spaceship.lastFired) < spaceship.Cooldown {
 		return
 	}
 
@@ -279,12 +281,18 @@ func (spaceship *Spaceship) Fire() {
 		centerCannonRelation := numeric.Number(i) - centerCannon
 
 		// Absolute position of the cannon
-		cannonPosition := spaceship.Size.Width * (centerCannonRelation/centerCannon + 0.5)
+		cannonPosition := spaceship.Geometry.Size().Width * (centerCannonRelation/centerCannon + 0.5)
+
+		// Calculate the damage of the bullet
+		damage := spaceship.GetBulletDamage()
+		if spaceship.state == Hijacked { // Neutralize the damage if the spaceship is hijacked
+			damage = 0
+		}
 
 		// Reload bullet
 		spaceship.Bullets.Reload(
-			spaceship.Position.Add(numeric.Locate(cannonPosition, 0)),
-			spaceship.GetBulletDamage(),
+			spaceship.Geometry.Position().Add(numeric.Locate(cannonPosition, 0)),
+			damage,
 			numeric.Number(centerCannonRelation/centerCannon*0.5), // Skew: -0.5 to 0.5
 			spaceship.Level.AccelerateRate,
 		)
@@ -301,167 +309,114 @@ func (spaceship *Spaceship) FixPosition() {
 	canvasDimensions := config.CanvasBoundingBox()
 
 	// Calculate the maximum allowed X and Y to keep the spaceship fully visible
-	maxX := numeric.Number(canvasDimensions.OriginalWidth) - spaceship.Size.Width
-	maxY := numeric.Number(canvasDimensions.OriginalHeight) - spaceship.Size.Height
+	maxX := numeric.Number(canvasDimensions.OriginalWidth) - spaceship.Geometry.Size().Width
+	maxY := numeric.Number(canvasDimensions.OriginalHeight) - spaceship.Geometry.Size().Height
 
 	// Fix the spaceship position
-	spaceship.Position.X = spaceship.Position.X.Clamp(0, maxX)
-	spaceship.Position.Y = spaceship.Position.Y.Clamp(0, maxY)
+	spaceship.Geometry.SetPosition(numeric.Locate(
+		spaceship.Geometry.Position().X.Clamp(0, maxX),
+		spaceship.Geometry.Position().Y.Clamp(0, maxY),
+	))
 }
 
 // GetBulletDamage returns the damage of the bullets fired by the spaceship.
 func (spaceship Spaceship) GetBulletDamage() int {
 	// Calculate the base damage
-	base := config.Config.Bullet.InitialDamage + spaceship.Level.Progress
+	base := numeric.Number(config.Config.Bullet.InitialDamage + spaceship.Level.Progress*config.Config.Bullet.DamageProgressAmplifier)
 	// Calculate the modifier
-	modifier := (spaceship.Level.Progress/config.Config.Bullet.ModifierProgressStep + 1) * spaceship.Level.Cannons
+	modifier := 1.0 + numeric.Number(spaceship.Level.Progress)/
+		numeric.Number(config.Config.Bullet.ModifierProgressStep+spaceship.Level.Cannons)
 
-	damage := base*modifier + numeric.RandomRange(base, base*modifier).Int()
+	damage := base*modifier + numeric.RandomRange(0, base*modifier)
 
 	// Allow critical hit
 	if numeric.SampleUniform(config.Config.Bullet.CriticalHitChance) {
-		damage *= config.Config.Bullet.CriticalHitFactor
+		damage *= numeric.Number(config.Config.Bullet.CriticalHitFactor)
 	}
 
 	// Amplify the damage if the spaceship is an admiral
 	if spaceship.IsAdmiral {
-		damage *= config.Config.Spaceship.AdmiralDamageAmplifier
+		damage *= numeric.Number(config.Config.Spaceship.AdmiralDamageAmplifier)
 	}
 
 	// Return the damage
-	return damage
+	return damage.Int()
 }
 
 // IsDestroyed checks if the spaceship is destroyed.
-func (spaceship Spaceship) IsDestroyed() bool {
-	return spaceship.Level.Progress == 0
+// If the spaceship's level progress is greater than 0, it is not destroyed.
+func (spaceship *Spaceship) IsDestroyed() bool { return spaceship.Level.Progress == 0 }
+
+// Move moves the spaceship in the specified direction.
+func (spaceship *Spaceship) Move(direction Direction) {
+	if spaceship.ifFrozen() {
+		return
+	}
+
+	if spaceship.state == Hijacked {
+		spaceship.Directions.Horizontal = spaceship.Directions.Horizontal.Opposite()
+		spaceship.Directions.Vertical = spaceship.Directions.Vertical.Opposite()
+		direction = direction.Opposite()
+	}
+
+	// Brake the spaceship if it is moving in the opposite direction
+	if spaceship.Directions.IsHeadedTo(direction.Opposite()) {
+		switch direction {
+		case Up, Down:
+			spaceship.Speed.Y = 0
+		case Left, Right:
+			spaceship.Speed.X = 0
+		}
+	}
+
+	// Set the direction and accelerate the spaceship
+	switch direction {
+	case Up, Down:
+		spaceship.Directions.SetVertical(direction)
+		spaceship.Speed.Y += spaceship.Level.AccelerateRate
+	case Left, Right:
+		spaceship.Directions.SetHorizontal(direction)
+		spaceship.Speed.X += spaceship.Level.AccelerateRate
+	}
+
+	// Limit the speed of the spaceship
+	if spaceship.Speed.Magnitude().Float() > config.Config.Spaceship.MaximumSpeed {
+		spaceship.Speed = spaceship.Speed.Normalize().Mul(numeric.Number(config.Config.Spaceship.MaximumSpeed))
+	}
+
+	// Check the boundaries and update the spaceship position
+	spaceship.Geometry.SetPosition(spaceship.Geometry.Position().Add(map[Direction]numeric.Position{
+		Left:  numeric.Locate(-spaceship.Speed.X, 0),
+		Right: numeric.Locate(spaceship.Speed.X, 0),
+		Up:    numeric.Locate(0, -spaceship.Speed.Y),
+		Down:  numeric.Locate(0, spaceship.Speed.Y),
+	}[direction]))
+	spaceship.FixPosition()
+
+	go config.PlayAudio("spaceship_acceleration.wav", false)
 }
 
 // MoveDown moves the spaceship down.
 // The spaceship's position is updated based on the spaceship's speed.
 // If the spaceship's position is greater than the canvas height,
 // it is set to the canvas height.
-func (spaceship *Spaceship) MoveDown() {
-	if spaceship.ifFrozen() {
-		return
-	}
-
-	// Brake the spaceship if it is moving in the opposite direction
-	if spaceship.Directions.IsHeadedTo(Up) {
-		spaceship.Speed.Y = 0
-	}
-
-	// Set the vertical direction
-	spaceship.Directions.SetVertical(Down)
-
-	// Accelerate the spaceship vertically
-	spaceship.Speed.Y += numeric.Number(spaceship.Level.AccelerateRate)
-
-	// Limit the speed of the spaceship
-	if spaceship.Speed.Magnitude().Float() > config.Config.Spaceship.MaximumSpeed {
-		spaceship.Speed = spaceship.Speed.Normalize().Mul(numeric.Number(config.Config.Spaceship.MaximumSpeed))
-	}
-
-	// Check the vertical boundaries and update the spaceship position
-	spaceship.Position.Y += spaceship.Speed.Y
-	spaceship.FixPosition()
-
-	go config.PlayAudio("spaceship_deceleration.wav", false)
-}
+func (spaceship *Spaceship) MoveDown() { spaceship.Move(Down) }
 
 // MoveLeft moves the spaceship to the left.
 // The spaceship's position is updated based on the spaceship's speed.
 // If the spaceship's position is less than 0, it is set to 0.
-func (spaceship *Spaceship) MoveLeft() {
-	if spaceship.ifFrozen() {
-		return
-	}
-
-	// Brake the spaceship if it is moving in the opposite direction
-	if spaceship.Directions.IsHeadedTo(Right) {
-		spaceship.Speed.X = 0
-	}
-
-	// Set the horizontal direction
-	spaceship.Directions.SetHorizontal(Left)
-
-	// Accelerate the spaceship horizontally
-	spaceship.Speed.X += numeric.Number(spaceship.Level.AccelerateRate)
-
-	// Limit the speed of the spaceship
-	if spaceship.Speed.Magnitude().Float() > config.Config.Spaceship.MaximumSpeed {
-		spaceship.Speed = spaceship.Speed.Normalize().Mul(numeric.Number(config.Config.Spaceship.MaximumSpeed))
-	}
-
-	// Check the horizontal boundaries and update the spaceship position
-	spaceship.Position.X -= spaceship.Speed.X
-	spaceship.FixPosition()
-
-	go config.PlayAudio("spaceship_whoosh.wav", false)
-}
+func (spaceship *Spaceship) MoveLeft() { spaceship.Move(Left) }
 
 // MoveRight moves the spaceship to the right.
 // The spaceship's position is updated based on the spaceship's speed.
 // If the spaceship's position is greater than the canvas width,
 // it is set to the canvas width.
-func (spaceship *Spaceship) MoveRight() {
-	if spaceship.ifFrozen() {
-		return
-	}
-
-	// Brake the spaceship if it is moving in the opposite direction
-	if spaceship.Directions.IsHeadedTo(Left) {
-		spaceship.Speed.X = 0
-	}
-
-	// Set the horizontal direction
-	spaceship.Directions.SetHorizontal(Right)
-
-	// Accelerate the spaceship horizontally
-	spaceship.Speed.X += numeric.Number(spaceship.Level.AccelerateRate)
-
-	// Limit the speed of the spaceship
-	if spaceship.Speed.Magnitude().Float() > config.Config.Spaceship.MaximumSpeed {
-		spaceship.Speed = spaceship.Speed.Normalize().Mul(numeric.Number(config.Config.Spaceship.MaximumSpeed))
-	}
-
-	// Check the horizontal boundaries and update the spaceship position
-	spaceship.Position.X += spaceship.Speed.X
-	spaceship.FixPosition()
-
-	go config.PlayAudio("spaceship_whoosh.wav", false)
-}
+func (spaceship *Spaceship) MoveRight() { spaceship.Move(Right) }
 
 // MoveUp moves the spaceship up.
 // The spaceship's position is updated based on the spaceship's speed.
 // If the spaceship's position is less than 0, it is set to 0.
-func (spaceship *Spaceship) MoveUp() {
-	if spaceship.ifFrozen() {
-		return
-	}
-
-	// Brake the spaceship if it is moving in the opposite direction
-	if spaceship.Directions.IsHeadedTo(Down) {
-		spaceship.Speed.Y = 0
-	}
-
-	// Set the vertical direction
-	spaceship.Directions.SetVertical(Up)
-
-	// Accelerate the spaceship vertically
-	spaceship.Speed.Y += numeric.Number(spaceship.Level.AccelerateRate)
-
-	// Limit the speed of the spaceship
-	if spaceship.Speed.Magnitude().Float() > config.Config.Spaceship.MaximumSpeed {
-		spaceship.Speed = spaceship.Speed.Normalize().Mul(numeric.Number(config.Config.Spaceship.MaximumSpeed))
-	}
-
-	// Check the vertical boundaries and update the spaceship position
-	spaceship.Position.Y -= spaceship.Speed.Y
-	spaceship.FixPosition()
-
-	go config.PlayAudio("spaceship_acceleration.wav", false)
-}
+func (spaceship *Spaceship) MoveUp() { spaceship.Move(Up) }
 
 // MoveTo moves the spaceship to the specified position.
 // The spaceship's position is updated based on the delta.
@@ -472,7 +427,7 @@ func (spaceship *Spaceship) MoveUp() {
 // If the spaceship's position is greater than the canvas height,
 // it is set to the canvas height.
 func (spaceship *Spaceship) MoveTo(target numeric.Position) {
-	if spaceship.State.AnyOf(Frozen) {
+	if spaceship.ifFrozen() {
 		return
 	}
 
@@ -485,7 +440,7 @@ func (spaceship *Spaceship) MoveTo(target numeric.Position) {
 	}
 
 	// Calculate the delta
-	delta := spaceship.Position.Sub(target).Normalize()
+	delta := spaceship.Geometry.Position().Sub(target).Normalize()
 
 	// Brake the spaceship if it is moving in an opposite direction
 	spaceship.Speed = spaceship.Speed.MulX(spaceship.Directions.Brake(delta))
@@ -496,8 +451,14 @@ func (spaceship *Spaceship) MoveTo(target numeric.Position) {
 	// Set the new directions based on the delta
 	spaceship.Directions.SetFromDelta(delta)
 
+	if spaceship.state == Hijacked {
+		spaceship.Directions.Horizontal = spaceship.Directions.Horizontal.Opposite()
+		spaceship.Directions.Vertical = spaceship.Directions.Vertical.Opposite()
+		delta = delta.Mul(-1)
+	}
+
 	// Update the spaceship position
-	spaceship.Position = spaceship.Position.Sub(delta)
+	spaceship.Geometry.SetPosition(spaceship.Geometry.Position().Sub(delta))
 
 	// Fix the spaceship position
 	spaceship.FixPosition()
@@ -516,6 +477,10 @@ func (spaceship *Spaceship) Penalize(levels int) bool {
 		return false
 	}
 
+	spaceship.Color.SetColor(Damaged.GetColor()).SetTransitionEnd(func(ct *graphics.ColorTransition) {
+		ct.SetColor(spaceship.state.GetColor())
+	})
+
 	currentLvl := spaceship.Level.Progress
 	for i := 0; i < levels && spaceship.Level.Progress > 0; i++ {
 		if !spaceship.Level.Down() {
@@ -532,66 +497,37 @@ func (spaceship *Spaceship) Penalize(levels int) bool {
 // it is set to 1. If the spaceship is Frozen or Damaged, the spaceship's
 // state is set to Neutral.
 func (spaceship *Spaceship) ResetState() {
-	switch spaceship.State {
+	switch spaceship.state {
 	case Boosted:
-		spaceship.Resize(1 / numeric.Number(config.Config.Spaceship.BoostScaleSizeFactor))
+		spaceship.Color.SetColor(Neutral.GetColor())
+		spaceship.Geometry.SetScale(Neutral.GetScale())
 		spaceship.Level.Cannons /= 2
 
 		if spaceship.Level.Cannons == 0 {
 			spaceship.Level.Cannons = 1
 		}
 
-		fallthrough
-
 	case Frozen, Damaged:
-		spaceship.State = Neutral
+		spaceship.Color.SetColor(Neutral.GetColor())
 
 	}
+
+	spaceship.state = Neutral
 }
 
-// Resize resizes the spaceship based on the scale.
-// The spaceship's size is updated based on the scale.
-// The spaceship's position is centered based on the new size and
-// fixed based on the canvas boundaries.
-func (spaceship *Spaceship) Resize(scale numeric.Number) {
-	spaceship.Size, spaceship.Position = spaceship.Size.Resize(scale, spaceship.Position)
-	if scale > 1 {
-		spaceship.FixPosition()
-	}
-}
-
-// RestoreSize restores the spaceship's size to its original size.
-func (spaceship *Spaceship) RestoreSize() {
-	spaceship.Size, spaceship.Position = spaceship.Size.Restore(spaceship.Position)
-}
+// State returns the state of the spaceship.
+func (spaceship Spaceship) State() SpaceshipState { return spaceship.state }
 
 // String returns a string representation of the spaceship.
 func (spaceship Spaceship) String() string {
-	return fmt.Sprintf("Spaceship (Lvl: %d, Pos: %s, State: %s)", spaceship.Level.Progress, spaceship.Position, spaceship.State)
-}
-
-// UpdateHighScore updates the high score of the spaceship.
-func (spaceship *Spaceship) UpdateHighScore() {
-	if spaceship.Level.Progress > spaceship.HighScore {
-		spaceship.HighScore = spaceship.Level.Progress
-	}
+	return fmt.Sprintf("Spaceship (Lvl: %d, Pos: %s, State: %s)", spaceship.Level.Progress, spaceship.Geometry.Position(), spaceship.state)
 }
 
 // UpdateState updates the state of the spaceship.
 // If the time since the last state transition is greater than
 // the spaceship state duration, the spaceship's state is set to Neutral.
 func (spaceship *Spaceship) UpdateState() {
-	duration, ok := map[SpaceshipState]time.Duration{
-		Boosted: config.Config.Spaceship.BoostDuration,
-		Frozen:  config.Config.Spaceship.FreezeDuration,
-		Damaged: config.Config.Spaceship.DamageDuration,
-	}[spaceship.State]
-
-	if !ok {
-		return
-	}
-
-	if time.Since(spaceship.lastStateTransition) < duration {
+	if time.Since(spaceship.lastStateTransition) < spaceship.state.GetDuration() {
 		return
 	}
 
@@ -605,11 +541,17 @@ func Embark(commandant string) *Spaceship {
 	canvasDimensions := config.CanvasBoundingBox()
 	spaceship := Spaceship{
 		Commandant: commandant,
-		Position: numeric.Locate(
-			canvasDimensions.OriginalWidth/2,
-			canvasDimensions.OriginalHeight-config.Config.Spaceship.Height,
+		Color:      graphics.InitialColorTransition(Neutral.GetColor()),
+		Geometry: graphics.InitialSizeTransition(
+			numeric.Locate(
+				config.Config.Spaceship.Width,
+				config.Config.Spaceship.Height,
+			).ToBox(),
+			numeric.Locate(
+				canvasDimensions.OriginalWidth/2,
+				numeric.Number(canvasDimensions.OriginalHeight-config.Config.Spaceship.Height),
+			),
 		),
-		Size:     numeric.Locate(config.Config.Spaceship.Width, config.Config.Spaceship.Height).ToBox(),
 		Cooldown: config.Config.Spaceship.Cooldown,
 		Level: &SpaceshipLevel{
 			AccelerateRate: numeric.Number(config.Config.Spaceship.Acceleration),

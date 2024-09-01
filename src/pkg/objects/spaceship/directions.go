@@ -17,6 +17,22 @@ const (
 // Direction represents the direction of the spaceship.
 type Direction int
 
+// Opposite returns the opposite direction.
+func (d Direction) Opposite() Direction {
+	switch d {
+	case Up:
+		return Down
+	case Down:
+		return Up
+	case Left:
+		return Right
+	case Right:
+		return Left
+	default:
+		return Unknown
+	}
+}
+
 // String returns the string representation of the direction.
 func (d Direction) String() string {
 	return [...]string{"Unknown", "Up", "Down", "Left", "Right"}[d]

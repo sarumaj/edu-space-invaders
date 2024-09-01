@@ -87,20 +87,20 @@ func (bullet Bullet) HasHit(e enemy.Enemy) bool {
 	case 1:
 		return !numeric.GetRectangularVertices(bullet.Position, bullet.Size, false).
 			Vertices().
-			HasSeparatingAxis(numeric.GetRectangularVertices(e.Position, e.Size, true).
+			HasSeparatingAxis(numeric.GetRectangularVertices(e.Geometry.Position(), e.Geometry.Size(), true).
 				Vertices())
 
 	case 2:
 		return !numeric.GetRectangularVertices(bullet.Position, bullet.Size, false).
 			Vertices().
-			HasSeparatingAxis(numeric.GetSpaceshipVerticesV1(e.Position, e.Size, e.Type == enemy.Goodie).
+			HasSeparatingAxis(numeric.GetSpaceshipVerticesV1(e.Geometry.Position(), e.Geometry.Size(), e.Type() == enemy.Tank).
 				Vertices())
 
 	case 3:
 		return !numeric.
 			GetSkewedLineVertices(bullet.Position, bullet.Size, bullet.Skew).
 			Vertices().
-			HasSeparatingAxis(numeric.GetSpaceshipVerticesV2(e.Position, e.Size, e.Type == enemy.Goodie).
+			HasSeparatingAxis(numeric.GetSpaceshipVerticesV2(e.Geometry.Position(), e.Geometry.Size(), e.Type() == enemy.Tank).
 				Vertices())
 
 	}
@@ -122,7 +122,8 @@ func (bullet *Bullet) Move() {
 		bullet.Skew = bullet.Skew.Clamp(-1, 1)
 
 		// Reduce repelling force
-		numberOfFrames := numeric.Number(config.Config.Bullet.SpeedDecayDuration.Seconds() * config.Config.Control.DesiredFramesPerSecondRate)
+		numberOfFrames := numeric.Number(config.Config.Bullet.SpeedDecayDuration.Seconds() *
+			config.Config.Control.DesiredFramesPerSecondRate)
 		reduction := numeric.E.Pow(-bullet.Speed.Log()/numberOfFrames).Clamp(0, 1)
 		bullet.repelVector = bullet.repelVector.Mul(reduction)
 
@@ -149,19 +150,19 @@ func (bullet *Bullet) Repel(e enemy.Enemy) numeric.Position {
 	case 1:
 		mtv = numeric.GetRectangularVertices(bullet.Position, bullet.Size, false).
 			Vertices().
-			MinimumTranslationVector(numeric.GetRectangularVertices(e.Position, e.Size, true).
+			MinimumTranslationVector(numeric.GetRectangularVertices(e.Geometry.Position(), e.Geometry.Size(), true).
 				Vertices())
 
 	case 2:
 		mtv = numeric.GetRectangularVertices(bullet.Position, bullet.Size, false).
 			Vertices().
-			MinimumTranslationVector(numeric.GetSpaceshipVerticesV1(e.Position, e.Size, e.Type == enemy.Goodie).
+			MinimumTranslationVector(numeric.GetSpaceshipVerticesV1(e.Geometry.Position(), e.Geometry.Size(), e.Type() == enemy.Tank).
 				Vertices())
 
 	case 3:
 		mtv = numeric.GetSkewedLineVertices(bullet.Position, bullet.Size, bullet.Skew).
 			Vertices().
-			MinimumTranslationVector(numeric.GetSpaceshipVerticesV2(e.Position, e.Size, e.Type == enemy.Goodie).
+			MinimumTranslationVector(numeric.GetSpaceshipVerticesV2(e.Geometry.Position(), e.Geometry.Size(), e.Type() == enemy.Tank).
 				Vertices())
 
 	}
@@ -169,7 +170,7 @@ func (bullet *Bullet) Repel(e enemy.Enemy) numeric.Position {
 	// Apply the MTV to the bullet and the enemy
 	bullet.repelVector = mtv.Mul(effectiveArea / bulletArea)
 	bullet.Position = bullet.Position.Add(mtv.Mul(effectiveArea / bulletArea))
-	return e.Position.Sub(mtv.Mul(effectiveArea / enemyArea))
+	return e.Geometry.Position().Sub(mtv.Mul(effectiveArea / enemyArea))
 }
 
 // String returns the string representation of the bullet.
@@ -183,7 +184,7 @@ func Craft(position numeric.Position, damage int, skew, speedBoost numeric.Numbe
 		Position: position,
 		Size:     numeric.Locate(config.Config.Bullet.Width, config.Config.Bullet.Height).ToBox(),
 		Speed:    numeric.Number(config.Config.Bullet.Speed) + speedBoost,
-		Damage:   damage,
+		Damage:   numeric.Randomize(damage, 0.3),
 		Skew:     skew,
 	}
 

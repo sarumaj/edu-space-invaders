@@ -68,3 +68,6 @@ func (n Number) Pow(other Number) Number { return Number(math.Pow(float64(n), fl
 
 // String returns the string representation of the number.
 func (n Number) String() string { return fmt.Sprintf("%g", n) }
+
+// Inf returns positive infinity if sign is positive, negative infinity if sign is negative.
+func Inf(sign int) Number { return Number(math.Inf(sign)) }

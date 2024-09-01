@@ -36,18 +36,20 @@ var Config config = func() (config config) {
 // config represents the configuration of the game.
 type config struct {
 	Bullet struct {
-		CriticalHitChance    float64
-		CriticalHitFactor    int
-		Height               float64
-		InitialDamage        int
-		ModifierProgressStep int
-		Speed                float64
-		SpeedDecayDuration   time.Duration
-		Weight               float64
-		Width                float64
+		CriticalHitChance       float64
+		CriticalHitFactor       int
+		DamageProgressAmplifier int
+		Height                  float64
+		InitialDamage           int
+		ModifierProgressStep    int
+		Speed                   float64
+		SpeedDecayDuration      time.Duration
+		Weight                  float64
+		Width                   float64
 	}
 
 	Control struct {
+		AnimationDuration                 time.Duration
 		AudioEnabled                      *bool
 		BackgroundAnimationEnabled        *bool
 		CollisionDetectionVersion         EnvVariable[int]
@@ -61,7 +63,7 @@ type config struct {
 		DrawSpaceshipShield               EnvVariable[bool]
 		GodMode                           EnvVariable[bool]
 		PlanetChoice                      EnvVariable[int]
-		RepelEnemiesOnBoost               EnvVariable[bool]
+		RepelEnemies                      EnvVariable[bool]
 		SuspensionFrames                  int
 	}
 
@@ -83,6 +85,7 @@ type config struct {
 		Regenerate                *bool
 		SpecialtyLikeliness       float64
 		Width                     float64
+		YetAgainAmplifier         float64
 
 		Annihilator struct {
 			DefenseBoost    int
@@ -90,7 +93,6 @@ type config struct {
 			Penalty         int
 			SizeFactorBoost float64
 			SpeedModifier   float64
-			YetAgainFactor  int
 		} `ini:"Enemy.Annihilator"`
 
 		Berserker struct {
@@ -101,9 +103,70 @@ type config struct {
 			SpeedModifier   float64
 		} `ini:"Enemy.Berserker"`
 
+		Behemoth struct {
+			DefenseBoost    int
+			HitpointsBoost  int
+			Penalty         int
+			SizeFactorBoost float64
+			SpeedModifier   float64
+		} `ini:"Enemy.Behemoth"`
+
+		Bulwark struct {
+			DefenseBoost    int
+			HitpointsBoost  int
+			Penalty         int
+			SizeFactorBoost float64
+			SpeedModifier   float64
+		} `ini:"Enemy.Bulwark"`
+
+		Colossus struct {
+			DefenseBoost    int
+			HitpointsBoost  int
+			Penalty         int
+			SizeFactorBoost float64
+			SpeedModifier   float64
+		} `ini:"Enemy.Colossus"`
+
+		Cloaked struct {
+			Penalty       int
+			SpeedModifier float64
+		} `ini:"Enemy.Cloaked"`
+
+		Dreadnought struct {
+			DefenseBoost    int
+			HitpointsBoost  int
+			Penalty         int
+			SizeFactorBoost float64
+			SpeedModifier   float64
+		} `ini:"Enemy.Dreadnought"`
+
 		Freezer struct {
 			Penalty int
 		} `ini:"Enemy.Freezer"`
+
+		Juggernaut struct {
+			DefenseBoost    int
+			HitpointsBoost  int
+			Penalty         int
+			SizeFactorBoost float64
+			SpeedModifier   float64
+		} `ini:"Enemy.Juggernaut"`
+
+		Leviathan struct {
+			DefenseBoost    int
+			HitpointsBoost  int
+			Penalty         int
+			SizeFactorBoost float64
+			SpeedModifier   float64
+		} `ini:"Enemy.Leviathan"`
+
+		Overlord struct {
+			DefenseBoost    int
+			HitpointsBoost  int
+			Penalty         int
+			SizeFactorBoost float64
+			SpeedModifier   float64
+		} `ini:"Enemy.Overlord"`
 	}
 
 	MessageBox struct {
@@ -126,11 +189,13 @@ type config struct {
 			PlanetImpactsSystem          TemplateString
 			Prompt                       TemplateString
 			ScoreBoardUpdated            TemplateString
+			SpaceshipBoosted             TemplateString
 			SpaceshipDowngradedByEnemy   TemplateString
 			SpaceshipFrozen              TemplateString
+			SpaceshipHijacked            TemplateString
 			SpaceshipStillFrozen         TemplateString
 			SpaceshipUpgradedByEnemyKill TemplateString
-			SpaceshipUpgradedByGoodie    TemplateString
+			SpaceshipUpgradedByTank      TemplateString
 			WaitForScoreBoardUpdate      TemplateString
 		} `ini:"MessageBox.Messages"`
 	}
@@ -151,15 +216,15 @@ type config struct {
 			} `ini:"Planet.Impact.Mercury"`
 
 			Venus struct {
-				Description               TemplateString
-				GoodieLikelinessAmplifier float64
-				SpaceshipDeceleration     float64
+				Description             TemplateString
+				SpaceshipDeceleration   float64
+				TankLikelinessAmplifier float64
 			} `ini:"Planet.Impact.Venus"`
 
 			Earth struct {
-				Description               TemplateString
-				GoodieLikelinessAmplifier float64
-				SpaceshipDeceleration     float64
+				Description             TemplateString
+				SpaceshipDeceleration   float64
+				TankLikelinessAmplifier float64
 			} `ini:"Planet.Impact.Earth"`
 
 			Mars struct {
@@ -180,19 +245,19 @@ type config struct {
 			} `ini:"Planet.Impact.Saturn"`
 
 			Uranus struct {
-				Description                TemplateString
-				FreezerLikelinessAmplifier float64
+				Description                   TemplateString
+				SpecialFoeLikelinessAmplifier float64
 			} `ini:"Planet.Impact.Uranus"`
 
 			Neptune struct {
-				Description                TemplateString
-				FreezerLikelinessAmplifier float64
+				Description                   TemplateString
+				SpecialFoeLikelinessAmplifier float64
 			} `ini:"Planet.Impact.Neptune"`
 
 			Pluto struct {
-				BerserkLikelinessAmplifier float64
-				Description                TemplateString
-				FreezerLikelinessAmplifier float64
+				BerserkLikelinessAmplifier    float64
+				Description                   TemplateString
+				SpecialFoeLikelinessAmplifier float64
 			} `ini:"Planet.Impact.Pluto"`
 
 			Sun struct {
@@ -225,6 +290,7 @@ type config struct {
 		ExperienceScaler       float64
 		FreezeDuration         time.Duration
 		Height                 float64
+		HijackDuration         time.Duration
 		MaximumCannons         int
 		MaximumLabelLength     int
 		MaximumSpeed           float64

@@ -31,9 +31,7 @@ func (size Size) Half() Size {
 }
 
 // Pack returns the packed representation of the size.
-func (size Size) Pack() [2]float64 {
-	return [2]float64{size.Width.Float(), size.Height.Float()}
-}
+func (size Size) Pack() [2]float64 { return [2]float64{size.Width.Float(), size.Height.Float()} }
 
 // Radius returns the radius of a circle with equivalent area.
 func (size Size) Radius() Number {

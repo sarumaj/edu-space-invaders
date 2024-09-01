@@ -22,7 +22,14 @@ func (star Star) Draw() {
 		return
 	}
 
-	config.DrawStar(star.Position.Pack(), star.Spikes.Int(), star.Radius.Float(), star.InnerRadius.Float(), star.color, config.Config.Star.Brightness)
+	config.DrawStar(
+		star.Position.Pack(),
+		star.Spikes.Int(),
+		star.Radius.Float(),
+		star.InnerRadius.Float(),
+		star.color,
+		config.Config.Star.Brightness,
+	)
 }
 
 // Exhaust is a method that sets the star as exhausted.

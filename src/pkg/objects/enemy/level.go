@@ -11,7 +11,7 @@ type EnemyLevel struct {
 	Speed              numeric.Number // Speed is the speed of the enemy
 	HitPoints, Defense int            // HitPoints is the health points of the enemy, Defense is the defense of the enemy.
 	HitPointsLoss      int            // HitPointsLoss is the loss of hit points of the enemy.
-	BerserkLikeliness  float64        // BerserkLikeliness is the likeliness of the enemy to become berserk or to become an annihilator.
+	BerserkLikeliness  numeric.Number // BerserkLikeliness is the likeliness of the enemy to become berserk or to become an annihilator.
 }
 
 // Down decreases the enemy level.
@@ -25,21 +25,17 @@ func (lvl *EnemyLevel) Down() {
 		return
 	}
 
-	if lvl.Speed.Float() > config.Config.Enemy.InitialSpeed {
-		lvl.Speed -= numeric.Number(config.Config.Enemy.AccelerationProgress)
-	}
+	lvl.Speed = (lvl.Speed - numeric.Number(config.Config.Enemy.AccelerationProgress)).
+		Max(numeric.Number(config.Config.Enemy.InitialSpeed))
 
-	if lvl.BerserkLikeliness > config.Config.Enemy.BerserkLikeliness {
-		lvl.BerserkLikeliness -= config.Config.Enemy.BerserkLikelinessProgress
-	}
+	lvl.BerserkLikeliness = (lvl.BerserkLikeliness - numeric.Number(config.Config.Enemy.BerserkLikelinessProgress)).
+		Max(numeric.Number(config.Config.Enemy.BerserkLikelinessProgress))
 
-	if lvl.HitPoints > config.Config.Enemy.InitialHitpoints {
-		lvl.HitPoints -= config.Config.Enemy.HitpointProgress
-	}
+	lvl.HitPoints = numeric.Number(lvl.HitPoints - config.Config.Enemy.HitpointProgress).
+		Max(numeric.Number(config.Config.Enemy.InitialHitpoints)).Int()
 
-	if lvl.Defense > 0 {
-		lvl.Defense -= config.Config.Enemy.DefenseProgress
-	}
+	lvl.Defense = numeric.Number(lvl.Defense - config.Config.Enemy.DefenseProgress).
+		Max(0).Int()
 
 	lvl.Progress -= 1
 }
@@ -48,15 +44,12 @@ func (lvl *EnemyLevel) Down() {
 // If the enemy speed is less than the maximum speed, it increases the speed by 1.
 // It increases the berserk likeliness by 0.01, the hit points by 10 and the defense by 10.
 func (lvl *EnemyLevel) Up() {
-	if lvl.Speed.Float() < config.Config.Enemy.MaximumSpeed {
-		lvl.Speed += numeric.Number(config.Config.Enemy.AccelerationProgress)
-	}
+	lvl.Speed = (lvl.Speed + numeric.Number(config.Config.Enemy.AccelerationProgress)).
+		Min(numeric.Number(config.Config.Enemy.MaximumSpeed))
 
-	if lvl.BerserkLikeliness < 1 {
-		lvl.BerserkLikeliness += config.Config.Enemy.BerserkLikelinessProgress
-	}
+	lvl.BerserkLikeliness = (lvl.BerserkLikeliness + numeric.Number(config.Config.Enemy.BerserkLikelinessProgress)).
+		Min(1)
 
-	lvl.BerserkLikeliness += config.Config.Enemy.BerserkLikelinessProgress
 	lvl.HitPoints += config.Config.Enemy.HitpointProgress
 	lvl.Defense += config.Config.Enemy.DefenseProgress
 	lvl.Progress += 1

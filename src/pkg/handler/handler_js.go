@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"fmt"
 	"sync"
 	"syscall/js"
 	"time"
@@ -50,18 +51,17 @@ func (h *handler) monitor() {
 			switch {
 			case fps <= config.Config.Control.CriticalFramesPerSecondRate:
 				if running.Get(h.ctx) { // If the game is running
-					// Notify the user about the performance drop
 					if config.Config.Control.Debug.Get() {
-						config.SendMessage(config.Execute(config.Config.MessageBox.Messages.PerformanceDropped, config.Template{
-							"FPS": fps,
-						}), false, false)
+						config.Log(fmt.Sprintf("Performance dropped to %f FPS", fps))
 					}
 
 					running.Set(&h.ctx, false)  // Pause the game
 					suspended.Set(&h.ctx, true) // Set the suspended state
 				}
 
-			case fps >= (config.Config.Control.CriticalFramesPerSecondRate+config.Config.Control.DesiredFramesPerSecondRate)/2 && !running.Get(h.ctx):
+			case fps >= (config.Config.Control.CriticalFramesPerSecondRate+config.Config.Control.DesiredFramesPerSecondRate)/2 &&
+				!running.Get(h.ctx):
+
 				if suspendedFrameCount < config.Config.Control.SuspensionFrames {
 					// Increase the suspended frame count
 					suspendedFrameCount++
@@ -72,10 +72,7 @@ func (h *handler) monitor() {
 
 					if !paused.Get(h.ctx) { // Do not resume the game if it is paused
 						if config.Config.Control.Debug.Get() {
-							// Notify the user about the performance boost
-							config.SendMessage(config.Execute(config.Config.MessageBox.Messages.PerformanceImproved, config.Template{
-								"FPS": fps,
-							}), false, false)
+							config.Log(fmt.Sprintf("Performance improved to %f FPS", fps))
 						}
 
 						running.Set(&h.ctx, true)    // Resume the game
@@ -102,6 +99,16 @@ func (h *handler) registerEventHandlers() {
 	h.once.Do(func() {
 		config.GlobalSet("drawFunc", js.FuncOf(func(_ js.Value, _ []js.Value) any {
 			h.draw()
+			return nil
+		}))
+
+		config.GlobalSet("onlineFunc", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+			offline.Set(&h.ctx, false)
+			return nil
+		}))
+
+		config.GlobalSet("offlineFunc", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+			offline.Set(&h.ctx, true)
 			return nil
 		}))
 

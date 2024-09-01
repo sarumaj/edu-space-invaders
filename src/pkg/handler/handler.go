@@ -40,42 +40,42 @@ func (h *handler) applyGravityOnEnemies() {
 
 	// If the planet is a black hole.
 	repel := h.planet.Type == planet.BlackHole
-	spaceshipPosition := h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector())
+	spaceshipPosition := h.spaceship.Geometry.Position().Add(h.spaceship.Geometry.Size().Half().ToVector())
 
 	for i, e := range h.enemies {
 		// And if the spaceship is not within the range of the planet or the enemy is a goodie:
-		repel = repel && (!h.planet.WithinRange(spaceshipPosition, 1) || e.Type == enemy.Goodie)
+		repel = repel && (!h.planet.WithinRange(spaceshipPosition, 1) || e.Type() == enemy.Tank)
 		// And if the enemy is not within the range of the planet:
-		repel = repel && !h.planet.WithinRange(e.Position.Add(e.Size.Half().ToVector()), 1)
+		repel = repel && !h.planet.WithinRange(e.Geometry.Position().Add(e.Geometry.Size().Half().ToVector()), 1)
 
-		h.enemies[i].Position = h.planet.ApplyGravity(
-			e.Position.Add(e.Size.Half().ToVector()),
+		h.enemies[i].Geometry.SetPosition(h.planet.ApplyGravity(
+			e.Geometry.Position().Add(e.Geometry.Size().Half().ToVector()),
 			e.Area(),
 			true,  // Increase the planet's mass
 			repel, // Repel the enemies away or not
-		).Sub(e.Size.Half().ToVector())
+		).Sub(e.Geometry.Size().Half().ToVector()))
 
 		// Shrink the enemy if it is within range of the black hole.
-		if h.planet.Type == planet.BlackHole && h.planet.WithinRange(h.enemies[i].Position.Add(e.Size.Half().ToVector()), 1) {
+		if h.planet.Type == planet.BlackHole && h.planet.WithinRange(h.enemies[i].Geometry.Position().Add(e.Geometry.Size().Half().ToVector()), 1) {
 			area := e.Area()
 			if area <= 1 { // Destroy the enemy if it is too small.
 				h.enemies[i].Destroy()
 				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.EnemyDestroyed, config.Template{
 					"EnemyName": e.Name,
-					"EnemyType": e.Type,
+					"EnemyType": e.Type(),
 				}), false, true)
 				continue
 			}
 
-			numOfFrames := numeric.Number(config.Config.Planet.Impact.BlackHole.ObjectSizeDecayDuration.Seconds() * config.Config.Control.DesiredFramesPerSecondRate)
-			reduction := numeric.E.Pow(-area.Log()/numOfFrames).Clamp(0, 1)
-			h.enemies[i].Resize(reduction)
+			// Shrink down the enemy.
+			h.enemies[i].Geometry.SetAnimationDuration(config.Config.Planet.Impact.BlackHole.ObjectSizeDecayDuration).SetScale(1e-9)
+
 			continue
 		}
 
 		// If the enemy has been shrunk, restore the enemy to its original size.
-		if h.planet.Type != planet.BlackHole || !h.planet.WithinRange(h.enemies[i].Position.Add(e.Size.Half().ToVector()), 1.2) {
-			h.enemies[i].RestoreSize()
+		if h.planet.Type != planet.BlackHole || !h.planet.WithinRange(h.enemies[i].Geometry.Position().Add(e.Geometry.Size().Half().ToVector()), 1.2) {
+			h.enemies[i].Geometry.SetAnimationDuration(config.Config.Control.AnimationDuration).SetScale(e.Type().GetScale())
 		}
 	}
 }
@@ -87,12 +87,12 @@ func (h *handler) applyGravityOnEnemies() {
 func (h *handler) applyGravityOnSpaceship() {
 	// Apply gravity to the spaceship.
 	// The spaceship's mass should not increase the planet's mass.
-	h.spaceship.Position = h.planet.ApplyGravity(
-		h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector()),
+	h.spaceship.Geometry.SetPosition(h.planet.ApplyGravity(
+		h.spaceship.Geometry.Position().Add(h.spaceship.Geometry.Size().Half().ToVector()),
 		h.spaceship.Area(),
 		false, // Do not increase the planet's mass
 		false, // Do not reverse the gravity
-	).Sub(h.spaceship.Size.Half().ToVector())
+	).Sub(h.spaceship.Geometry.Size().Half().ToVector()))
 
 	// Correct the spaceship's position if it is out of the canvas.
 	h.spaceship.FixPosition()
@@ -125,14 +125,14 @@ func (h *handler) applyGravityOnSpaceship() {
 	}
 
 	// If the spaceship is within range of the black hole, shrink the spaceship.
-	if h.planet.Type == planet.BlackHole && h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector()), 1) {
+	if h.planet.Type == planet.BlackHole && h.planet.WithinRange(h.spaceship.Geometry.Position().Add(h.spaceship.Geometry.Size().Half().ToVector()), 1) {
 		area := h.spaceship.Area()
 		// Destroy the spaceship if it is too small.
 		if area <= 1 && !config.Config.Control.GodMode.Get() {
 			config.SendMessage(config.Execute(config.Config.MessageBox.Messages.GameOver, config.Template{
 				"DiscoveredPlanets": h.spaceship.Discovered(),
-				"HighScore":         h.spaceship.HighScore,
-				"Rank":              config.SetScore(h.spaceship.Commandant, h.spaceship.HighScore),
+				"HighScore":         h.spaceship.Level.HighScore,
+				"Rank":              config.SetScore(h.spaceship.Commandant, h.spaceship.Level.HighScore),
 				"Reason":            config.Execute(config.Config.Planet.Impact.BlackHole.SpaceshipDestroyedReason),
 				"TopScores":         config.GetScores(10),
 			}), false, false)
@@ -141,17 +141,19 @@ func (h *handler) applyGravityOnSpaceship() {
 		}
 
 		if area > 1 { // Shrink down the spaceship.
-			numOfFrames := numeric.Number(time.Second.Seconds() * config.Config.Control.DesiredFramesPerSecondRate)
-			reduction := numeric.E.Pow(-area.Log()/numOfFrames).Clamp(0, 1)
-			h.spaceship.Resize(reduction)
+			h.spaceship.Geometry.
+				SetAnimationDuration(config.Config.Planet.Impact.BlackHole.ObjectSizeDecayDuration).
+				SetScale(1e-9)
 		}
 
 		return
 	}
 
 	// If the spaceship has been shrunk, restore the spaceship to its original size.
-	if h.planet.Type != planet.BlackHole || !h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector()), 1.2) {
-		h.spaceship.RestoreSize()
+	if h.planet.Type != planet.BlackHole || !h.planet.WithinRange(h.spaceship.Geometry.Position().Add(h.spaceship.Geometry.Size().Half().ToVector()), 1.2) {
+		h.spaceship.Geometry.
+			SetAnimationDuration(config.Config.Control.AnimationDuration).
+			SetScale(h.spaceship.State().GetScale())
 	}
 }
 
@@ -192,14 +194,14 @@ func (h *handler) applyPlanetImpact() {
 	switch h.planet.Type {
 	case planet.Sun:
 		// If the spaceship is within range of the sun, unfreeze the spaceship.
-		if h.spaceship.State == spaceship.Frozen && h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector()), 1) {
+		if h.spaceship.State() == spaceship.Frozen && h.planet.WithinRange(h.spaceship.Geometry.Position().Add(h.spaceship.Geometry.Size().Half().ToVector()), 1) {
 			h.spaceship.ResetState()
 		}
 
 		for i, e := range h.enemies {
 			// If a freezer is within range of the sun, unfreeze the freezer.
-			if e.Type == enemy.Freezer && h.planet.WithinRange(h.enemies[i].Position.Add(e.Size.Half().ToVector()), 1) {
-				h.enemies[i].Type = enemy.Normal
+			if e.Type() == enemy.Freezer && h.planet.WithinRange(h.enemies[i].Geometry.Position().Add(e.Geometry.Size().Half().ToVector()), 1) {
+				h.enemies[i].ChangeType(enemy.Normal)
 			}
 		}
 
@@ -207,7 +209,7 @@ func (h *handler) applyPlanetImpact() {
 
 	case planet.BlackHole:
 		// If the spaceship is within range of the hole, disable the boost.
-		if h.spaceship.State == spaceship.Boosted && h.planet.WithinRange(h.spaceship.Position.Add(h.spaceship.Size.Half().ToVector()), 1) {
+		if h.spaceship.State() == spaceship.Boosted && h.planet.WithinRange(h.spaceship.Geometry.Position().Add(h.spaceship.Geometry.Size().Half().ToVector()), 1) {
 			h.spaceship.ResetState()
 		}
 
@@ -215,7 +217,7 @@ func (h *handler) applyPlanetImpact() {
 
 	case planet.Supernova:
 		// Unfreeze the spaceship immediately if frozen.
-		if h.spaceship.State == spaceship.Frozen {
+		if h.spaceship.State() == spaceship.Frozen {
 			h.spaceship.ResetState()
 		}
 
@@ -224,12 +226,12 @@ func (h *handler) applyPlanetImpact() {
 	case planet.Uranus, planet.Neptune:
 		h.planet.DoOnce(func() {
 			// Increases the specialty likeliness of the enemies for freezers.
-			for i := range h.enemies {
-				h.enemies[i].SpecialtyLikeliness *= map[planet.PlanetType]float64{
-					planet.Uranus:  config.Config.Planet.Impact.Uranus.FreezerLikelinessAmplifier,
-					planet.Neptune: config.Config.Planet.Impact.Neptune.FreezerLikelinessAmplifier,
-				}[h.planet.Type]
-				h.enemies[i].Surprise(map[enemy.EnemyType]int{enemy.Goodie: 100, enemy.Freezer: 0})
+			for i, e := range h.enemies {
+				h.enemies[i].SpecialtyLikeliness = (e.SpecialtyLikeliness * numeric.Number(map[planet.PlanetType]float64{
+					planet.Uranus:  config.Config.Planet.Impact.Uranus.SpecialFoeLikelinessAmplifier,
+					planet.Neptune: config.Config.Planet.Impact.Neptune.SpecialFoeLikelinessAmplifier,
+				}[h.planet.Type])).Clamp(0, 1)
+				h.enemies[i].Surprise(enemy.Freezer, enemy.Cloaked)
 			}
 
 			config.SendMessage(message, false, false)
@@ -238,11 +240,11 @@ func (h *handler) applyPlanetImpact() {
 	case planet.Mercury, planet.Mars:
 		h.planet.DoOnce(func() {
 			// Double the berserk likeliness of the enemies.
-			for i := range h.enemies {
-				h.enemies[i].Level.BerserkLikeliness *= map[planet.PlanetType]float64{
+			for i, e := range h.enemies {
+				h.enemies[i].Level.BerserkLikeliness = (e.Level.BerserkLikeliness * numeric.Number(map[planet.PlanetType]float64{
 					planet.Mercury: config.Config.Planet.Impact.Mercury.BerserkLikelinessAmplifier,
 					planet.Mars:    config.Config.Planet.Impact.Mars.BerserkLikelinessAmplifier,
-				}[h.planet.Type]
+				}[h.planet.Type])).Clamp(0, 1)
 				h.enemies[i].Berserk()
 			}
 
@@ -252,11 +254,13 @@ func (h *handler) applyPlanetImpact() {
 	case planet.Pluto:
 		h.planet.DoOnce(func() {
 			// Increases the specialty likeliness of the enemies for freezers and going on a berserk.
-			for i := range h.enemies {
-				h.enemies[i].SpecialtyLikeliness *= config.Config.Planet.Impact.Pluto.FreezerLikelinessAmplifier
-				h.enemies[i].Level.BerserkLikeliness *= config.Config.Planet.Impact.Pluto.BerserkLikelinessAmplifier
+			for i, e := range h.enemies {
+				h.enemies[i].SpecialtyLikeliness = (e.SpecialtyLikeliness *
+					numeric.Number(config.Config.Planet.Impact.Pluto.SpecialFoeLikelinessAmplifier)).Clamp(0, 1)
+				h.enemies[i].Level.BerserkLikeliness = (e.Level.BerserkLikeliness *
+					numeric.Number(config.Config.Planet.Impact.Pluto.BerserkLikelinessAmplifier)).Clamp(0, 1)
 				h.enemies[i].Berserk()
-				h.enemies[i].Surprise(map[enemy.EnemyType]int{enemy.Goodie: 100, enemy.Freezer: 0})
+				h.enemies[i].Surprise(enemy.Freezer, enemy.Cloaked)
 			}
 
 			config.SendMessage(message, false, false)
@@ -286,12 +290,12 @@ func (h *handler) applyPlanetImpact() {
 				planet.Venus: config.Config.Planet.Impact.Venus.SpaceshipDeceleration,
 				planet.Earth: config.Config.Planet.Impact.Earth.SpaceshipDeceleration,
 			}[h.planet.Type])
-			for i := range h.enemies {
-				h.enemies[i].SpecialtyLikeliness *= map[planet.PlanetType]float64{
-					planet.Venus: config.Config.Planet.Impact.Venus.GoodieLikelinessAmplifier,
-					planet.Earth: config.Config.Planet.Impact.Earth.GoodieLikelinessAmplifier,
-				}[h.planet.Type]
-				h.enemies[i].Surprise(map[enemy.EnemyType]int{enemy.Goodie: 0, enemy.Freezer: 100})
+			for i, e := range h.enemies {
+				h.enemies[i].SpecialtyLikeliness = (e.SpecialtyLikeliness * numeric.Number(map[planet.PlanetType]float64{
+					planet.Venus: config.Config.Planet.Impact.Venus.TankLikelinessAmplifier,
+					planet.Earth: config.Config.Planet.Impact.Earth.TankLikelinessAmplifier,
+				}[h.planet.Type])).Clamp(0, 1)
+				h.enemies[i].Surprise(enemy.Tank)
 			}
 
 			config.SendMessage(message, false, false)
@@ -336,32 +340,33 @@ func (h *handler) checkCollisions() {
 	// Check if the spaceship has collided with an enemy.
 	for j, e := range h.enemies {
 		if e.Level.HitPoints > 0 && h.spaceship.DetectCollision(e) { // Collision detected.
-			// If the spaceship is boosted, repel the enemy.
-			if config.Config.Control.RepelEnemiesOnBoost.Get() &&
-				h.spaceship.State == spaceship.Boosted &&
-				e.Type != enemy.Goodie {
 
-				h.enemies[j].Position = h.spaceship.ApplyRepulsion(e)
+			// Repel the enemy
+			if config.Config.Control.RepelEnemies.Get() {
+				h.enemies[j].Geometry.SetPosition(h.spaceship.ApplyRepulsion(e))
+			}
+
+			// If the spaceship is boosted, do nothing.
+			if h.spaceship.State() == spaceship.Boosted && e.Type() != enemy.Tank {
 				continue
 			}
 
 			h.enemies[j].Destroy() // Destroy the enemy due to the collision.
 			config.SendMessage(config.Execute(config.Config.MessageBox.Messages.EnemyDestroyed, config.Template{
 				"EnemyName": e.Name,
-				"EnemyType": e.Type,
+				"EnemyType": e.Type(),
 			}), false, true)
 
 			// If the spaceship is boosted, gain experience.
-			if h.spaceship.State == spaceship.Boosted {
-				if e.Type == enemy.Goodie { // Prolongate the boosted state.
+			if h.spaceship.State() == spaceship.Boosted {
+				if e.Type() == enemy.Tank { // Prolongate the boosted state.
 					h.spaceship.ChangeState(spaceship.Boosted)
 				}
 
 				if h.spaceship.Level.GainExperience(e) { // Gain experience and upgrade the spaceship.
-					h.spaceship.UpdateHighScore()
 					config.SendMessage(config.Execute(config.Config.MessageBox.Messages.SpaceshipUpgradedByEnemyKill, config.Template{
 						"EnemyName":      e.Name,
-						"EnemyType":      e.Type,
+						"EnemyType":      e.Type(),
 						"SpaceshipLevel": h.spaceship.Level.Progress,
 					}), false, true)
 				}
@@ -370,10 +375,16 @@ func (h *handler) checkCollisions() {
 				continue
 			}
 
-			penalty := e.GetPenalty()                                 // Get the penalty of the enemy.
-			if h.spaceship.State == spaceship.Frozen && penalty > 0 { // If the spaceship is frozen, apply the penalty.
-				if e.Type == enemy.Freezer { // Prolongate the frozen state.
-					h.spaceship.ChangeState(spaceship.Frozen)
+			// Get the penalty of the enemy.
+			penalty := e.Type().GetPenalty()
+			// If the spaceship is frozen or hijacked, apply the penalty.
+			if h.spaceship.State().AnyOf(spaceship.Frozen, spaceship.Hijacked) && penalty > 0 {
+				switch {
+				case // Prolongate the state.
+					e.Type() == enemy.Freezer && h.spaceship.State() == spaceship.Frozen,
+					e.Type() == enemy.Cloaked && h.spaceship.State() == spaceship.Hijacked:
+
+					h.spaceship.ChangeState(h.spaceship.State())
 				}
 
 				if h.spaceship.Penalize(penalty) { // Apply the penalty.
@@ -385,8 +396,8 @@ func (h *handler) checkCollisions() {
 				if h.spaceship.IsDestroyed() { // Check if the spaceship has been destroyed.
 					config.SendMessage(config.Execute(config.Config.MessageBox.Messages.GameOver, config.Template{
 						"DiscoveredPlanets": h.spaceship.Discovered(),
-						"HighScore":         h.spaceship.HighScore,
-						"Rank":              config.SetScore(h.spaceship.Commandant, h.spaceship.HighScore),
+						"HighScore":         h.spaceship.Level.HighScore,
+						"Rank":              config.SetScore(h.spaceship.Commandant, h.spaceship.Level.HighScore),
 						"TopScores":         config.GetScores(10),
 					}), false, false)
 					h.cancel()
@@ -400,24 +411,44 @@ func (h *handler) checkCollisions() {
 
 			// Change the spaceship state.
 			h.spaceship.ChangeState(map[enemy.EnemyType]spaceship.SpaceshipState{
+				enemy.Cloaked:     spaceship.Hijacked,
 				enemy.Normal:      spaceship.Damaged,
+				enemy.Freezer:     spaceship.Frozen,
+				enemy.Tank:        spaceship.Boosted,
 				enemy.Berserker:   spaceship.Damaged,
 				enemy.Annihilator: spaceship.Damaged,
-				enemy.Freezer:     spaceship.Frozen,
-				enemy.Goodie:      spaceship.Boosted,
-			}[e.Type])
+				enemy.Juggernaut:  spaceship.Damaged,
+				enemy.Dreadnought: spaceship.Damaged,
+				enemy.Behemoth:    spaceship.Damaged,
+				enemy.Colossus:    spaceship.Damaged,
+				enemy.Leviathan:   spaceship.Damaged,
+				enemy.Bulwark:     spaceship.Damaged,
+				enemy.Overlord:    spaceship.Damaged,
+			}[e.Type()])
 
 			// If the spaceship has been boosted, upgrade the spaceship.
-			if h.spaceship.State == spaceship.Boosted {
-				h.spaceship.Level.Up()
-				h.spaceship.UpdateHighScore()
-				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.SpaceshipUpgradedByGoodie, config.Template{
+			if h.spaceship.State() == spaceship.Boosted {
+				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.SpaceshipBoosted, config.Template{
 					"SpaceshipLevel": h.spaceship.Level.Progress,
-					"BoostDuration":  config.Config.Spaceship.BoostDuration,
 				}), false, true)
+
+				if h.spaceship.Level.GainExperience(e) {
+					config.SendMessage(config.Execute(config.Config.MessageBox.Messages.SpaceshipUpgradedByTank, config.Template{
+						"EnemyName":      e.Name,
+						"EnemyType":      e.Type(),
+						"SpaceshipLevel": h.spaceship.Level.Progress,
+					}), false, true)
+				}
 
 				// The enemy has been processed, continue to the next enemy.
 				continue
+			}
+
+			if h.spaceship.State() == spaceship.Hijacked {
+				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.SpaceshipHijacked, config.Template{
+					"EnemyName": e.Name,
+					"EnemyType": e.Type(),
+				}), false, true)
 			}
 
 			// Penalize the spaceship and downgrade it.
@@ -431,8 +462,8 @@ func (h *handler) checkCollisions() {
 			if h.spaceship.IsDestroyed() {
 				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.GameOver, config.Template{
 					"DiscoveredPlanets": h.spaceship.Discovered(),
-					"HighScore":         h.spaceship.HighScore,
-					"Rank":              config.SetScore(h.spaceship.Commandant, h.spaceship.HighScore),
+					"HighScore":         h.spaceship.Level.HighScore,
+					"Rank":              config.SetScore(h.spaceship.Commandant, h.spaceship.Level.HighScore),
 					"TopScores":         config.GetScores(10),
 				}), false, false)
 				h.cancel()
@@ -441,10 +472,9 @@ func (h *handler) checkCollisions() {
 			}
 
 			// Notify the user about the frozen spaceship.
-			if h.spaceship.State == spaceship.Frozen {
+			if h.spaceship.State() == spaceship.Frozen {
 				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.SpaceshipFrozen, config.Template{
 					"SpaceshipLevel": h.spaceship.Level.Progress,
-					"FreezeDuration": config.Config.Spaceship.FreezeDuration,
 				}), false, true)
 			}
 		}
@@ -459,32 +489,32 @@ func (h *handler) checkCollisions() {
 
 			// If the enemy is a goodie, repel the bullet.
 			// If the enemy is a freezer and the spaceship is not an admiral and the planet is not the sun or a supernova, repel the bullet.
-			if e.Type == enemy.Goodie ||
-				e.Type == enemy.Freezer && !h.spaceship.IsAdmiral && !h.planet.Type.AnyOf(planet.Sun, planet.Supernova) {
+			if e.Type() == enemy.Tank ||
+				(e.Type().AnyOf(enemy.Freezer, enemy.Cloaked) &&
+					!h.spaceship.IsAdmiral && !h.planet.Type.AnyOf(planet.Sun, planet.Supernova)) {
 
-				h.enemies[j].Position = h.spaceship.Bullets[i].Repel(e) // Repel the bullet from the enemy.
+				h.enemies[j].Geometry.SetPosition(h.spaceship.Bullets[i].Repel(e)) // Repel the bullet from the enemy.
 				continue
 			}
 
 			damage := h.enemies[j].Hit(b.GetDamage()) // Apply the damage to the enemy.
 			if damage == 0 {
-				h.enemies[j].Position = h.spaceship.Bullets[i].Repel(e) // Repel the bullet from the enemy.
+				h.enemies[j].Geometry.SetPosition(h.spaceship.Bullets[i].Repel(e)) // Repel the bullet from the enemy.
 				continue
 			}
 
 			h.spaceship.Bullets[i].Exhaust() // Exhaust the bullet.
 			config.SendMessage(config.Execute(config.Config.MessageBox.Messages.EnemyHit, config.Template{
 				"EnemyName": e.Name,
-				"EnemyType": e.Type,
+				"EnemyType": e.Type(),
 				"Damage":    damage,
 			}), false, true)
 
 			// If the enemy has no health points, upgrade the spaceship.
 			if h.enemies[j].IsDestroyed() && h.spaceship.Level.GainExperience(e) {
-				h.spaceship.UpdateHighScore()
 				config.SendMessage(config.Execute(config.Config.MessageBox.Messages.SpaceshipUpgradedByEnemyKill, config.Template{
 					"EnemyName":      e.Name,
-					"EnemyType":      e.Type,
+					"EnemyType":      e.Type(),
 					"SpaceshipLevel": h.spaceship.Level.Progress,
 				}), false, true)
 			}
@@ -776,8 +806,9 @@ func (h *handler) pause() {
 func (h *handler) render() {
 	switch {
 	case
-		!running.Get(h.ctx) && !isFirstTime.Get(h.ctx), // If the game is not running and not the first time, do nothing.
-		suspended.Get(h.ctx):                           // If the game is suspended, do nothing.
+		offline.Get(h.ctx),                             // If the game is offline, do nothing.
+		suspended.Get(h.ctx),                           // If the game is suspended, do nothing.
+		!running.Get(h.ctx) && !isFirstTime.Get(h.ctx): // If the game is not running and not the first time, do nothing.
 
 		return
 	}
@@ -791,12 +822,17 @@ func (h *handler) render() {
 // It updates the state of the spaceship.
 // It checks the collisions.
 func (h *handler) refresh() {
-	if !running.Get(h.ctx) { // If the game is not running, do nothing.
+	switch {
+	case
+		offline.Get(h.ctx),   // If the game is offline, do nothing.
+		suspended.Get(h.ctx), // If the game is suspended, do nothing.
+		!running.Get(h.ctx):  // If the game is not running, do nothing.
+
 		return
 	}
 
 	// Update the positions of the enemies.
-	h.enemies.Update(h.spaceship.Position)
+	h.enemies.Update(h.spaceship.Geometry.Position())
 
 	// Update the position of the planet.
 	h.planet.Update(h.spaceship.Level.AccelerateRate * numeric.Number(config.Config.Planet.SpeedRatio))
@@ -819,7 +855,11 @@ func (h *handler) refresh() {
 
 // start starts the game if not already started.
 func (h *handler) start() bool {
-	if suspended.Get(h.ctx) { // If the game is suspended, do nothing.
+	switch {
+	case
+		offline.Get(h.ctx),   // If the game is offline, do nothing.
+		suspended.Get(h.ctx): // If the game is suspended, do nothing.
+
 		return true
 	}
 
@@ -859,6 +899,8 @@ func (h *handler) GenerateEnemies(num int, randomY bool) {
 // It refreshes the game state, renders the game, and handles the keydown events.
 // It should be called in a separate goroutine.
 func (h *handler) Loop() {
+	fpsRate := time.Second / time.Duration(config.Config.Control.DesiredFramesPerSecondRate)
+
 	if isFirstTime.Get(h.ctx) {
 		config.SendMessage(config.Execute(config.Config.MessageBox.Messages.Greeting, config.Template{
 			"Commandant": h.spaceship.Commandant,
@@ -890,19 +932,21 @@ func (h *handler) Loop() {
 		case event := <-h.touchEvent:
 			h.handleTouch(event)
 
+		default:
+			time.Sleep(fpsRate)
+
 		}
 	}
 
-	// Monitor the FPS rate.
-	h.monitor()
+	h.monitor() // Monitor the FPS rate.
 
-	ticker := time.NewTicker(time.Second / time.Duration(config.Config.Control.DesiredFramesPerSecondRate))
-	for {
+	for ticker := time.NewTicker(fpsRate); ; {
 		select {
 		case <-h.ctx.Done():
 			return
 
 		case <-ticker.C:
+
 			h.refresh()
 			h.render()
 			h.handleKeyhold()

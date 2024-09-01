@@ -5,34 +5,35 @@ import (
 
 	"github.com/Pallinder/go-randomdata"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/config"
+	"github.com/sarumaj/edu-space-invaders/src/pkg/graphics"
 	"github.com/sarumaj/edu-space-invaders/src/pkg/numeric"
 )
 
 // Enemy represents the enemy.
 type Enemy struct {
-	Name                string           // Name is the name of the enemy.
-	Position            numeric.Position // Position is the position of the enemy.
-	Size                numeric.Size     // Size is the size of the enemy.
-	SpecialtyLikeliness float64          // SpecialtyLikeliness is the likelihood of the enemy being a goodie or a freezer (expected to be lower than 1).
-	Level               *EnemyLevel      // Level is the level of the enemy.
-	Type                EnemyType        // Type is the type of the enemy.
+	Name                string                    // Name is the name of the enemy.
+	Color               *graphics.ColorTransition // Color is the color transition of the enemy.
+	Geometry            *graphics.SizeTransition  // Geometry is the size transition of the enemy.
+	SpecialtyLikeliness numeric.Number            // SpecialtyLikeliness is the likelihood of the enemy being a tank or a freezer (expected to be lower than 1).
+	Level               *EnemyLevel               // Level is the level of the enemy.
+	kind                EnemyType                 // Type is the type of the enemy.
 }
 
 // Area returns the area of the enemy.
 func (enemy Enemy) Area() numeric.Number {
 	switch config.Config.Control.CollisionDetectionVersion.Get() {
 	case 1:
-		return numeric.GetRectangularVertices(enemy.Position, enemy.Size, false).Vertices().Area()
+		return numeric.GetRectangularVertices(enemy.Geometry.Position(), enemy.Geometry.Size(), false).Vertices().Area()
 	case 2:
-		return numeric.GetSpaceshipVerticesV1(enemy.Position, enemy.Size, enemy.Type == Goodie).Vertices().Area()
+		return numeric.GetSpaceshipVerticesV1(enemy.Geometry.Position(), enemy.Geometry.Size(), enemy.kind == Tank).Vertices().Area()
 	case 3:
-		return numeric.GetSpaceshipVerticesV2(enemy.Position, enemy.Size, enemy.Type == Goodie).Vertices().Area()
+		return numeric.GetSpaceshipVerticesV2(enemy.Geometry.Position(), enemy.Geometry.Size(), enemy.kind == Tank).Vertices().Area()
 	}
-	return enemy.Size.Area()
+	return enemy.Geometry.Size().Area()
 }
 
 // Berserk turns the enemy into a berserker or an annihilator.
-// If the enemy is a goodie or a freezer, it does nothing.
+// If the enemy is a tank or a freezer, it does nothing.
 // If the enemy is a normal enemy, it has a chance to become a berserker.
 // If the enemy is a berserker, it has a chance to become an annihilator.
 // If the enemy is an annihilator, it increases its size, health points and defense.
@@ -41,65 +42,19 @@ func (enemy *Enemy) Berserk() {
 		return
 	}
 
-	boost := struct {
-		sizeFactor, speedFactor numeric.Number
-		healthPoints, defense   int
-		nextType                EnemyType
-	}{
-		sizeFactor: 1,
-		nextType:   enemy.Type,
-	}
-	switch enemy.Type {
-	case Goodie, Freezer:
-		return
-
-	case Normal:
-		boost.defense = config.Config.Enemy.Berserker.DefenseBoost
-		boost.healthPoints = config.Config.Enemy.Berserker.HitpointsBoost
-		boost.speedFactor = numeric.Number(config.Config.Enemy.Berserker.SpeedModifier)
-		boost.sizeFactor = numeric.Number(config.Config.Enemy.Berserker.SizeFactorBoost)
-		boost.nextType = Berserker
-
-	case Berserker:
-		boost.defense = config.Config.Enemy.Annihilator.DefenseBoost
-		boost.healthPoints = config.Config.Enemy.Annihilator.HitpointsBoost
-		boost.speedFactor = numeric.Number(config.Config.Enemy.Annihilator.SpeedModifier)
-		boost.sizeFactor = numeric.Number(config.Config.Enemy.Annihilator.SizeFactorBoost)
-		boost.nextType = Annihilator
-
-	case Annihilator:
-		boost.defense = config.Config.Enemy.Annihilator.YetAgainFactor * config.Config.Enemy.Annihilator.DefenseBoost
-		boost.healthPoints = config.Config.Enemy.Annihilator.YetAgainFactor * config.Config.Enemy.Annihilator.HitpointsBoost
-		boost.speedFactor = numeric.Number(config.Config.Enemy.Annihilator.SpeedModifier)
-		boost.sizeFactor = numeric.Number(config.Config.Enemy.Annihilator.SizeFactorBoost)
-
-	}
-
-	if enemy.Type != boost.nextType {
-		enemy.Resize(boost.sizeFactor)
-		enemy.Size.Scale = 1 // Reset the scale, to keep the new size as the base size
-		enemy.Type = boost.nextType
-	}
-
-	enemy.Level.HitPoints += boost.healthPoints
-	enemy.Level.Defense += boost.healthPoints
-	enemy.Level.Speed *= boost.speedFactor
+	enemy.ChangeType(enemy.kind.Next())
 }
 
 // BerserkGivenAncestor increases the chance of the enemy to become a berserker or an annihilator
 // by repeating the berserk for the new enemy given the enemy type of the ancestor.
 func (enemy *Enemy) BerserkGivenAncestor(oldType EnemyType) {
 	enemy.Berserk()
-
-	// repeat the berserk for the new enemy
 	switch oldType {
-	case Annihilator:
-		enemy.Berserk()
-		fallthrough
 
-	case Berserker:
-		enemy.Berserk()
-		fallthrough
+	case Overlord, Bulwark, Leviathan, Colossus, Behemoth, Dreadnought, Juggernaut, Annihilator, Berserker:
+		for i := oldType; i >= Berserker; i-- {
+			enemy.Berserk()
+		}
 
 	default:
 		enemy.Berserk()
@@ -107,10 +62,28 @@ func (enemy *Enemy) BerserkGivenAncestor(oldType EnemyType) {
 	}
 }
 
+// ChangeType changes the type of the enemy.
+func (enemy *Enemy) ChangeType(newType EnemyType) {
+	amplifier := numeric.Number(1)
+	if enemy.kind == newType {
+		amplifier = numeric.Number(config.Config.Enemy.YetAgainAmplifier)
+	}
+
+	enemy.Level.HitPoints += (numeric.Number(newType.GetHitpointsBoost()) * amplifier).Int()
+	enemy.Level.Defense += (numeric.Number(newType.GetDefenseBoost()) * amplifier).Int()
+	enemy.Level.Speed *= (newType.GetSpeedFactor() * amplifier)
+
+	enemy.Geometry.SetScale(newType.GetScale())
+	enemy.Color.SetColor(newType.GetColor())
+
+	enemy.kind = newType
+}
+
 // Destroy destroys the enemy.
 // The health points of the enemy are set to 0.
 func (enemy *Enemy) Destroy() {
 	enemy.Level.HitPoints = 0
+
 	go config.PlayAudio("enemy_destroyed.wav", false)
 }
 
@@ -119,7 +92,7 @@ func (enemy *Enemy) Destroy() {
 // The color is based on the type of the enemy.
 // If the control to draw object labels is enabled, the name of the enemy is drawn.
 // If the control to draw enemy hitpoint bars is enabled, the hitpoint bar is drawn.
-func (enemy Enemy) Draw() {
+func (enemy *Enemy) Draw() {
 	var label string
 	if config.Config.Control.DrawObjectLabels.Get() {
 		label = enemy.Name
@@ -127,40 +100,23 @@ func (enemy Enemy) Draw() {
 
 	var statusValues []float64
 	var statusColors []string
-	if enemy.Type != Goodie && config.Config.Control.DrawEnemyHitpointBars.Get() {
+	if enemy.kind != Tank && config.Config.Control.DrawEnemyHitpointBars.Get() {
 		statusValues = append(statusValues, float64(enemy.Level.HitPoints)/float64(enemy.Level.HitPoints+enemy.Level.HitPointsLoss))
 		statusColors = append(statusColors, "rgba(240, 0, 0, 0.8)")
 	}
 
+	enemy.Color.Interpolate()
+	enemy.Geometry.Interpolate()
+
 	config.DrawSpaceship(
-		enemy.Position.Pack(),
-		enemy.Size.Pack(),
-		enemy.Type == Goodie, // Face up if the enemy is a goodie
-		map[EnemyType]string{
-			Goodie:      "Chartreuse",
-			Freezer:     "DeepSkyBlue",
-			Normal:      "DarkseaGreen",
-			Berserker:   "Firebrick",
-			Annihilator: "MidnightBlue",
-		}[enemy.Type],
+		enemy.Geometry.Position().Pack(),
+		enemy.Geometry.Size().Pack(),
+		enemy.kind == Tank, // Face up if the enemy is a tank
+		enemy.kind.GetColor().FormatRGBA(),
 		label,
 		statusValues,
 		statusColors,
 	)
-}
-
-// GetPenalty returns the penalty of the enemy.
-func (enemy Enemy) GetPenalty() int {
-	if v, ok := map[EnemyType]int{
-		Freezer:     config.Config.Enemy.Freezer.Penalty,
-		Normal:      config.Config.Enemy.DefaultPenalty,
-		Berserker:   config.Config.Enemy.Berserker.Penalty,
-		Annihilator: config.Config.Enemy.Annihilator.Penalty,
-	}[enemy.Type]; ok {
-		return v + enemy.Level.Progress
-	}
-
-	return 0
 }
 
 // Hit reduces the health points of the enemy.
@@ -183,18 +139,18 @@ func (enemy Enemy) IsDestroyed() bool { return enemy.Level.HitPoints <= 0 }
 
 // Move moves the enemy.
 // The enemy moves downwards and changes its horizontal direction.
-// If the enemy is a goodie, it moves only downwards and does not change its horizontal direction.
+// If the enemy is a tank, it moves only downwards and does not change its horizontal direction.
 // The direction of the enemy is based on the position of the spaceship.
 // If the spaceship is below the enemy, the enemy moves towards the spaceship.
 // Otherwise, the enemy moves randomly.
 func (enemy *Enemy) Move(spaceshipPosition numeric.Position) {
-	if enemy.Type == Goodie {
-		enemy.Position.Y += numeric.Number(enemy.Level.Speed)
+	if enemy.kind == Tank {
+		enemy.Geometry.SetPosition(enemy.Geometry.Position().Add(numeric.Locate(0, numeric.Number(enemy.Level.Speed))))
 		return
 	}
 
 	// Calculate the horizontal and vertical distances to the spaceship
-	delta := spaceshipPosition.Sub(enemy.Position)
+	delta := spaceshipPosition.Sub(enemy.Geometry.Position())
 
 	// Calculate the distance to the spaceship
 	distance := delta.Magnitude()
@@ -214,54 +170,44 @@ func (enemy *Enemy) Move(spaceshipPosition numeric.Position) {
 	}
 
 	// Move down using the speed
-	enemy.Position.Y += enemy.Level.Speed
+	enemy.Geometry.SetPosition(enemy.Geometry.Position().Add(numeric.Locate(0, numeric.Number(enemy.Level.Speed))))
 
 	// Dash off screen if the spaceship is below the enemy and the enemy is close to the spaceship
-	if enemy.Position.Y > spaceshipPosition.Y && enemy.Position.Sub(spaceshipPosition).X.Abs() < enemy.Size.ToVector().Magnitude() {
+	if enemy.Geometry.Position().Y > spaceshipPosition.Y && enemy.Geometry.Position().Sub(spaceshipPosition).X.Abs() < enemy.Geometry.Size().ToVector().Magnitude() {
 		delta.Y = numeric.Number(config.Config.Enemy.MaximumSpeed)
 	}
 
 	// Move horizontally and vertically towards the spaceship
-	enemy.Position = enemy.Position.Add(delta)
-}
-
-// Resize resizes the enemy.
-// The enemy is resized by the specified scale.
-// The position is adjusted to the center of the new size.
-func (enemy *Enemy) Resize(scale numeric.Number) {
-	enemy.Size, enemy.Position = enemy.Size.Resize(scale, enemy.Position)
-}
-
-// RestoreSize restores the size of the enemy.
-func (enemy *Enemy) RestoreSize() {
-	enemy.Size, enemy.Position = enemy.Size.Restore(enemy.Position)
+	enemy.Geometry.SetPosition(enemy.Geometry.Position().Add(delta))
 }
 
 // String returns the string representation of the enemy.
 func (enemy Enemy) String() string {
-	return fmt.Sprintf("%s (Lvl: %d, Pos: %s, HP: %d, Type: %s)", enemy.Name, enemy.Level.Progress, enemy.Position, enemy.Level.HitPoints, enemy.Type)
+	return fmt.Sprintf("%s (Lvl: %d, Pos: %s, HP: %d, Type: %s)", enemy.Name, enemy.Level.Progress, enemy.Geometry.Position(), enemy.Level.HitPoints, enemy.kind)
 }
 
-// Surprise turns the enemy into a freezer or a goodie.
-// If the enemy is a normal enemy, it has a chance to become a freezer or a goodie.
-// The likelihood of the enemy becoming a freezer or a goodie is based on the SpecialtyLikeliness.
-// The stats are the number of enemies by type.
-// They are used to lower the likelihood of the enemy becoming a goodie.
-func (enemy *Enemy) Surprise(stats map[EnemyType]int) {
-	goodies, total := 0.0, 0.0
-	for k, v := range stats {
-		if k == Goodie {
-			goodies = float64(v)
+// Surprise turns the enemy into a freezer or a tank.
+// If the enemy is a normal enemy, it has a chance to become a freezer, tank or cloaked.
+// The likelihood is based on the SpecialtyLikeliness.
+func (enemy *Enemy) Surprise(types ...EnemyType) {
+	if len(types) == 0 {
+		types = append(types, Tank, Freezer, Cloaked)
+	}
+
+	var valid []EnemyType
+	for _, t := range types {
+		switch t {
+		case Tank, Freezer, Cloaked:
+			valid = append(valid, t)
 		}
-		total += float64(v)
 	}
 
-	if total == 0.0 {
-		total = 1.0
+	if len(valid) > 1 {
+		valid = numeric.RandomSort(valid)
 	}
 
-	if enemy.Type == Normal && numeric.SampleUniform(enemy.SpecialtyLikeliness) {
-		enemy.Type = [...]EnemyType{Freezer, Goodie}[numeric.RandomRange(0, (total-goodies)/total).Int()]
+	if enemy.kind == Normal && numeric.SampleUniform(enemy.SpecialtyLikeliness) {
+		enemy.ChangeType(valid[numeric.RandomRange(0, len(valid)-1).Int()])
 	}
 }
 
@@ -280,6 +226,9 @@ func (enemy *Enemy) ToProgressLevel(progress int) {
 	}
 }
 
+// Type returns the type of the enemy.
+func (enemy Enemy) Type() EnemyType { return enemy.kind }
+
 // Challenge creates a new enemy.
 // If the name is empty, a random name is generated.
 // If randomY is true, the enemy is placed at a random Y position
@@ -287,7 +236,7 @@ func (enemy *Enemy) ToProgressLevel(progress int) {
 // Otherwise, the enemy is placed at the top of the canvas.
 // The enemy is a normal enemy.
 // The enemy has the initial speed, hit points and defense.
-// The likelihood of the enemy becoming a goodie is based on the GoodieLikeliness.
+// The likelihood of the enemy becoming a tank is based on the TankLikeliness.
 // The likelihood of the enemy becoming a berserker is based on the BerserkLikeliness.
 // The enemy has the initial level.
 func Challenge(name string, randomY bool) *Enemy {
@@ -302,17 +251,19 @@ func Challenge(name string, randomY bool) *Enemy {
 	}
 
 	enemy := Enemy{
-		Position:            numeric.Locate(numeric.RandomRange(0, canvasDimensions.OriginalWidth), y),
-		Size:                numeric.Locate(config.Config.Enemy.Width, config.Config.Enemy.Height).ToBox(),
-		SpecialtyLikeliness: config.Config.Enemy.SpecialtyLikeliness,
+		Color: graphics.InitialColorTransition(Normal.GetColor()),
+		Geometry: graphics.InitialSizeTransition(
+			numeric.Locate(config.Config.Enemy.Width, config.Config.Enemy.Height).ToBox(),
+			numeric.Locate(numeric.RandomRange(0, canvasDimensions.OriginalWidth), y),
+		),
+		SpecialtyLikeliness: numeric.Number(config.Config.Enemy.SpecialtyLikeliness),
 		Level: &EnemyLevel{
 			Progress:          1,
 			Speed:             numeric.Number(config.Config.Enemy.InitialSpeed),
-			HitPoints:         config.Config.Enemy.InitialHitpoints,
-			Defense:           config.Config.Enemy.InitialDefense,
-			BerserkLikeliness: config.Config.Enemy.BerserkLikeliness,
+			HitPoints:         numeric.Randomize(config.Config.Enemy.InitialHitpoints, 0.3),
+			Defense:           numeric.Randomize(config.Config.Enemy.InitialDefense, 0.3),
+			BerserkLikeliness: numeric.Number(config.Config.Enemy.BerserkLikeliness),
 		},
-		Type: Normal,
 		Name: name,
 	}
 

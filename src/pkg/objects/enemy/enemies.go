@@ -8,17 +8,40 @@ import (
 // Enemies represents a collection of enemies.
 type Enemies []Enemy
 
-// countByType counts the number of enemies of the specified type.
-func (enemies Enemies) countByTypes() map[EnemyType]int {
-	types := make(map[EnemyType]int)
-	for _, e := range enemies {
-		types[e.Type]++
-	}
+// AppendNew appends a new enemy to the collection.
+// The new enemy is created with the specified name and random Y position.
+// The new enemy is placed at the highest level of the existing enemies.
+// The new enemy is turned into a goodie and berserk based on the probabilities.
+func (enemies *Enemies) AppendNew(name string, randomY bool) {
+	highestProgress := enemies.GetHighestProperty(func(e Enemy) numeric.Number {
+		return numeric.Number(e.Level.Progress).Max(1)
+	}).Int()
+	highestType := EnemyType(enemies.GetHighestProperty(func(e Enemy) numeric.Number {
+		return numeric.Number(e.kind)
+	}).Int())
 
-	return types
+	newEnemy := Challenge(name, randomY)
+	newEnemy.ToProgressLevel(highestProgress)
+	newEnemy.Surprise(Tank, Cloaked, Freezer)
+	newEnemy.BerserkGivenAncestor(highestType)
+
+	*enemies = append(*enemies, *newEnemy)
 }
 
-func (enemies Enemies) getHighestProperty(property func(Enemy) numeric.Number) numeric.Number {
+// Count returns the number of enemies of the given type.
+func (enemies Enemies) Count(enemyType EnemyType) int {
+	var count int
+	for _, enemy := range enemies {
+		if enemy.kind == enemyType {
+			count++
+		}
+	}
+
+	return count
+}
+
+// GetHighestProperty returns the highest value of the property of the enemies.
+func (enemies Enemies) GetHighestProperty(property func(Enemy) numeric.Number) numeric.Number {
 	var highest numeric.Number
 	for _, enemy := range enemies {
 		if property(enemy) > highest {
@@ -29,51 +52,6 @@ func (enemies Enemies) getHighestProperty(property func(Enemy) numeric.Number) n
 	return highest
 }
 
-// getHighestProgress returns the highest progress of the current enemies generation.
-func (enemies Enemies) getHighestProgress() int {
-	progress := enemies.getHighestProperty(func(e Enemy) numeric.Number { return numeric.Number(e.Level.Progress) })
-	if progress == 0 {
-		return 1
-	}
-
-	return progress.Int()
-}
-
-// getMostFrequentType returns the most frequent enemy type given the enemies generation.
-func (enemies Enemies) getMostFrequentType(types map[EnemyType]int) EnemyType {
-	if types == nil {
-		types = enemies.countByTypes()
-	}
-
-	var max int
-	var mostFrequentType EnemyType
-	for t, c := range types {
-		if c > max {
-			max = c
-			mostFrequentType = t
-		}
-	}
-
-	return mostFrequentType
-}
-
-// AppendNew appends a new enemy to the collection.
-// The new enemy is created with the specified name and random Y position.
-// The new enemy is placed at the highest level of the existing enemies.
-// The new enemy is turned into a goodie and berserk based on the probabilities.
-func (enemies *Enemies) AppendNew(name string, randomY bool) {
-	stats := enemies.countByTypes()
-	highestProgress := enemies.getHighestProgress()
-	frequentType := enemies.getMostFrequentType(stats)
-
-	newEnemy := Challenge(name, randomY)
-	newEnemy.ToProgressLevel(highestProgress)
-	newEnemy.Surprise(stats)
-	newEnemy.BerserkGivenAncestor(frequentType)
-
-	*enemies = append(*enemies, *newEnemy)
-}
-
 // Update updates the enemies.
 // It moves the enemies and removes the ones that are out of the screen
 // or have no health points.
@@ -82,7 +60,9 @@ func (enemies *Enemies) AppendNew(name string, randomY bool) {
 // The new enemies are placed at the highest level of the existing enemies.
 // The new enemies are turned into a goodie and berserk based on the probabilities.
 func (enemies *Enemies) Update(spaceshipPosition numeric.Position) {
-	stats := enemies.countByTypes()
+	highestType := EnemyType(enemies.GetHighestProperty(func(e Enemy) numeric.Number {
+		return numeric.Number(e.kind)
+	}).Int())
 
 	var visibleEnemies Enemies
 	for i := range *enemies {
@@ -97,11 +77,11 @@ func (enemies *Enemies) Update(spaceshipPosition numeric.Position) {
 
 		enemy.Move(spaceshipPosition)
 		canvasDimensions := config.CanvasBoundingBox()
-		if enemy.Position.Y.Float() >= canvasDimensions.OriginalHeight {
+		if enemy.Geometry.Position().Y.Float() >= canvasDimensions.OriginalHeight {
 			newEnemy := Challenge(enemy.Name, false)
-			newEnemy.ToProgressLevel(enemy.Level.Progress + 1)
-			newEnemy.Surprise(stats)
-			newEnemy.BerserkGivenAncestor(enemy.Type)
+			newEnemy.ToProgressLevel(enemy.Level.Progress)
+			newEnemy.Surprise(Tank, Cloaked, Freezer)
+			newEnemy.BerserkGivenAncestor(highestType)
 			*enemy = *newEnemy
 		}
 

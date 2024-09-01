@@ -187,7 +187,7 @@ func (pos Position) ToBox() Size {
 }
 
 // Locate returns a position with the specified x and y values.
-func Locate[Numeric interface{ ~int | ~float64 }](x, y Numeric) Position {
+func Locate[Numeric1, Numeric2 interface{ ~int | ~float64 }](x Numeric1, y Numeric2) Position {
 	return Position{X: Number(x), Y: Number(y)}
 }
 

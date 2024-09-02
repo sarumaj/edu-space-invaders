@@ -43,6 +43,7 @@ func (enemy *Enemy) Berserk() {
 	}
 
 	enemy.ChangeType(enemy.kind.Next())
+	enemy.Level.Up()
 }
 
 // BerserkGivenAncestor increases the chance of the enemy to become a berserker or an annihilator

@@ -92,7 +92,7 @@ import (
 	"time"
 )
 
-//go:embed *.html *.css *.js *.wasm *.ico audio/*.wav *.json icons/*.png external/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css
+//go:embed *.html *.css *.js *.wasm *.ico audio/*.wav *.json icons/*.png external/*
 var embeddedFsys embed.FS
 
 var _ http.File = httpFile{}

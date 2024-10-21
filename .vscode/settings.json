@@ -84,6 +84,7 @@
     "spaceshipstate",
     "sslmode",
     "Stringp",
+    "svgs",
     "Syrtis",
     "tmpl",
     "touchend",
@@ -96,6 +97,7 @@
     "Unmuted",
     "unsets",
     "Upsert",
-    "usedocker"
+    "usedocker",
+    "webfonts"
   ]
 }

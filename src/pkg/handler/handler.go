@@ -136,6 +136,7 @@ func (h *handler) applyGravityOnSpaceship() {
 				"Reason":            config.Execute(config.Config.Planet.Impact.BlackHole.SpaceshipDestroyedReason),
 				"TopScores":         config.GetScores(10),
 			}), false, false)
+			h.pause()
 			h.cancel()
 			return
 		}
@@ -400,8 +401,8 @@ func (h *handler) checkCollisions() {
 						"Rank":              config.SetScore(h.spaceship.Commandant, h.spaceship.Level.HighScore),
 						"TopScores":         config.GetScores(10),
 					}), false, false)
+					h.pause()
 					h.cancel()
-
 					return
 				}
 
@@ -466,8 +467,8 @@ func (h *handler) checkCollisions() {
 					"Rank":              config.SetScore(h.spaceship.Commandant, h.spaceship.Level.HighScore),
 					"TopScores":         config.GetScores(10),
 				}), false, false)
+				h.pause()
 				h.cancel()
-
 				return
 			}
 

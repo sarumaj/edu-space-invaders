@@ -1,4 +1,4 @@
-// Code generated on 2024-09-02T05:42:10.555Z+00:00, DO NOT EDIT.
+// Code generated on 2024-10-21T13:14:23.501Z+00:00, DO NOT EDIT.
 package dist
 
 import (
@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-//go:embed *.html *.css *.js *.wasm *.ico audio/*.wav *.json icons/*.png
+//go:embed *.html *.css *.js *.wasm *.ico audio/*.wav *.json icons/*.png external/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css
 var embeddedFsys embed.FS
 
 var _ http.File = httpFile{}
@@ -110,7 +110,7 @@ func (h *httpFS) Open(name string) (http.File, error) {
 	return nil, fs.ErrNotExist
 }
 
-func BuildTime() string { return "2024-09-02T05:42:10.555Z+00:00" }
+func BuildTime() string { return "2024-10-21T13:14:23.501Z+00:00" }
 
 func LookupHash(name string) (string, bool) {
 	hash, ok := hashMap[name]

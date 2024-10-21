@@ -24,6 +24,7 @@ self.addEventListener("install", (event) => {
           "/audio/theme_heroic.wav",
           "/icons/icon-192x192.png",
           "/icons/icon-512-512.png",
+          "/external/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css",
         ]);
       })
       .catch((error) => {

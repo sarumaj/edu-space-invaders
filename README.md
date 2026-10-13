@@ -1,11 +1,3 @@
-[![deploy](https://github.com/sarumaj/edu-space-invaders/actions/workflows/deploy.yml/badge.svg)](https://github.com/sarumaj/edu-space-invaders/actions/workflows/deploy.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/sarumaj/edu-space-invaders)](https://goreportcard.com/report/github.com/sarumaj/edu-space-invaders)
-[![Maintainability](https://img.shields.io/codeclimate/maintainability-percentage/sarumaj/edu-space-invaders.svg)](https://codeclimate.com/github/sarumaj/edu-space-invaders/maintainability)
-[![Go Reference](https://pkg.go.dev/badge/github.com/sarumaj/edu-space-invaders.svg)](https://pkg.go.dev/github.com/sarumaj/edu-space-invaders)
-[![Go version](https://img.shields.io/github/go-mod/go-version/sarumaj/edu-space-invaders?logo=go&label=&labelColor=gray)](https://go.dev)
-
----
-
 # space-invaders
 
 this is an example project to showcase the game development using the Web Assembly Framework in Go.
@@ -19,9 +11,9 @@ Web Assembly allows us to develop web-frontend applications in a runtime like Go
 
 Click here to play the game:
 
-<a href="https://space-invaders.sarumaj.com">
+<a href="https://space-invaders.apps.ciepiela.org">
   <p align="center">
-    <img src="assets/play.png" alt="https://space-invaders.sarumaj.com" width="200" height="auto">
+    <img src="assets/play.png" alt="https://space-invaders.apps.ciepiela.org" width="200" height="auto">
   </p>
 </a>
 
@@ -156,8 +148,8 @@ The game engine uses the **Hyperplane separation theorem** to detect object coll
 
 The game server exposes access to the configuration of the game engine:
 
-- [/.env](https://space-invaders.sarumaj.com/.env)
-- [/config.ini](https://space-invaders.sarumaj.com/config.ini)
+- [/.env](https://space-invaders.apps.ciepiela.org/.env)
+- [/config.ini](https://space-invaders.apps.ciepiela.org/config.ini)
 
 You may be interested to take a look at it.
 
